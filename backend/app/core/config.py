@@ -2,10 +2,19 @@
 
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    database_url: str = Field(
+        default="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/sovereign_workbench",
+        validation_alias="DATABASE_URL",
+        repr=False,
+    )
+
+    database_connect_timeout: int = Field(default=5, ge=1, le=30)
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[3] / ".env",
         env_file_encoding="utf-8",
