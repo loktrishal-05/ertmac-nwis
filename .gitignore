@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Node / frontend
+node_modules/
+.next/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local model weights and caches
+/models/*
+!/models/.gitkeep
+*.gguf
+*.ggml
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.bin
+.cache/
+.ollama/
+
+# Local data and runtime files
+/data/*
+!/data/.gitkeep
+*.log
+*.sqlite
+*.sqlite3
