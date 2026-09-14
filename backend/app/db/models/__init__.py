@@ -10,5 +10,6 @@ from app.db.models.incident_report import IncidentReport
 from app.db.models.approval import Approval
 from app.db.models.audit_log import AuditLog
 
-__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog"]
+from app.db.models.document_version import DocumentVersion
 
+__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion"]

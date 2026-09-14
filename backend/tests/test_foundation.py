@@ -90,10 +90,9 @@ class FoundationTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 422)
 
     def test_documents(self):
-        self.assertEqual(self.request("/documents/ingest", "POST"), {
-            "status": "not_implemented",
-            "message": "Document ingestion will be implemented in the RAG phase.",
-        })
+        with self.assertRaises(HTTPError) as error:
+            self.request("/documents/ingest", "POST")
+        self.assertEqual(error.exception.code, 422)
 
     def test_audit_and_sovereignty(self):
         self.assertEqual(self.request("/audit/log"), [])
@@ -116,8 +115,8 @@ class FoundationTests(unittest.TestCase):
 
     def test_metadata_and_offline_migration(self):
         configure_mappers()
-        self.assertEqual(len(models.__all__), 9)
-        self.assertEqual(len(Base.metadata.tables), 9)
+        self.assertEqual(len(models.__all__), 10)
+        self.assertEqual(len(Base.metadata.tables), 10)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])

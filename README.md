@@ -1,7 +1,8 @@
 # Sovereign On-Premise Agentic AI Workbench
 
-SIH 2026 project. Phases 0–2 provide a FastAPI backend, a React/Vite dashboard,
-and a PostgreSQL/SQLAlchemy foundation with Alembic migrations and placeholder APIs.
+SIH 2026 project. Phases 0–3A provide FastAPI, a React/Vite dashboard,
+PostgreSQL/SQLAlchemy, and local PDF evidence retrieval with Docling, BGE, and Qdrant.
+See [Phase 3A guide](docs/phase3a.md) for ingestion and retrieval setup.
 
 ## Fixed architecture
 
@@ -13,13 +14,14 @@ storage, Ollama for local development, vLLM as a future deployment option, and
 Docker Compose. Only local/open-weight models will be used; hosted model APIs
 are excluded.
 
-## Current scope — Phase 2
+## Current scope — Phase 3A
 
-The frontend dashboard preserves its backend health connection. PostgreSQL runs
-through `infra/docker-compose.yml`; nine database models and an initial Alembic
-migration prepare structured storage. Foundation API routes return placeholders.
-Agents, LangGraph, authentication, Qdrant, RAG, model inference, approval workflow,
-and audit hash chaining are not implemented.
+The frontend dashboard preserves its backend health connection. PostgreSQL and
+Qdrant run through `infra/docker-compose.yml`. Alembic adds document revision state
+without replacing existing tables. PDFs are extracted, chunked, embedded locally,
+and retrieved with source citations. Final runtime uses local embeddings. No
+hosted inference API is required. Agents, LangGraph, authentication, answer
+generation, OCR execution, approval workflow, and audit hash chaining are absent.
 
 See [backend setup instructions](backend/README.md) for Windows commands.
 Copy `.env.example` to a local root `.env` if configuration is needed; never

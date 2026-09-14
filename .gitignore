@@ -49,8 +49,14 @@ Thumbs.db
 .ollama/
 
 # Local data and runtime files
-/data/*
-!/data/.gitkeep
+/data/**
+!/data/**/
+!/data/**/.gitkeep
+!/data/README.md
+!/data/manifests/*.csv
+!/data/manifests/dataset_licenses.md
+!/data/evaluation/retrieval_questions.jsonl
+!/data/evaluation/expected_citations.jsonl
 *.log
 *.sqlite
 *.sqlite3

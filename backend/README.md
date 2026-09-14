@@ -1,4 +1,8 @@
-# Backend — Phase 2
+# Backend — Phase 3A
+
+Document extraction, local embeddings, Qdrant indexing, and evidence retrieval are
+implemented. See [Phase 3A setup and API guide](../docs/phase3a.md) for model
+downloads, ingestion, retrieval, data conventions, and live smoke validation.
 
 Requires Python 3.10 or newer. Run these commands in Windows PowerShell, starting
 at the repository root:
@@ -43,8 +47,9 @@ precedence. `.env` is ignored by Git; `.env.example` contains no secrets.
 `localhost` and `127.0.0.1` on ports 5173 and 3000 for a future React frontend.
 GET and POST are permitted through CORS, with credentials disabled.
 
-Direct dependencies are FastAPI, Uvicorn, pydantic-settings, SQLAlchemy 2.x,
-psycopg (binary), and Alembic. No AI/ML dependencies are installed.
+Direct dependencies include FastAPI, Uvicorn, pydantic-settings, SQLAlchemy 2.x,
+psycopg (binary), Alembic, qdrant-client, Sentence Transformers, Docling, and PyMuPDF.
+Only embedding and document parsing models run; no answer-generation model exists.
 
 ## PostgreSQL and migrations
 
@@ -96,14 +101,15 @@ database, so `/health` reports process liveness even when PostgreSQL is stopped.
 | GET | `/agents/status` | Five planned agents with `not_started` status |
 | GET | `/approvals` | Empty list |
 | POST | `/approvals/{approval_id}` | Validates UUID; returns `not_implemented`; no body required |
-| POST | `/documents/ingest` | Returns RAG-phase placeholder; no body required |
+| POST | `/documents/ingest` | Validates a local raw PDF path; extracts and indexes evidence |
+| POST | `/knowledge/retrieve` | Returns dense-retrieved chunks and stored citations |
 | GET | `/audit/log` | Empty list |
 | GET | `/sovereignty/proof` | Static local-only foundation declaration |
 
 Placeholders return HTTP 200, with `not_implemented` where applicable. Invalid
 query input and malformed approval UUIDs return 422. Empty lists are placeholders,
 not database queries. Sovereignty proof is not runtime monitoring or attestation.
-No authentication, review logic, ingestion, inference, or agent execution exists.
+No authentication, review logic, answer generation, or agent execution exists.
 
 ## Validation
 
