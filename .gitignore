@@ -57,6 +57,10 @@ Thumbs.db
 !/data/manifests/dataset_licenses.md
 !/data/evaluation/retrieval_questions.jsonl
 !/data/evaluation/expected_citations.jsonl
+!/data/evaluation/README.md
+!/data/evaluation/manifest.json
+!/data/evaluation/model_eval_cases.jsonl
+!/data/evaluation/model_eval_config.json
 *.log
 *.sqlite
 *.sqlite3
