@@ -1,1 +1,12 @@
-
+{"question_id": "RET-001", "category": "equipment_tag", "query": "P-101A abnormal vibration procedure", "top_k": 3}
+{"question_id": "RET-002", "category": "sop_section", "query": "SOP-P101-011 section 6.3 restart prerequisites", "top_k": 3}
+{"question_id": "RET-003", "category": "maintenance", "query": "WO-7712 coupling inspection record", "top_k": 3}
+{"question_id": "RET-004", "category": "incident", "query": "INC-045 wrong-tag selection lessons", "top_k": 3}
+{"question_id": "RET-005", "category": "rare_terminology", "query": "NPSH-A7 NPSHa NPSHr cavitation", "top_k": 3}
+{"question_id": "RET-006", "category": "rare_identifier", "query": "QZ-8842 perfluoroelastomer", "top_k": 3}
+{"question_id": "RET-007", "category": "natural_language", "query": "evidence for exchanger fouling and differential pressure compared with flow", "top_k": 3}
+{"question_id": "RET-008", "category": "instrument_tag", "query": "TT-101 temperature transmitter", "top_k": 3}
+{"question_id": "RET-009", "category": "valve_tag", "query": "FV-101 flow control valve label", "top_k": 3}
+{"question_id": "RET-010", "category": "multi_document", "query": "P-101A maintenance history and identification near miss", "top_k": 3}
+{"question_id": "RET-011", "category": "ambiguous_ocr", "query": "XV-3010 ambiguous drawing label", "top_k": 3}
+{"question_id": "RET-012", "category": "missing_evidence", "query": "ZZQ-99999", "top_k": 3}

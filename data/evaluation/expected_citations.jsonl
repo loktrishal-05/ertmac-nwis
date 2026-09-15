@@ -1,1 +1,12 @@
-
+{"question_id": "RET-001", "citations": [{"source_filename": "retrieval_eval_pump_vibration.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-002", "citations": [{"source_filename": "retrieval_eval_restart.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-003", "citations": [{"source_filename": "retrieval_eval_maintenance.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-004", "citations": [{"source_filename": "retrieval_eval_incident.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-005", "citations": [{"source_filename": "retrieval_eval_npsh.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-006", "citations": [{"source_filename": "retrieval_eval_seal.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-007", "citations": [{"source_filename": "retrieval_eval_exchanger.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-008", "citations": [{"source_filename": "retrieval_eval_instrument.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-009", "citations": [{"source_filename": "retrieval_eval_valve.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-010", "citations": [{"source_filename": "retrieval_eval_maintenance.pdf", "page": 1, "grade": 2}, {"source_filename": "retrieval_eval_incident.pdf", "page": 1, "grade": 2}]}
+{"question_id": "RET-011", "citations": [{"source_filename": "retrieval_eval_ambiguous_ocr.png", "page": 1, "grade": 2}]}
+{"question_id": "RET-012", "citations": []}

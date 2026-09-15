@@ -61,6 +61,7 @@ Thumbs.db
 !/data/evaluation/manifest.json
 !/data/evaluation/model_eval_cases.jsonl
 !/data/evaluation/model_eval_config.json
+!/data/evaluation/retrieval_corpus.json
 *.log
 *.sqlite
 *.sqlite3

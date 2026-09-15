@@ -23,7 +23,7 @@ def check_duplicate(version, request):
         raise IngestionConflict("Source already exists with different pipeline or metadata; existing artifacts were preserved")
     if request.document_id and version.document_id != request.document_id:
         raise IngestionConflict("Source already belongs to another document")
-    return version.status == "pid_processed"
+    return version.status in ("pid_processed", "pid_indexed", "pid_index_failed")
 
 
 def manifest_response(manifest, uri, status):

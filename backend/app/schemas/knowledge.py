@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+from app.core.config import settings
 
 
 class IngestRequest(BaseModel):
@@ -38,7 +39,12 @@ class ChunkMetadata(BaseModel):
     source_filename: str
     source_uri: str
     source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    mime_type: Literal["application/pdf"] = "application/pdf"
+    mime_type: Literal["application/pdf", "image/png", "image/jpeg"] = "application/pdf"
+    sparse_encoding: str | None = None
+    ocr_derived: bool = False
+    region_id: UUID | None = None
+    page: int | None = Field(default=None, ge=1)
+    source_image_uri: str | None = None
     facility_id: str | None
     unit_id: str | None
     equipment_tags: list[str]
@@ -85,18 +91,37 @@ class RetrievalFilters(BaseModel):
     synthetic: bool | None = None
     access_scope: str | None = None
     language: str | None = None
-    equipment_tags: list[str] = Field(default_factory=list)
-    instrument_tags: list[str] = Field(default_factory=list)
+    equipment_tags: list[str] = Field(default_factory=list, max_length=30)
+    instrument_tags: list[str] = Field(default_factory=list, max_length=30)
 
 
 class RetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     query: str = Field(min_length=1, max_length=2000)
-    top_k: int = Field(default=6, ge=1, le=30)
+    top_k: int = Field(default_factory=lambda: settings.final_context_k, ge=1, le=30)
     filters: RetrievalFilters = Field(default_factory=RetrievalFilters)
+    strategy: Literal["dense", "sparse", "hybrid", "hybrid_rerank"] | None = None
+    document_types: list[str] = Field(default_factory=list, max_length=10)
+    equipment_tags: list[str] = Field(default_factory=list, max_length=30)
+    instrument_tags: list[str] = Field(default_factory=list, max_length=30)
+    facility_id: str | None = Field(default=None, max_length=100)
+    unit_id: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def consistent_filters(self):
+        for name in ("equipment_tags", "instrument_tags", "facility_id", "unit_id"):
+            if getattr(self, name) and getattr(self.filters, name) and getattr(self, name) != getattr(self.filters, name):
+                raise ValueError(f"Conflicting {name} filters")
+        if self.document_types and self.filters.document_type and self.document_types != [self.filters.document_type]:
+            raise ValueError("Conflicting document type filters")
+        return self
 
 
 class Citation(BaseModel):
+    ocr_derived: bool = False
+    ocr_confidence: float | None = None
+    region_id: UUID | None = None
+    source_image_uri: str | None = None
     title: str
     source_filename: str
     source_uri: str
@@ -110,6 +135,11 @@ class Citation(BaseModel):
 
 
 class RetrievedChunk(BaseModel):
+    dense_rank: int | None = None
+    sparse_rank: int | None = None
+    fusion_score: float | None = None
+    rerank_score: float | None = None
+    content_type: str = "paragraph"
     chunk_id: UUID
     document_id: UUID
     document_version_id: UUID
@@ -119,6 +149,9 @@ class RetrievedChunk(BaseModel):
 
 
 class RetrieveResponse(BaseModel):
+    strategy: str = "dense"
+    warnings: list[str] = Field(default_factory=list)
+    timings_ms: dict[str, float] = Field(default_factory=dict)
     query: str
     detected_identifiers: dict[str, list[str]]
     results: list[RetrievedChunk]

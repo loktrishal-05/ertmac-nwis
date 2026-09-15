@@ -1,4 +1,9 @@
-# Backend — Phase 3B1
+# Backend — Phase 3B2
+
+Hybrid retrieval and optional local BGE reranking extend `/knowledge/retrieve`.
+Read the [Phase 3B2 guide](../docs/phase3b2.md) before enabling sparse retrieval
+on an existing collection: explicit verified migration and reranker download are
+required. `/documents/pid/{document_version_id}/index` indexes stored OCR text.
 
 P&ID PDF/image OCR preparation is available at `POST /documents/pid/process`.
 See the [Phase 3B1 guide](../docs/phase3b1.md) for local PaddleOCR setup, request

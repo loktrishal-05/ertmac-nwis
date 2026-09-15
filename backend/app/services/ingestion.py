@@ -61,6 +61,8 @@ def write_json(path, value):
 
 
 def ingest(request: IngestRequest, session, embeddings=None, qdrant=None):
+    if not session.scalar(text("SELECT pg_try_advisory_xact_lock_shared(3302001)")):
+        raise IngestionConflict("Retrieval index migration is in progress; retry ingestion later")
     path = resolve_source(request.source_path)
     # Read once: extraction and hashing operate on the same immutable byte snapshot.
     source = path.read_bytes()

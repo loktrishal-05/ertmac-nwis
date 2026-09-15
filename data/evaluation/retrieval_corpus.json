@@ -1,0 +1,86 @@
+[
+  {
+    "id": "pump_vibration",
+    "document_type": "sop",
+    "title": "SOP-P101-010 Pump abnormal vibration procedure",
+    "section": "4.2 Abnormal vibration",
+    "text": "P-101A and P-101B are synthetic pump labels. This abnormal vibration procedure describes reviewing the trend, comparing the baseline and recording observations for supervisor review. This software fixture authorizes no equipment action."
+  },
+  {
+    "id": "restart",
+    "document_type": "sop",
+    "title": "SOP-P101-011 Pump restart checklist",
+    "section": "6.3 Restart prerequisites",
+    "text": "P-101A restart prerequisites include recording inspection completion, checking the synthetic permit register and requesting supervisor review. This restart checklist is distinct from the abnormal vibration procedure."
+  },
+  {
+    "id": "maintenance",
+    "document_type": "other",
+    "title": "WO-7712 Maintenance record",
+    "section": "1. Maintenance history",
+    "text": "Work order WO-7712 records a synthetic alignment inspection of P-101A. The inspection note reports coupling offset and a follow-up measurement request. This is a historical record, not proof of present equipment condition."
+  },
+  {
+    "id": "incident",
+    "document_type": "incident",
+    "title": "INC-045 Identification near miss",
+    "section": "2. Lessons learned",
+    "text": "Incident INC-045 describes a fictional wrong-tag selection involving P-101A. Independent label verification was recorded as a lesson. This near-miss document contains no authorization to isolate equipment."
+  },
+  {
+    "id": "npsh",
+    "document_type": "other",
+    "title": "Technical reference NPSH-A7",
+    "section": "3. Net positive suction head",
+    "text": "NPSH-A7 is a synthetic glossary identifier. Net positive suction head available and required are compared in a pump cavitation review. NPSHa and NPSHr are technical acronyms; this record gives no operational limits."
+  },
+  {
+    "id": "seal",
+    "document_type": "other",
+    "title": "QZ-8842 Elastomer reference",
+    "section": "5. Perfluoroelastomer compatibility",
+    "text": "QZ-8842 names a fictional perfluoroelastomer compatibility study. It compares a seal specimen with a test fluid. Unusual term perfluoroelastomer and specimen code QZ-8842 are included for exact lexical retrieval only."
+  },
+  {
+    "id": "exchanger",
+    "document_type": "sop",
+    "title": "SOP-E101-020 Heat exchanger fouling",
+    "section": "4. Differential pressure",
+    "text": "E-101 is a fictional heat exchanger. This document describes collecting differential-pressure observations and comparing them with flow. Fouling is a hypothesis, and the procedure does not concern pump vibration."
+  },
+  {
+    "id": "pump204",
+    "document_type": "sop",
+    "title": "SOP-P204-090 Other pump observations",
+    "section": "4.2 Abnormal vibration",
+    "text": "P-204 is a separate fictional pump. This abnormal vibration record discusses P-204 only. It contains no observations about P-101A, work order WO-7712 or incident INC-045."
+  },
+  {
+    "id": "maintenance_other",
+    "document_type": "other",
+    "title": "WO-7713 Maintenance record",
+    "section": "1. Maintenance history",
+    "text": "WO-7713 records a fictional motor inspection for M-202. Coupling alignment was discussed during a maintenance review. This is a different work order from WO-7712 and does not establish the history of P-101A."
+  },
+  {
+    "id": "instrument",
+    "document_type": "other",
+    "title": "Instrument register TT-101",
+    "section": "1. Instrument descriptions",
+    "text": "TT-101 is a synthetic temperature transmitter label. PT-101 is a pressure transmitter label. The registry lists instrumentation descriptions for testing exact industrial identifiers, without process connections."
+  },
+  {
+    "id": "other_instrument",
+    "document_type": "other",
+    "title": "Instrument register TT-102",
+    "section": "1. Instrument descriptions",
+    "text": "TT-102 and PT-102 are fictional instrument identifiers. FV-102 is a fictional control valve label. This register does not include the TT-101 temperature transmitter."
+  },
+  {
+    "id": "valve",
+    "document_type": "other",
+    "title": "Valve register FV-101",
+    "section": "1. Valve labels",
+    "text": "FV-101 is a synthetic flow-control valve label. This reference contains label information only; it does not identify connected equipment, flow direction or an isolation boundary."
+  }
+]

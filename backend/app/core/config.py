@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     data_root: Path = Path(__file__).resolve().parents[3] / "data"
     model_root: Path = Path(__file__).resolve().parents[3] / "models"
     pid_render_dpi: int = Field(default=300, ge=300, le=400, validation_alias="PID_RENDER_DPI")
+    sparse_retrieval_enabled: bool = Field(default=True, validation_alias="SPARSE_RETRIEVAL_ENABLED")
+    dense_top_k: int = Field(default=30, ge=1, le=100, validation_alias="DENSE_TOP_K")
+    sparse_top_k: int = Field(default=30, ge=1, le=100, validation_alias="SPARSE_TOP_K")
+    hybrid_fusion: str = Field(default="rrf", pattern="^rrf$", validation_alias="HYBRID_FUSION")
+    reranking_enabled: bool = Field(default=True, validation_alias="RERANKING_ENABLED")
+    reranker_model: str = Field(default="BAAI/bge-reranker-base", pattern="^BAAI/bge-reranker-base$", validation_alias="RERANKER_MODEL")
+    rerank_top_k: int = Field(default=20, ge=1, le=100, validation_alias="RERANK_TOP_K")
+    final_context_k: int = Field(default=6, ge=1, le=30, validation_alias="FINAL_CONTEXT_K")
 
     @model_validator(mode="after")
     def validate_pipeline(self):
