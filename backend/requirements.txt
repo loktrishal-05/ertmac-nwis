@@ -8,3 +8,7 @@ qdrant-client>=1.17,<1.18
 sentence-transformers>=5.1,<6.0
 docling>=2.60,<3.0
 pymupdf>=1.26,<2.0
+paddleocr>=3.3,<3.4
+paddlepaddle>=3.2,<3.3
+opencv-python==4.10.0.84
+pillow>=10,<13

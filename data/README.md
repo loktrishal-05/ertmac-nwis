@@ -1,4 +1,4 @@
-# Data conventions — Phase 3A
+# Data conventions — Phase 3B1
 
 Raw inputs are immutable. Place a new source revision in a new file; never edit
 an ingested raw file. The ingestion API reads a byte snapshot and computes its
@@ -29,17 +29,24 @@ data/
   evaluation/
     retrieval_questions.jsonl
     expected_citations.jsonl
+    model_eval_cases.jsonl
+    model_eval_config.json
+    manifest.json
     extraction_ground_truth/
 ```
 
-Empty directories contain `.gitkeep`. CSVs are header-only templates; evaluation
-JSONL files have no records. Record dataset sources, licenses, and permitted uses
-in `manifests/dataset_licenses.md` before import. No external datasets are included.
+Empty directories contain `.gitkeep`. CSVs and the original retrieval/citation
+JSONL files are templates. The model evaluation pack contains 75 reference cases
+and model configuration; preserve it and `docs/model-evaluation-spec.md` unchanged.
+Never use those evaluation assets for training or as OCR fixtures. Record dataset
+sources, licenses, and permitted uses in `manifests/dataset_licenses.md` before import.
 
-Phase 3A processes English native-text PDFs only. P&ID, sensor, page-image, and
-maintenance directories reserve the approved structure; they do not imply those
-pipelines are implemented. Scanned or mixed PDFs requiring OCR are marked
-`ocr_required` and are not indexed.
+Phase 3A processes English native-text PDFs only. Its scanned/mixed PDFs remain
+`ocr_required` and are not indexed. The separate Phase 3B1 endpoint accepts
+PDF/PNG/JPG/JPEG only under `raw/pids/source`, producing rendered/preprocessed
+pages, OCR JSON, regions, and manifests under `processed/pids`. These artifacts
+are not indexed in Qdrant. Sensor/maintenance processing remains unimplemented.
+OCR and spatial proximity do not establish process topology or connectivity.
 
 Processed Markdown, parser JSON, and extraction reports are named by the
 PostgreSQL document-version UUID. Ingestion manifests contain the exact validated

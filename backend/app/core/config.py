@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = Field(default=60, validation_alias="CHUNK_OVERLAP_TOKENS")
     data_root: Path = Path(__file__).resolve().parents[3] / "data"
     model_root: Path = Path(__file__).resolve().parents[3] / "models"
+    pid_render_dpi: int = Field(default=300, ge=300, le=400, validation_alias="PID_RENDER_DPI")
 
     @model_validator(mode="after")
     def validate_pipeline(self):

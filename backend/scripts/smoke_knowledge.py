@@ -1,7 +1,9 @@
 """Opt-in integration smoke test: real PostgreSQL, Qdrant, Docling, and BGE."""
 import json
 import math
+import sys
 from hashlib import sha256
+from uuid import uuid4
 
 import pymupdf
 from fastapi.testclient import TestClient
@@ -12,7 +14,9 @@ from app.services.qdrant_service import get_qdrant
 
 
 def main():
-    path = settings.data_root / "raw/sops/source/phase3a_synthetic_numbered.pdf"
+    fresh = "--fresh" in sys.argv
+    filename = f"phase3a_synthetic_{uuid4().hex}.pdf" if fresh else "phase3a_synthetic_numbered.pdf"
+    path = settings.data_root / "raw/sops/source" / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         with pymupdf.open() as pdf:
@@ -36,7 +40,7 @@ def main():
             pdf.save(path)
     original_hash = sha256(path.read_bytes()).hexdigest()
     request = {
-        "source_path": "sops/source/phase3a_synthetic_numbered.pdf",
+        "source_path": path.relative_to(settings.data_root / "raw").as_posix(),
         "title": "Synthetic Pump Reference", "document_type": "sop",
         "revision": "TEST-1", "synthetic": True, "facility_id": "test-only",
     }
@@ -45,6 +49,8 @@ def main():
         assert result.status_code == 200, result.text
         ingestion = result.json()
         assert ingestion["status"] in ("indexed", "duplicate"), ingestion
+        if fresh:
+            assert ingestion["status"] == "indexed", "Fresh validation must exercise extraction and indexing"
         assert ingestion["chunk_count"] > 0
         qdrant = get_qdrant()
         count = qdrant.client.count(qdrant.collection).count
@@ -76,7 +82,7 @@ def main():
         assert original_hash == sha256(path.read_bytes()).hexdigest()
         report_path = settings.data_root / "processed/documents/extraction_reports" / (ingestion["document_version_id"] + ".json")
         extraction = json.loads(report_path.read_text(encoding="utf-8"))
-        report = {"ingestion": ingestion, "extraction_method": extraction["extraction_method"],
+        report = {"ingestion": ingestion, "fresh_ingestion": fresh, "extraction_method": extraction["extraction_method"],
                   "qdrant_point_count": count, "embedding_dimension": len(embedding),
                   "duplicate_verified": True, "raw_unchanged": True, "retrieval": evidence}
         output = settings.data_root / "indexes/ingestion_manifests/phase3a_smoke_result.json"

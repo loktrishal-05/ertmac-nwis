@@ -1,4 +1,9 @@
-# Backend — Phase 3A
+# Backend — Phase 3B1
+
+P&ID PDF/image OCR preparation is available at `POST /documents/pid/process`.
+See the [Phase 3B1 guide](../docs/phase3b1.md) for local PaddleOCR setup, request
+examples, coordinate conventions, artifacts, and limitations. OCR does not
+establish process topology. This path does not add OCR text to Qdrant.
 
 Document extraction, local embeddings, Qdrant indexing, and evidence retrieval are
 implemented. See [Phase 3A setup and API guide](../docs/phase3a.md) for model
