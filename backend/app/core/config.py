@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     agent_trace_enabled: bool = Field(default=True, validation_alias="AGENT_TRACE_ENABLED")
     agent_trace_store_query: bool = Field(default=True, validation_alias="AGENT_TRACE_STORE_QUERY")
     agent_run_timeout_seconds: float = Field(default=300, gt=0, validation_alias="AGENT_RUN_TIMEOUT_SECONDS")
+    # Phase 3B2 found no calibrated rejection threshold (docs/phase3b2-validation.md);
+    # this score is whatever `RetrievedChunk.score` reports -- a raw cross-encoder
+    # logit under the default hybrid_rerank strategy (unbounded, positive-leaning for
+    # relevant pairs), or an RRF fusion score otherwise. 0.0 is a conservative,
+    # provisional default: see docs/phase4-decisions.md D-009.
+    knowledge_relevance_floor: float = Field(default=0.0, validation_alias="KNOWLEDGE_RELEVANCE_FLOOR")
 
     @property
     def model_allowed_hosts_set(self) -> set[str]:

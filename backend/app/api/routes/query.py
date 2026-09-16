@@ -27,7 +27,7 @@ def _timings(state: dict) -> dict:
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest, session: Session = Depends(get_db)) -> QueryResponse:
     try:
-        state = run_graph(request.query)
+        state = run_graph(request.query, session=session)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except ModelTimeoutError as error:

@@ -17,8 +17,10 @@ from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 
+from app.agents.nodes.knowledge import knowledge_node
 from app.agents.nodes.router import router_node
 from app.agents.nodes.stubs import make_stub_node
+from app.agents.nodes.terminal import clarification_node, guardrail_refusal_node
 from app.agents.prompts.router import ROUTE_NAMES
 from app.agents.state import WorkbenchState
 from app.core.config import settings
@@ -61,12 +63,25 @@ def _route_selector(state) -> str:
     return route if route in ROUTE_NAMES else "clarification"
 
 
-def build_graph():
+def build_graph(session=None):
+    """session=None preserves 4B's exact behaviour (every route a stub; no DB
+    access). Phase 4C's real nodes need a per-request SQLAlchemy session for
+    their read-only tool calls, which a process-wide cached singleton graph
+    cannot hold (a session is request-scoped, not process-scoped) -- so a
+    node that needs one is bound to it via closure at build time here, and
+    run_graph() below builds a fresh graph per call once a session is
+    supplied rather than reusing get_graph()'s cache. See
+    docs/phase4-decisions.md D-008 for the alternatives considered."""
     gateway = get_model_gateway()
     builder = StateGraph(WorkbenchState)
     builder.add_node("router", _traced("router", lambda state: router_node(state, gateway=gateway)))
+    route_nodes = {
+        "knowledge": lambda state: knowledge_node(state, gateway=gateway, session=session),
+        "guardrail_refusal": guardrail_refusal_node,
+        "clarification": clarification_node,
+    }
     for route in ROUTE_NAMES:
-        builder.add_node(route, _traced(route, make_stub_node(route)))
+        builder.add_node(route, _traced(route, route_nodes.get(route, make_stub_node(route))))
     builder.add_edge(START, "router")
     builder.add_conditional_edges("router", _route_selector, {route: route for route in ROUTE_NAMES})
     for route in ROUTE_NAMES:
@@ -79,8 +94,8 @@ def get_graph():
     return build_graph()
 
 
-def run_graph(query: str) -> WorkbenchState:
-    graph = get_graph()
+def run_graph(query: str, *, session=None) -> WorkbenchState:
+    graph = get_graph() if session is None else build_graph(session=session)
     initial_state: WorkbenchState = {
         "run_id": str(uuid4()), "query": query, "route": None, "route_confidence": None,
         "route_reasoning": None, "evidence": [], "tool_invocations": [], "agent_result": None,

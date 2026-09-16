@@ -105,3 +105,143 @@ Review priority: HIGH
 Reversible: yes — the mapping lives in one place
 (`app/agents/nodes/__init__.py` route registration in `graph.py`) and can be
 changed without touching validator or schema code.
+
+### D-005 · 4C · S1-S7 defined once in app/schemas/agent_outputs.py, not per sub-phase
+Context: Each of 4C-4F could define its own output schema(s) locally (e.g.
+`app/agents/nodes/knowledge.py` defining its own `GroundedAnswer`), or all
+seven could be defined once in a shared module read while deriving the
+field lists from `docs/model-evaluation-spec.md` lines 91-121 (see D-002).
+Options: (a) one schema module per sub-phase, each independently reading the
+spec section relevant to its own routes; (b) one shared module,
+`app/schemas/agent_outputs.py`, defining all of S1-S7 up front, imported by
+every later sub-phase.
+Chose: (b).
+Because: Schemas are reused across sub-phases (S5 by every route; S6 by both
+4E and 4F; `MaintenanceHypothesis` by both S4 and S6), so per-sub-phase
+definitions would either duplicate the shape or force 4D-4F to import from
+4C's node module — a layering inversion (a node module is not a schema
+module). A single shared module also means the benchmark-spec section
+(lines 91-121) is read exactly once across the whole autonomous run, which
+minimizes the surface for the exact kind of incidental over-read D-002
+already had to account for. This module was written before this session
+began (see the file's own header) as unit 1 of 4C's six units; this entry
+records the decision it presupposed but that had not yet been logged.
+Review priority: MEDIUM
+Reversible: yes — splitting per sub-phase later would touch only import
+statements, not field shapes, since every consumer already imports by name.
+
+### D-006 · 4C · Every S5 Refusal is built in Python, never through the model gateway
+Context: The 4C brief's shared S5 refusal helper could plausibly go either
+way: phrase refusals via `generate_structured` (consistent with "S1/S3/S5
+emission through generate_structured" in the brief's item 5), or build them
+deterministically from information the calling code already has (a tool
+result, a citation-validator error, the router's own `route_reasoning`).
+Options: (a) always call the model to phrase a refusal's `reason` and
+`safe_next_step`; (b) build every S5 body in pure Python via a shared
+`refuse()` helper, calling the model never.
+Chose: (b) — `app/agents/enforcement.py::refuse()`. Used by
+`nodes/knowledge.py`'s insufficient-evidence and citation-failure paths, and
+by the new `nodes/terminal.py::guardrail_refusal_node` /
+`clarification_node`.
+Because: A refusal is inherently a security/trust-relevant utterance — it is
+the system telling the operator "I did not do X, here is why." Every input
+to that message is already known deterministically by the calling code
+(what was searched for, what the validator rejected, why the router
+classified as it did); asking the model to phrase it adds a hallucination
+surface to the one output type where fabrication is least acceptable, for a
+purely stylistic benefit. This is the conservative reading of an ambiguous
+brief item, consistent with the autonomy charter's rule 3.
+Review priority: MEDIUM
+Reversible: yes — `refuse()` is a single call site per caller; routing it
+through `generate_structured` instead would not change any schema.
+
+### D-007 · 4C · Identifier-miss refuses regardless of score, not only jointly with a low score
+Context: The 4C brief's evidence-sufficiency check says: "Below the floor,
+or on an identifier miss with no supporting hit, the agent refuses." Read
+literally, "no supporting hit" could just mean "below the floor" again,
+collapsing the whole sentence to a single below-floor check with
+identifier-miss as decorative context. A second reading treats
+identifier-miss as an independent, unconditional refusal trigger.
+Options: (a) refuse only when `top_score < floor` (identifier-miss only
+shapes the refusal *message*, not the decision); (b) refuse when
+`top_score < floor` **or** when an identifier-miss warning is present at
+all, regardless of score.
+Chose: (b) — `app/agents/nodes/knowledge.py::_assess_evidence()`.
+Because: Phase 3B2 (`docs/phase3b2-validation.md`) measured dense and hybrid
+retrieval returning unrelated neighbours for a nonexistent identifier
+(`ZZQ-99999`) with no calibrated rejection threshold available (that file's
+own words: "There is no calibrated rejection threshold"). Under reading (a),
+an operator who raises `KNOWLEDGE_RELEVANCE_FLOOR` to reduce false refusals
+would simultaneously reopen exactly the failure mode 3B2 flagged — an
+unrelated neighbour scoring adequately for a genuinely missing identifier.
+Reading (b) keeps that specific failure mode closed independent of how the
+floor is tuned, matching "choose the more conservative option."
+Review priority: HIGH
+Reversible: yes — single boolean condition in `_assess_evidence()`; changing
+`or` to `and` reverts to reading (a). Flagged HIGH because it materially
+changes how often the knowledge agent refuses on real traffic, which the
+operator should confirm matches their tolerance.
+
+### D-008 · 4C · Session-scoped nodes bypass the 4B cached-graph singleton
+Context: 4B's `get_graph()` is an `lru_cache(maxsize=1)` singleton because
+its only stateful per-node dependency, the model gateway, is itself a
+process-wide singleton (`get_model_gateway()`). Phase 4C's `knowledge_node`
+needs a SQLAlchemy `Session` to call `retrieve_documents` and to look up the
+equipment registry — and a `Session` is request-scoped, not process-scoped,
+so it cannot be baked into a cached compiled graph the same way.
+Options: (a) restructure the graph to thread a session through LangGraph's
+`config`/`context` mechanism on every invocation, keeping one cached
+compiled graph; (b) give `build_graph()` an optional `session=None`
+parameter, bind session-needing nodes to it by closure (mirroring 4B's own
+`router_node`/gateway closure pattern exactly), and have `run_graph()` build
+a fresh graph per call whenever a real session is supplied, falling back to
+the existing cached singleton when it is not.
+Chose: (b).
+Because: (a) is more "elegant" but depends on LangGraph 1.2's `Runtime`/
+`context` API working exactly as documented for this project's specific
+node-function calling convention, which this session could not fully verify
+against a live LangGraph without risking a broken graph under autonomy with
+no one to notice. (b) reuses a pattern 4B already validated (closures for
+process-wide singletons), needed zero changes to `_traced()` or any existing
+node's signature, and every pre-existing 4B test (which calls
+`build_graph()`/`get_graph()` with no session) continues to pass byte-for-
+byte unchanged. The cost is that a real `/query` request no longer benefits
+from the cached compiled graph (it rebuilds `StateGraph.compile()` per
+request); this is expected to be negligible next to local-model inference
+latency (tens of seconds per 4B's own validation doc) but is not measured
+live in this session — see `docs/phase4c-validation.md`.
+Review priority: MEDIUM
+Reversible: yes — swapping to config/context-based session threading later
+would only touch `graph.py` and `run_graph()`'s call sites, not node bodies.
+
+### D-009 · 4C · KNOWLEDGE_RELEVANCE_FLOOR default of 0.0 is a provisional, uncalibrated number
+Context: The 4C brief requires "a relevance floor the agent applies itself
+(`KNOWLEDGE_RELEVANCE_FLOOR`, configurable, conservative default)" but no
+calibrated value exists anywhere in the repository — `docs/phase3b2-
+validation.md` states outright "There is no calibrated rejection
+threshold," and `RetrievedChunk.score` is, under the default
+`hybrid_rerank` strategy, a raw cross-encoder logit
+(`app/services/reranking.py`: "scores are raw logits, never
+probabilities"), not a bounded 0-1 relevance probability.
+Options: (a) pick an arbitrary bounded-looking default (e.g. 0.5) that would
+be meaningless against an unbounded logit scale; (b) default to `0.0`, the
+cross-encoder's own zero-crossing (its training objective makes a
+non-negative logit a non-negative relevance signal), and document loudly
+that this is uncalibrated; (c) leave the floor unset/`None` and skip the
+score check entirely, relying only on the identifier-miss signal and an
+empty-result check.
+Chose: (b).
+Because: (c) would silently drop half of the brief's required "combining"
+check (see D-007) whenever the identifier-miss warning does not fire — e.g.
+a query with no technical identifier at all that still returns garbage
+low-relevance chunks. (a) would be actively misleading (a bounded-looking
+number on an unbounded scale invites an operator to reason about it as if
+it were a probability). (b) is at least *interpretable* against the
+reranker's own semantics, is fully operator-tunable via
+`WORKBENCH_KNOWLEDGE_RELEVANCE_FLOOR`, and is loudly marked provisional in
+three places: this entry, `config.py`'s inline comment, and
+`docs/phase4c.md`.
+Review priority: HIGH — this is a product-behavior-shaping number with no
+empirical backing yet; the operator should tune it against real retrieval
+traffic before relying on it in production.
+Reversible: yes — a single `Field(default=...)` in `app/core/config.py`.

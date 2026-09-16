@@ -7,11 +7,14 @@ fixture built around the fictional tag ZZ-8888, distinct from Phase 4A's
 ZZ-9999. Nothing under data/evaluation/ is read by this script, and the
 hash-guard check re-verifies that at the end.
 
-This phase's agents are stubs: no route beyond routing itself reasons yet.
-This script validates that the ROUTER genuinely classifies (against the real
-model), that tracing genuinely persists to Postgres, and that the seven
-routes plus the tool registry are correctly wired end to end. It does not
-and cannot validate answer quality, because there is no answer yet."""
+As of Phase 4C, "knowledge" is a real agent (app/agents/nodes/knowledge.py);
+the remaining routes are still stubs pending 4D-4F. This script validates
+that the ROUTER genuinely classifies (against the real model), that tracing
+genuinely persists to Postgres, that every route plus the tool registry is
+correctly wired end to end, and that the knowledge route's live output is
+schema-valid. It does not assert knowledge ANSWER QUALITY -- that is the
+75-case evaluation harness's job under docs/model-evaluation-spec.md, kept
+firewalled from this script by the same manifest-hash check below."""
 import json
 import platform
 import statistics
@@ -121,13 +124,18 @@ def main():
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["route"] in ROUTE_NAMES
-            assert body["agent_result"]["status"] == "not_implemented"
+            result = body["agent_result"]
+            if body["route"] == "knowledge":
+                assert result["schema"] in ("S1", "S3", "S5"), result
+            else:
+                assert result["status"] == "not_implemented", result
             matched = body["route"] == intended_route
             route_results[intended_route] = {
                 "wall_seconds": round(elapsed, 3), "actual_route": body["route"],
                 "route_confidence": body["route_confidence"], "route_reasoning": body["route_reasoning"],
                 "matched_intended_route": matched, "run_id": body["run_id"],
                 "warnings": body["warnings"], "step_timings": body["timings"]["steps"],
+                "agent_result_schema": result.get("schema"),
             }
             report["steps"][f"{index}_query_{intended_route}"] = route_results[intended_route]
 
@@ -143,8 +151,8 @@ def main():
         report["steps"]["9_rejection_contract"] = rejected
 
         # Step 10 — tracing actually persisted to Postgres: one AgentRun + one
-        # AgentRunStep per graph step, for one of the runs above.
-        sample_run_id = route_results["knowledge"]["run_id"]
+        # AgentRunStep per graph step, for a still-stubbed route.
+        sample_run_id = route_results["maintenance"]["run_id"]
         with SessionLocal() as session:
             run = session.get(AgentRun, sample_run_id)
             assert run is not None, "AgentRun row was not persisted"
@@ -154,12 +162,27 @@ def main():
             assert len(steps) == 2, f"Expected 2 traced steps (router + stub), found {len(steps)}"
             assert steps[0].node_name == "router"
             assert steps[0].usage, "Router step usage should be populated from the live gateway call"
-            assert steps[1].evidence_ids == [], "Stub nodes never produce evidence in Phase 4B"
+            assert steps[1].evidence_ids == [], "Stub nodes never produce evidence"
             report["steps"]["10_tracing_persistence"] = {
                 "run_id": str(run.id), "status": run.status, "route": run.route,
                 "query_text_stored": run.query_text is not None, "step_count": len(steps),
                 "step_node_names": [s.node_name for s in steps],
                 "router_step_usage": steps[0].usage, "router_step_timings": steps[0].timings,
+            }
+
+        # Step 10b — the real knowledge agent traces its own evidence_ids (or,
+        # on a refusal/insufficient-evidence outcome, an empty list is still a
+        # legitimate traced result, never an error).
+        knowledge_run_id = route_results["knowledge"]["run_id"]
+        with SessionLocal() as session:
+            steps = session.scalars(
+                select(AgentRunStep).where(AgentRunStep.run_id == knowledge_run_id).order_by(AgentRunStep.step_index)
+            ).all()
+            assert len(steps) == 2, f"Expected 2 traced steps (router + knowledge), found {len(steps)}"
+            assert steps[1].node_name == "knowledge"
+            report["steps"]["10b_knowledge_tracing"] = {
+                "run_id": str(knowledge_run_id), "agent_result_schema": route_results["knowledge"].get("agent_result_schema"),
+                "evidence_ids": steps[1].evidence_ids,
             }
 
         # Step 11 — hardware/context record.
