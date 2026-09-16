@@ -51,10 +51,10 @@ class FoundationTests(unittest.TestCase):
         cls.server.terminate()
         cls.server.wait(timeout=10)
 
-    def request(self, path, method="GET", body=None):
+    def request(self, path, method="GET", body=None, timeout=5):
         data = json.dumps(body).encode() if body is not None else None
         request = Request(self.url + path, data=data, method=method, headers={"Content-Type": "application/json"})
-        with urlopen(request, timeout=5) as response:
+        with urlopen(request, timeout=timeout) as response:
             self.assertEqual(response.status, 200)
             return json.load(response)
 
@@ -64,22 +64,32 @@ class FoundationTests(unittest.TestCase):
         })
 
     def test_query(self):
-        self.assertEqual(self.request("/query", "POST", {"query": "What is the status of pump P-204?"}), {
-            "status": "not_implemented",
-            "message": "Agent query processing will be implemented in a later phase.",
-        })
-        for body in ({}, {"query": "   "}):
+        # Phase 4B: /query now runs the real router graph, so the route it
+        # picks depends on the live model's own classification rather than a
+        # fixed placeholder. Assert the (extended, not broken) contract shape
+        # instead of one hardcoded route.
+        # A generous timeout: this is the one request in this file that reaches
+        # the live model gateway, and a cold model load (MODEL_FIRST_LOAD_TIMEOUT_SECONDS)
+        # can take well past the 5s default used elsewhere in this file.
+        from app.agents.prompts.router import ROUTE_NAMES
+        body = self.request("/query", "POST", {"query": "What is the status of pump P-204?"}, timeout=180)
+        self.assertIn(body["route"], ROUTE_NAMES)
+        self.assertIn(body["agent_result"]["status"], ("not_implemented",))
+        self.assertIsInstance(body["run_id"], str)
+        self.assertIsInstance(body["evidence"], list)
+        for body in ({}, {"query": "   "}, {"query": "x", "model": "other"}):
             with self.assertRaises(HTTPError) as error:
                 self.request("/query", "POST", body)
             self.assertEqual(error.exception.code, 422)
 
     def test_agents(self):
-        self.assertEqual(self.request("/agents/status"), [
-            {"name": name, "status": "not_started"} for name in (
-                "Orchestrator Agent", "Knowledge Agent", "Safety Agent",
-                "Maintenance Agent", "Guardrail Agent",
-            )
-        ])
+        from app.agents.prompts.router import ROUTE_NAMES
+        body = self.request("/agents/status")
+        self.assertEqual({route["route"] for route in body["routes"]}, set(ROUTE_NAMES))
+        self.assertTrue(all(route["status"] == "not_implemented" for route in body["routes"]))
+        self.assertTrue(len(body["tools"]) >= 1)
+        self.assertTrue(all(tool["read_only"] for tool in body["tools"]))
+        self.assertIn("reachable", body["gateway"])
 
     def test_approvals(self):
         self.assertEqual(self.request("/approvals"), [])
@@ -115,8 +125,8 @@ class FoundationTests(unittest.TestCase):
 
     def test_metadata_and_offline_migration(self):
         configure_mappers()
-        self.assertEqual(len(models.__all__), 10)
-        self.assertEqual(len(Base.metadata.tables), 10)
+        self.assertEqual(len(models.__all__), 14)
+        self.assertEqual(len(Base.metadata.tables), 14)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])

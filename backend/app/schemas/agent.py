@@ -1,9 +1,28 @@
-"""Planned agent status contract."""
+"""GET /agents/status contract: enumerates the 7 routes, the read-only tool
+registry, and the model gateway's own health — never a base URL, API key, or
+prompt body."""
+from pydantic import BaseModel, ConfigDict
 
-from typing import Literal
-from pydantic import BaseModel
+from app.services.model_gateway.types import RuntimeHealth
 
 
-class AgentStatus(BaseModel):
+class RouteStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    route: str
+    description: str
+    status: str
+    sub_phase: str
+
+
+class ToolStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str
-    status: Literal["not_started"] = "not_started"
+    description: str
+    read_only: bool = True
+
+
+class AgentsStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    routes: list[RouteStatus]
+    tools: list[ToolStatus]
+    gateway: RuntimeHealth

@@ -1,4 +1,12 @@
-# Backend — Phase 3B2
+# Backend — Phase 4A
+
+A local model gateway abstracts a swappable local inference runtime (Ollama in
+development) behind a policy layer with no generation endpoint yet. See the
+[Phase 4A guide](../docs/phase4a.md) and the "Local model gateway" section below.
+
+Maintenance/sensor CSV ingestion and read-only query APIs are available at
+`/data/maintenance/ingest`, `/data/sensors/ingest`, `/maintenance/*`, and
+`/sensors/*`. See the [Phase 3C guide](../docs/phase3c.md).
 
 Hybrid retrieval and optional local BGE reranking extend `/knowledge/retrieve`.
 Read the [Phase 3B2 guide](../docs/phase3b2.md) before enabling sparse retrieval
@@ -58,8 +66,33 @@ precedence. `.env` is ignored by Git; `.env.example` contains no secrets.
 GET and POST are permitted through CORS, with credentials disabled.
 
 Direct dependencies include FastAPI, Uvicorn, pydantic-settings, SQLAlchemy 2.x,
-psycopg (binary), Alembic, qdrant-client, Sentence Transformers, Docling, and PyMuPDF.
-Only embedding and document parsing models run; no answer-generation model exists.
+psycopg (binary), Alembic, qdrant-client, Sentence Transformers, Docling, PyMuPDF,
+and httpx (promoted to a direct pin in Phase 4A; previously only a transitive
+dependency of the test client). No answer-generation endpoint exists yet.
+
+## Local model gateway (Phase 4A)
+
+Install [Ollama](https://ollama.com) and pull a model, then discover its exact
+tag — never guess it:
+
+```powershell
+ollama pull qwen3.5:9b
+ollama list
+```
+
+Set `MODEL_NAME` in the root `.env` to the exact tag from `ollama list` (there
+is no default; startup fails with a clear message if it is missing). Defaults
+for `MODEL_RUNTIME`, `MODEL_BASE_URL`, `MODEL_ALLOWED_HOSTS`, and the other
+`MODEL_*` variables in `.env.example` work for a local Ollama install without
+further changes. Check status once the backend is running:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/models/status | ConvertTo-Json -Depth 5
+```
+
+See [docs/phase4a.md](../docs/phase4a.md) for the gateway/runtime split, the
+structured-output contract, the host allowlist/denylist, and the error/retry
+policy.
 
 ## PostgreSQL and migrations
 
@@ -126,7 +159,7 @@ No authentication, review logic, answer generation, or agent execution exists.
 From `backend`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m compileall -q app alembic tests
+.\.venv\Scripts\python.exe -m compileall -q app alembic scripts tests
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe -m alembic upgrade head --sql
@@ -135,4 +168,20 @@ From `backend`:
 Tests start a temporary Uvicorn server, check API contracts/CORS, and render the
 initial PostgreSQL migration offline. Offline SQL checks do not test an actual
 PostgreSQL connection or apply a migration. Run the Docker and online Alembic
-commands above separately when the Docker engine is available.
+commands above separately when the Docker engine is available. Model-gateway
+unit tests use `httpx.MockTransport`; no live model or network call is made.
+
+Opt-in live smoke scripts (each needs its own live dependency: Ollama running
+with `MODEL_NAME` installed; PostgreSQL/Qdrant up per the section above):
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.smoke_model_gateway
+.\.venv\Scripts\python.exe -m scripts.smoke_knowledge
+.\.venv\Scripts\python.exe -m scripts.smoke_pid --fresh
+.\.venv\Scripts\python.exe -m scripts.smoke_hybrid
+.\.venv\Scripts\python.exe -m scripts.smoke_structured --fresh
+```
+
+Run them sequentially, not in parallel — they compete for CPU and some compare
+global point/row counts. See [docs/phase4a-validation.md](../docs/phase4a-validation.md)
+for real timings recorded on development hardware.

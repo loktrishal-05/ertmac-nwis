@@ -12,3 +12,6 @@ paddleocr>=3.3,<3.4
 paddlepaddle>=3.2,<3.3
 opencv-python==4.10.0.84
 pillow>=10,<13
+httpx>=0.27,<1.0
+langgraph==1.2.11
+langchain-core==1.6.3

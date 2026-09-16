@@ -1,11 +1,17 @@
 # Sovereign On-Premise Agentic AI Workbench
 
-SIH 2026 project. Phases 0–3B2 provide FastAPI, a React/Vite dashboard,
-PostgreSQL/SQLAlchemy, and local PDF evidence retrieval with Docling, BGE, and Qdrant.
+SIH 2026 project. Phases 0–4A provide FastAPI, a React/Vite dashboard,
+PostgreSQL/SQLAlchemy, local PDF/P&ID evidence retrieval with Docling, BGE, and
+Qdrant, structured maintenance/sensor data ingestion and query, and a local
+model gateway abstraction over Ollama.
 See [Phase 3A guide](docs/phase3a.md) for ingestion and retrieval setup.
 See [Phase 3B1 guide](docs/phase3b1.md) for local P&ID/image OCR preparation.
 See [Phase 3B2 guide](docs/phase3b2.md) for hybrid retrieval, the explicit Qdrant
 migration, local reranking, OCR text indexing, and retrieval evaluation.
+See [Phase 3C guide](docs/phase3c.md) for maintenance/sensor CSV ingestion,
+deterministic feature extraction, and anomaly observations.
+See [Phase 4A guide](docs/phase4a.md) for the local model gateway: structured
+output, tool-call parsing, and the Ollama/vLLM runtime abstraction.
 
 ## Fixed architecture
 
@@ -17,19 +23,20 @@ storage, Ollama for local development, vLLM as a future deployment option, and
 Docker Compose. Only local/open-weight models will be used; hosted model APIs
 are excluded.
 
-## Current scope — Phase 3B2
+## Current scope — Phase 4A
 
 The frontend dashboard preserves its backend health connection. PostgreSQL and
-Qdrant run through `infra/docker-compose.yml`. Alembic adds document revision state
-without replacing existing tables. PDFs are extracted, chunked, embedded locally,
-and retrieved with source citations. Final runtime uses local embeddings. No
-hosted inference API is required. Agents, LangGraph, authentication, answer
-generation, approval workflow, and audit hash chaining are absent. P&ID OCR now
-produces text/coordinate/region artifacts using local PP-OCRv5. OCR does not
-establish process topology or pipe connectivity.
-Retrieval combines dense BGE and local sparse search with RRF and optional BGE
-reranking. A separate indexing endpoint makes OCR text searchable with its original
-confidence and coordinate metadata. No answers are generated.
+Qdrant run through `infra/docker-compose.yml`. PDFs and P&IDs are extracted,
+chunked/OCR'd, embedded locally, and retrieved with source citations; maintenance
+and sensor CSVs are ingested and queryable with deterministic feature extraction
+and factual anomaly observations. Final runtime uses local embeddings and local
+model inference (Ollama, development). No hosted inference API is required or
+permitted. Phase 4A adds a local model gateway — a policy/transport split so a
+future runtime (vLLM-compatible) can replace Ollama without touching agent code —
+exposing only `GET /models/status`. LangGraph, agents, a tool executor,
+authentication, answer generation, approval workflow, and audit hash chaining
+remain absent. OCR does not establish process topology or pipe connectivity, and
+sensor anomaly observations are factual, never diagnoses.
 
 See [backend setup instructions](backend/README.md) for Windows commands.
 Copy `.env.example` to a local root `.env` if configuration is needed; never

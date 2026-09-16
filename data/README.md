@@ -48,8 +48,16 @@ Phase 3A processes English native-text PDFs only. Its scanned/mixed PDFs remain
 PDF/PNG/JPG/JPEG only under `raw/pids/source`, producing rendered/preprocessed
 pages, OCR JSON, regions, and manifests under `processed/pids`. These artifacts
 can be explicitly indexed as OCR text using the Phase 3B2 version-index endpoint.
-Processing alone remains artifact-only. Sensor/maintenance processing remains unimplemented.
-OCR and spatial proximity do not establish process topology or connectivity.
+Processing alone remains artifact-only. OCR and spatial proximity do not
+establish process topology or connectivity.
+
+Phase 3C accepts maintenance/sensor CSVs anywhere under `raw/maintenance/` or
+`raw/sensors/` (subdirectory name is organizational only), producing normalized
+row JSON under `processed/maintenance/normalized` and
+`processed/sensors/normalized`, and per-request feature artifacts under
+`processed/sensors/features`. `processed/sensors/windows/` remains reserved
+and unused. Feature computation and anomaly observations are deterministic;
+no diagnosis (e.g. a named failure mode) is ever produced.
 
 Processed Markdown, parser JSON, and extraction reports are named by the
 PostgreSQL document-version UUID. Ingestion manifests contain the exact validated

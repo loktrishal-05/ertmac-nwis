@@ -11,5 +11,9 @@ from app.db.models.approval import Approval
 from app.db.models.audit_log import AuditLog
 
 from app.db.models.document_version import DocumentVersion
+from app.db.models.structured_data_source import StructuredDataSource
+from app.db.models.maintenance_record import MaintenanceRecord
+from app.db.models.agent_run import AgentRun
+from app.db.models.agent_run_step import AgentRunStep
 
-__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion"]
+__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep"]

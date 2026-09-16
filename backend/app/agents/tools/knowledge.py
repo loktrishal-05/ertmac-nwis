@@ -1,0 +1,102 @@
+"""retrieve_documents (hybrid retrieval, 3A/3B2) and get_pid_regions
+(P&ID OCR region read, 3B1/3B2). Both wrap an existing READ function only."""
+import json
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.agents.evidence import document_chunk_evidence, pid_region_evidence
+from app.agents.registry import register
+from app.core.config import settings
+from app.db.models.document_version import DocumentVersion
+from app.schemas.knowledge import RetrieveRequest
+from app.schemas.pid import OCRRegion, PIDManifest
+from app.services.model_gateway.types import ToolSpec
+from app.services.retrieval import retrieve
+
+
+def _ocr_status(ocr_derived: bool, confidence: float | None) -> str | None:
+    # Phase 3B1 rule, reused exactly: confidence < 0.6 is ambiguous; OCR
+    # confidence never establishes a "verified" status.
+    if not ocr_derived:
+        return None
+    return "ambiguous" if confidence is not None and confidence < 0.6 else "unverified"
+
+
+class RetrieveDocumentsArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(default=6, ge=1, le=30)
+    document_types: list[str] = Field(default_factory=list, max_length=10)
+
+
+def retrieve_documents(session, arguments: RetrieveDocumentsArguments):
+    request = RetrieveRequest(query=arguments.query, top_k=arguments.top_k, document_types=arguments.document_types)
+    response = retrieve(request, session)
+    refs, results = [], []
+    for result in response.results:
+        citation = result.citation
+        ref = document_chunk_evidence(
+            chunk_id=result.chunk_id, document_id=result.document_id, document_version_id=result.document_version_id,
+            source_filename=citation.source_filename, source_sha256=citation.source_sha256,
+            section_path=citation.section_path, page_start=citation.page_start, page_end=citation.page_end,
+            bounding_boxes=[box.model_dump(mode="json") for box in citation.bounding_boxes],
+            quote=citation.quote, ocr_derived=citation.ocr_derived, ocr_confidence=citation.ocr_confidence,
+            ocr_status=_ocr_status(citation.ocr_derived, citation.ocr_confidence),
+        )
+        refs.append(ref)
+        results.append({"evidence_id": ref.evidence_id, "score": result.score, "content_type": result.content_type})
+    payload = {"strategy": response.strategy, "warnings": response.warnings, "results": results}
+    return payload, refs
+
+
+class GetPIDRegionsArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    document_version_id: UUID
+
+
+def get_pid_regions(session, arguments: GetPIDRegionsArguments):
+    version = session.get(DocumentVersion, arguments.document_version_id)
+    if version is None or version.ingestion_metadata.get("kind") != "pid":
+        return {"regions": [], "warnings": ["No processed P&ID found for this document_version_id."]}, []
+    root = (settings.data_root / "processed/pids").resolve()
+    manifest_path = (settings.data_root / "processed/pids/manifests" / f"{version.id}.json").resolve()
+    if not manifest_path.is_relative_to(root) or not manifest_path.is_file():
+        return {"regions": [], "warnings": ["P&ID manifest artifact is missing."]}, []
+    manifest = PIDManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+    region_path = (settings.data_root / manifest.region_json_uri).resolve()
+    if not region_path.is_relative_to(root) or not region_path.is_file():
+        return {"regions": [], "warnings": ["P&ID region artifact is missing."]}, []
+    raw = json.loads(region_path.read_text(encoding="utf-8"))
+    regions = [OCRRegion.model_validate(item) for item in raw["regions"]]
+    refs = []
+    for region in regions:
+        confidence = min((item.confidence for item in region.text_items), default=0.0)
+        refs.append(pid_region_evidence(
+            region_id=region.region_id, document_id=manifest.document_id, document_version_id=manifest.document_version_id,
+            source_filename=manifest.source_filename, source_sha256=manifest.source_sha256,
+            page=region.page, bbox=region.bbox, confidence=confidence,
+            ocr_status="ambiguous" if confidence < 0.6 else "unverified", combined_text=region.combined_text,
+        ))
+    payload = {"region_count": len(refs), "evidence_ids": [ref.evidence_id for ref in refs]}
+    return payload, refs
+
+
+register(
+    ToolSpec(
+        name="retrieve_documents",
+        description="Read-only hybrid (dense+sparse+rerank) search over indexed SOPs, manuals, incidents, "
+                     "and shift logs. Returns citation-ready evidence references, never an answer.",
+        parameters=RetrieveDocumentsArguments.model_json_schema(),
+    ),
+    RetrieveDocumentsArguments, retrieve_documents,
+)
+register(
+    ToolSpec(
+        name="get_pid_regions",
+        description="Read-only lookup of OCR-derived P&ID regions for an already-processed drawing version. "
+                     "OCR confidence never establishes verified equipment identity or process topology.",
+        parameters=GetPIDRegionsArguments.model_json_schema(),
+    ),
+    GetPIDRegionsArguments, get_pid_regions,
+)
