@@ -1,0 +1,316 @@
+{
+  "name": "WB-03 Daily Sovereignty Status Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000001",
+      "name": "Daily 06:00 IST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-900, 0],
+      "notesInFlow": true,
+      "notes": "Cron is evaluated in the workflow timezone (Asia/Kolkata), set in workflow settings."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "s1", "name": "run_id", "value": "={{ $execution.id }}-{{ $now.toMillis() }}", "type": "string" },
+            { "id": "s2", "name": "report_date", "value": "={{ $now.toFormat('yyyy-MM-dd') }}", "type": "string" },
+            { "id": "s3", "name": "generated_at", "value": "={{ $now.toISO() }}", "type": "string" },
+            { "id": "s4", "name": "workbench_base_url", "value": "={{ $env.WORKBENCH_BASE_URL }}", "type": "string" },
+            { "id": "s5", "name": "qdrant_url", "value": "={{ $env.QDRANT_URL || 'http://qdrant:6333' }}", "type": "string" },
+            { "id": "s6", "name": "qdrant_collection", "value": "={{ $env.QDRANT_COLLECTION || 'knowledge_chunks_v1' }}", "type": "string" },
+            { "id": "s7", "name": "ollama_base_url", "value": "={{ $env.OLLAMA_BASE_URL || 'http://ollama:11434' }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1000000-0000-4000-8000-000000000002",
+      "name": "Set: Run Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.workbench_base_url }}/sovereignty/proof",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000003",
+      "name": "Probe: Sovereignty Proof",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, -420],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "Workbench API Token" }
+      },
+      "notesInFlow": true,
+      "notes": "EXISTS, but is a Phase 2 STATIC declaration - not a measured egress counter."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/health",
+        "options": {
+          "timeout": 10000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000004",
+      "name": "Probe: Backend Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, -260],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Set: Run Context').first().json.ollama_base_url }}/api/tags",
+        "options": {
+          "timeout": 15000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000005",
+      "name": "Probe: Local Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, -100],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Ollama's own local API. For vLLM use GET /v1/models instead. No inference is requested - listing only."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Set: Run Context').first().json.qdrant_url }}/collections/{{ $('Set: Run Context').first().json.qdrant_collection }}",
+        "options": {
+          "timeout": 15000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000006",
+      "name": "Probe: Qdrant Collection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, 60],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Qdrant's own local REST API gives points_count. Replace with GET /knowledge/stats when that endpoint exists."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/approvals",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [{ "name": "status", "value": "pending" }]
+        },
+        "options": {
+          "timeout": 15000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000007",
+      "name": "Probe: Pending Approvals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, 220],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "Workbench API Token" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/audit/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-000000000008",
+      "name": "Probe: Audit Chain (FUTURE)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, 380],
+      "retryOnFail": false,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "Workbench API Token" }
+      },
+      "notesInFlow": true,
+      "notes": "FUTURE API REQUIRED: GET /audit/verify does not exist. Expect 404 today; the report will say 'not_implemented' rather than 'ok'."
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "id": "d1000000-0000-4000-8000-000000000009",
+      "name": "Merge Probes",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [-160, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build the daily sovereignty report DETERMINISTICALLY.\n//\n// No language model is involved - not even the local one. A compliance artifact\n// must be byte-reproducible from the same probe responses, and an LLM summary\n// would be neither reproducible nor auditable.\n//\n// Every section is labelled with an explicit status so a missing endpoint can\n// never be silently reported as a healthy one:\n//   ok               - probe answered and the value is trustworthy\n//   declared         - endpoint answered, but the value is a static declaration\n//   not_implemented  - endpoint does not exist yet (FUTURE API REQUIRED)\n//   unavailable      - endpoint exists but did not answer\n\nconst ctx = $('Set: Run Context').first().json;\n\nfunction probe(nodeName) {\n  try {\n    const r = $(nodeName).first().json || {};\n    const status = Number(r.statusCode || 0);\n    if (!status)                  return { status: 'unavailable',     http: null,   body: null, detail: String(r.error || r.message || 'no response').slice(0, 200) };\n    if (status === 404 || status === 501) return { status: 'not_implemented', http: status, body: null, detail: 'endpoint absent' };\n    if (status >= 400)            return { status: 'unavailable',     http: status, body: null, detail: `HTTP ${status}` };\n    return { status: 'ok', http: status, body: r.body, detail: null };\n  } catch (e) {\n    return { status: 'unavailable', http: null, body: null, detail: 'probe did not execute' };\n  }\n}\n\nconst sov      = probe('Probe: Sovereignty Proof');\nconst health   = probe('Probe: Backend Health');\nconst models   = probe('Probe: Local Models');\nconst qdrant   = probe('Probe: Qdrant Collection');\nconst approval = probe('Probe: Pending Approvals');\nconst audit    = probe('Probe: Audit Chain (FUTURE)');\n\n// --- external AI calls -------------------------------------------------\nconst sovBody = sov.body || {};\nconst externalCalls = {\n  value: sovBody.external_ai_calls ?? sovBody.external_calls ?? null,\n  // Phase 3A guide: /sovereignty/proof is a Phase 2 STATIC declaration,\n  // not network attestation or a measured outbound-call counter.\n  status: sov.status === 'ok' ? 'declared' : sov.status,\n  caveat: 'Static declaration from the Phase 2 endpoint. NOT a measured egress counter. Network-level proof still comes from the container egress policy, not from this number.'\n};\n\n// --- local model status ------------------------------------------------\nconst modelList = (models.body && Array.isArray(models.body.models)) ? models.body.models : [];\nconst localModels = {\n  status: models.status,\n  runtime_reachable: models.status === 'ok',\n  model_count: models.status === 'ok' ? modelList.length : null,\n  models: modelList.map((m) => ({ name: m.name || m.model || null, size_bytes: m.size ?? null, modified_at: m.modified_at ?? null })).slice(0, 50)\n};\n\n// --- indexed documents -------------------------------------------------\nconst qres = (qdrant.body && qdrant.body.result) ? qdrant.body.result : {};\nconst indexed = {\n  status: qdrant.status,\n  collection: ctx.qdrant_collection,\n  points_count: qres.points_count ?? null,\n  indexed_vectors_count: qres.indexed_vectors_count ?? null,\n  collection_status: qres.status ?? null,\n  caveat: 'points_count counts CHUNKS, not documents. A document-level count needs GET /knowledge/stats (FUTURE API REQUIRED).'\n};\n\n// --- audit chain -------------------------------------------------------\nconst auditBody = audit.body || {};\nconst auditChain = {\n  status: audit.status,\n  chain_valid: auditBody.chain_valid ?? null,\n  entries_verified: auditBody.entries_verified ?? null,\n  last_hash: auditBody.last_hash ?? null,\n  caveat: audit.status === 'not_implemented'\n    ? 'GET /audit/verify does not exist yet, and README states audit hash chaining is absent in the current phase. Chain integrity is UNVERIFIED, not verified-good.'\n    : null\n};\n\n// --- pending approvals -------------------------------------------------\nconst ab = approval.body;\nconst apList = Array.isArray(ab) ? ab : ((ab && (ab.items || ab.approvals || ab.results)) || []);\nconst approvals = {\n  status: approval.status,\n  pending_count: approval.status === 'ok' ? apList.length : null,\n  oldest_pending_at: approval.status === 'ok' && apList.length\n    ? apList.map((a) => a.created_at).filter(Boolean).sort()[0] || null\n    : null,\n  caveat: 'Identifiers and counts only. No approval CONTENT is written into this report.'\n};\n\nconst sections = { externalCalls, localModels, indexed, auditChain, approvals };\nconst degraded = Object.values(sections).some((s) => s.status === 'unavailable');\nconst incomplete = Object.values(sections).some((s) => s.status === 'not_implemented');\n\nconst report = {\n  report_type: 'daily_sovereignty_status',\n  schema_version: '1.0',\n  report_date: ctx.report_date,\n  generated_at: ctx.generated_at,\n  generated_by: 'n8n:WB-03 (deterministic, no LLM)',\n  run_id: ctx.run_id,\n  overall: degraded ? 'degraded' : (incomplete ? 'ok_with_gaps' : 'ok'),\n  backend_health: { status: health.status, payload: health.body ?? null },\n  external_ai_calls: externalCalls,\n  local_models: localModels,\n  indexed_documents: indexed,\n  audit_chain: auditChain,\n  pending_approvals: approvals,\n  disclaimer: 'Operational status report. It does not certify process safety, does not authorise any plant action, and asserts nothing about physical equipment state.'\n};\n\n// --- Markdown rendering ------------------------------------------------\nconst badge = (s) => ({ ok: 'OK', declared: 'DECLARED', not_implemented: 'NOT IMPLEMENTED', unavailable: 'UNAVAILABLE' }[s] || String(s).toUpperCase());\nconst v = (x) => (x === null || x === undefined ? '_not available_' : String(x));\n\nconst md = [\n  `# Sovereign Workbench - Daily Status Report`,\n  ``,\n  `**Date:** ${report.report_date}  `,\n  `**Generated:** ${report.generated_at} (deterministic, no AI service used)  `,\n  `**Overall:** ${report.overall.toUpperCase()}`,\n  ``,\n  `| Item | Status | Value |`,\n  `| --- | --- | --- |`,\n  `| External AI calls | ${badge(externalCalls.status)} | ${v(externalCalls.value)} |`,\n  `| Backend health | ${badge(health.status)} | ${v((health.body||{}).status)} |`,\n  `| Local model runtime | ${badge(localModels.status)} | ${v(localModels.model_count)} model(s) loaded |`,\n  `| Indexed chunks (${indexed.collection}) | ${badge(indexed.status)} | ${v(indexed.points_count)} |`,\n  `| Audit chain | ${badge(auditChain.status)} | ${v(auditChain.chain_valid)} |`,\n  `| Pending approvals | ${badge(approvals.status)} | ${v(approvals.pending_count)} |`,\n  ``,\n  `## Local models`,\n  localModels.models.length ? localModels.models.map((m) => `- ${m.name}`).join('\\n') : '_none reported_',\n  ``,\n  `## Caveats that must not be dropped`,\n  `- ${externalCalls.caveat}`,\n  `- ${indexed.caveat}`,\n  auditChain.caveat ? `- ${auditChain.caveat}` : `- Audit chain reported by the backend; independent re-verification is recommended.`,\n  `- ${approvals.caveat}`,\n  ``,\n  `## Disclaimer`,\n  report.disclaimer,\n  ``\n].join('\\n');\n\nconst dir = $env.WB_REPORT_DIR || '/data/n8n/reports/sovereignty';\n\nreturn [{\n  json: {\n    ...report,\n    md_path: `${dir}/sovereignty-${report.report_date}.md`,\n    json_path: `${dir}/sovereignty-${report.report_date}.json`\n  },\n  binary: {\n    md:   await this.helpers.prepareBinaryData(Buffer.from(md, 'utf8'), `sovereignty-${report.report_date}.md`, 'text/markdown'),\n    json: await this.helpers.prepareBinaryData(Buffer.from(JSON.stringify(report, null, 2), 'utf8'), `sovereignty-${report.report_date}.json`, 'application/json')\n  }\n}];"
+      },
+      "id": "d1000000-0000-4000-8000-00000000000a",
+      "name": "Code: Build Report (no LLM)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 0]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.md_path }}",
+        "dataPropertyName": "md",
+        "options": { "append": false }
+      },
+      "id": "d1000000-0000-4000-8000-00000000000b",
+      "name": "Write Markdown Report",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [320, -100],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $('Code: Build Report (no LLM)').first().json.json_path }}",
+        "dataPropertyName": "json",
+        "options": { "append": false }
+      },
+      "id": "d1000000-0000-4000-8000-00000000000c",
+      "name": "Write JSON Report",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [540, -100],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_NOTIFICATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'sovereign-workbench-ops', severity: $('Code: Build Report (no LLM)').first().json.overall === 'degraded' ? 'warning' : 'info', title: `Sovereign Workbench daily status - ${$('Code: Build Report (no LLM)').first().json.report_date}`, overall: $('Code: Build Report (no LLM)').first().json.overall, external_ai_calls: $('Code: Build Report (no LLM)').first().json.external_ai_calls.value, external_ai_calls_status: $('Code: Build Report (no LLM)').first().json.external_ai_calls.status, local_models: $('Code: Build Report (no LLM)').first().json.local_models.model_count, indexed_chunks: $('Code: Build Report (no LLM)').first().json.indexed_documents.points_count, audit_chain: $('Code: Build Report (no LLM)').first().json.audit_chain.status, pending_approvals: $('Code: Build Report (no LLM)').first().json.pending_approvals.pending_count, report_path: $('Code: Build Report (no LLM)').first().json.md_path }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "d1000000-0000-4000-8000-00000000000d",
+      "name": "Notify Daily Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, -100],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 15000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "id": "d1000000-0000-4000-8000-00000000000e",
+      "name": "Report Filed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [980, -100]
+    }
+  ],
+  "connections": {
+    "Daily 06:00 IST": {
+      "main": [[{ "node": "Set: Run Context", "type": "main", "index": 0 }]]
+    },
+    "Set: Run Context": {
+      "main": [[
+        { "node": "Probe: Sovereignty Proof", "type": "main", "index": 0 },
+        { "node": "Probe: Backend Health", "type": "main", "index": 0 },
+        { "node": "Probe: Local Models", "type": "main", "index": 0 },
+        { "node": "Probe: Qdrant Collection", "type": "main", "index": 0 },
+        { "node": "Probe: Pending Approvals", "type": "main", "index": 0 },
+        { "node": "Probe: Audit Chain (FUTURE)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Probe: Sovereignty Proof": { "main": [[{ "node": "Merge Probes", "type": "main", "index": 0 }]] },
+    "Probe: Backend Health": { "main": [[{ "node": "Merge Probes", "type": "main", "index": 1 }]] },
+    "Probe: Local Models": { "main": [[{ "node": "Merge Probes", "type": "main", "index": 2 }]] },
+    "Probe: Qdrant Collection": { "main": [[{ "node": "Merge Probes", "type": "main", "index": 3 }]] },
+    "Probe: Pending Approvals": { "main": [[{ "node": "Merge Probes", "type": "main", "index": 4 }]] },
+    "Probe: Audit Chain (FUTURE)": { "main": [[{ "node": "Merge Probes", "type": "main", "index": 5 }]] },
+    "Merge Probes": { "main": [[{ "node": "Code: Build Report (no LLM)", "type": "main", "index": 0 }]] },
+    "Code: Build Report (no LLM)": { "main": [[{ "node": "Write Markdown Report", "type": "main", "index": 0 }]] },
+    "Write Markdown Report": { "main": [[{ "node": "Write JSON Report", "type": "main", "index": 0 }]] },
+    "Write JSON Report": { "main": [[{ "node": "Notify Daily Summary", "type": "main", "index": 0 }]] },
+    "Notify Daily Summary": { "main": [[{ "node": "Report Filed", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "REPLACE_WITH_WB00_WORKFLOW_ID",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 600
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {}
+}

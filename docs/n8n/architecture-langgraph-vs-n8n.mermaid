@@ -1,0 +1,76 @@
+---
+title: "SIH26117 Sovereign Workbench — LangGraph is the AI core; n8n is peripheral automation"
+---
+flowchart TB
+
+    subgraph PLANT["🏭 PHYSICAL PLANT — SCADA / DCS / Interlocks / LOTO / Permits"]
+        SCADA["SCADA · DCS · Field devices<br/><b>NO AUTOMATED WRITE PATH EXISTS</b>"]
+    end
+
+    subgraph HUMANS["👤 AUTHORISED HUMANS (final authority)"]
+        ENG["Shift Engineer · Safety Officer<br/>Plant Operations Head"]
+    end
+
+    subgraph CORE["🧠 AI CORE — LangGraph (unchanged by this design)"]
+        direction TB
+        UI["React Dashboard"]
+        API["FastAPI — API Gateway"]
+        LG["<b>LangGraph Orchestrator</b><br/>intent + modality routing"]
+        AG["Knowledge · Safety · Maintenance ·<br/>Process-Optimisation Agents"]
+        GR["<b>Guardrail Agent</b><br/>confidence · injection · scope · permission"]
+        HQ["<b>Human Approval Queue</b><br/>the only route to action"]
+        LLM["Local open-weight LLMs<br/>Ollama / vLLM · BGE · PaddleOCR"]
+        ST[("PostgreSQL · Qdrant<br/>data/raw · data/processed")]
+
+        UI --> API --> LG --> AG --> GR --> HQ
+        LG -.-> LLM
+        AG -.-> LLM
+        AG -.-> ST
+    end
+
+    subgraph N8N["⚙️ n8n — PERIPHERAL WORKFLOW AUTOMATION (self-hosted, no LLM, no agents)"]
+        direction TB
+        W1["WB-01 Scheduled<br/>document ingestion"]
+        W2["WB-02 Approval<br/>notification (read-only)"]
+        W3["WB-03 Daily sovereignty<br/>status report"]
+        W4["WB-04 Audit export<br/>/ archive (append-only)"]
+        W0["WB-00 Shared<br/>error handler"]
+    end
+
+    NOTIF["Internal notification channel<br/>(on-prem webhook / SMTP)"]
+    ARCH[("Append-only archive volume<br/>reports · audit exports · logs")]
+
+    %% n8n talks to the workbench only through its public HTTP API
+    W1 -->|"POST /documents/ingest<br/>POST /documents/pid/process"| API
+    W2 -->|"GET /approvals — never POST a decision"| API
+    W3 -->|"GET /sovereignty/proof · /health<br/>GET Qdrant · Ollama (local)"| API
+    W4 -->|"GET /audit/log"| API
+
+    W2 --> NOTIF
+    W3 --> NOTIF
+    W4 --> NOTIF
+    W0 --> NOTIF
+    W3 --> ARCH
+    W4 --> ARCH
+    W1 --> ARCH
+
+    NOTIF --> ENG
+    HQ ==>|"approve / reject<br/>INSIDE the workbench UI"| ENG
+    ENG ==>|"human executes the field action<br/>under permit / LOTO"| SCADA
+
+    %% Explicit prohibitions
+    N8N -. "❌ never routes / reasons / calls an LLM" .-x LG
+    N8N -. "❌ never approves, edits or closes an approval" .-x HQ
+    N8N -. "❌ never writes to SCADA/DCS, valves, alarms,<br/>interlocks, permits or LOTO" .-x SCADA
+
+    classDef core fill:#1b3a5c,stroke:#0d1f33,color:#ffffff,stroke-width:2px
+    classDef auto fill:#3d2f5c,stroke:#241b38,color:#ffffff,stroke-width:2px
+    classDef plant fill:#5c1f1f,stroke:#330f0f,color:#ffffff,stroke-width:2px
+    classDef human fill:#1f4d2e,stroke:#0f2917,color:#ffffff,stroke-width:2px
+    classDef store fill:#2b2b33,stroke:#16161a,color:#ffffff
+
+    class UI,API,LG,AG,GR,HQ,LLM core
+    class W0,W1,W2,W3,W4 auto
+    class SCADA plant
+    class ENG human
+    class ST,ARCH,NOTIF store

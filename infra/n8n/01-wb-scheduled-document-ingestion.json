@@ -1,0 +1,538 @@
+{
+  "name": "WB-01 Scheduled Document Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-780, 0],
+      "notesInFlow": true,
+      "notes": "Polls the approved watch folder. No inbound port, no cloud."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "run_id",
+              "value": "={{ $execution.id }}-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "r2",
+              "name": "started_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "r3",
+              "name": "workbench_base_url",
+              "value": "={{ $env.WORKBENCH_BASE_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "r4",
+              "name": "data_root",
+              "value": "={{ $env.WB_DATA_ROOT || '/data/raw' }}",
+              "type": "string"
+            },
+            {
+              "id": "r5",
+              "name": "watch_glob",
+              "value": "={{ $env.WB_WATCH_GLOB || '/data/raw/**/source/*.pdf' }}",
+              "type": "string"
+            },
+            {
+              "id": "r6",
+              "name": "facility_id",
+              "value": "={{ $env.WB_FACILITY_ID || 'prototype' }}",
+              "type": "string"
+            },
+            {
+              "id": "r7",
+              "name": "pid_auto_index",
+              "value": "={{ ($env.WB_PID_AUTO_INDEX || 'false') === 'true' }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "Set: Run Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-560, 0]
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $json.watch_glob }}",
+        "options": {
+          "dataPropertyName": "data"
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000003",
+      "name": "Read Watch Folder",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [-340, 0],
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Bind mount data/raw READ-ONLY. Restricted by N8N_RESTRICT_FILE_ACCESS_TO."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Validate filenames/types, classify the corpus, and decide what to submit.\n//\n// IMPORTANT: file BYTES are never sent over HTTP. The Phase 3A ingestion API is\n// path-based (source_path relative to data/raw), so the PDF never leaves disk.\n// We only forward a relative path plus metadata.\n//\n// Idempotency is owned by the BACKEND: identical SHA-256 + identical metadata\n// returns the original IDs with status 'duplicate' and no re-embedding\n// (Phase 3A guide). The static-data cache below is a bandwidth optimisation\n// only - wiping it is always safe.\n\nconst ctx = $('Set: Run Context').first().json;\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\n\nconst MAX_BYTES = 20 * 1024 * 1024;           // Phase 3A / 3B1 hard limit\nconst NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;\nconst ALLOWED_EXT = ['pdf', 'png', 'jpg', 'jpeg'];\nconst dataRoot = String(ctx.data_root).replace(/\\/+$/, '');\n\n// Map a data/raw subdirectory to the document_type accepted by the API.\nfunction classify(relPath) {\n  if (relPath.startsWith('pids/'))      return { type: 'pid',      isPid: true  };\n  if (relPath.startsWith('sops/'))      return { type: 'sop',      isPid: false };\n  if (relPath.startsWith('incidents/')) return { type: 'incident', isPid: false };\n  if (relPath.startsWith('manuals/'))   return { type: 'manual',   isPid: false };\n  return { type: null, isPid: false };\n}\n\n// Phase 3B1 only accepts paths beneath data/raw/pids/source/.\nfunction relPathIsPidSource(rel) { return rel.startsWith('pids/source/'); }\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const bin = (item.binary || {}).data || {};\n  const fileName = String(bin.fileName || '');\n  // The Read/Write Files node reports the containing directory in binary metadata.\n  // If it is absent we must NOT guess a path - a wrong source_path would make the\n  // API ingest the wrong file. Skip loudly instead.\n  const absPath = bin.directory ? `${String(bin.directory).replace(/\\/+$/, '')}/${fileName}` : '';\n  const ext = String(bin.fileExtension || fileName.split('.').pop() || '').toLowerCase();\n  const size = Number(bin.fileSize ? String(bin.fileSize).replace(/[^0-9]/g, '') : 0);\n\n  const base = { run_id: ctx.run_id, file_name: fileName, abs_path: absPath, size_bytes: size };\n  const reject = (reason) => out.push({ json: { ...base, decision: 'skip', reason } });\n\n  if (!absPath)                            { reject('directory_metadata_missing'); continue; }\n  if (!absPath.startsWith(dataRoot + '/')) { reject('path_outside_data_root'); continue; }\n  if (!NAME_RE.test(fileName))             { reject('filename_not_allowlisted'); continue; }\n  if (!ALLOWED_EXT.includes(ext))          { reject(`extension_not_allowed:${ext}`); continue; }\n  if (size > MAX_BYTES)                    { reject('exceeds_20MiB_api_limit'); continue; }\n\n  const relPath = absPath.slice(dataRoot.length + 1);\n  const { type, isPid } = classify(relPath);\n  if (!type) { reject('unmapped_subdirectory'); continue; }\n  // Phase 3A text ingestion accepts PDF only; Phase 3B1 P&ID accepts PDF/PNG/JPG/JPEG.\n  if (!isPid && ext !== 'pdf') { reject('text_corpus_requires_pdf'); continue; }\n  if (isPid && !relPathIsPidSource(relPath)) { reject('pid_must_live_under_pids_source'); continue; }\n\n  const cacheKey = `${relPath}|${size}`;\n  if (store.seen[cacheKey]) { reject('already_submitted_this_instance'); continue; }\n\n  // For P&IDs the source_path is relative to data/raw/pids/source/ (Phase 3B1),\n  // for text documents it is relative to data/raw (Phase 3A). Different bases.\n  const pidSourcePath = relPath.replace(/^pids\\/source\\//, '');\n\n  out.push({\n    json: {\n      ...base,\n      decision: 'submit',\n      cache_key: cacheKey,\n      rel_path: relPath,\n      is_pid: isPid,\n      document_type: type,\n      ingest_body: isPid\n        ? {\n            source_path: pidSourcePath,\n            title: fileName.replace(/\\.[^.]+$/, ''),\n            revision: 'unspecified',\n            synthetic: false,\n            render_dpi: 300,\n            preprocessing: {\n              grayscale: true,\n              contrast_normalization: true,\n              adaptive_threshold: false,\n              denoise: false,\n              rotation_degrees: 0\n            }\n          }\n        : {\n            source_path: relPath,\n            title: fileName.replace(/\\.[^.]+$/, ''),\n            document_type: type,\n            revision: 'unspecified',\n            facility_id: ctx.facility_id,\n            synthetic: false,\n            access_scope: 'internal'\n          }\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "b1000000-0000-4000-8000-000000000004",
+      "name": "Code: Validate And Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-120, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f1",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "submit",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000005",
+      "name": "Filter: Submittable",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [100, -100]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": { "reset": false }
+      },
+      "id": "b1000000-0000-4000-8000-000000000006",
+      "name": "Loop Over Files",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [320, -100],
+      "notesInFlow": true,
+      "notes": "One file at a time: Phase 3A ingestion is synchronous and CPU-bound."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "p1",
+              "leftValue": "={{ $json.is_pid }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000007",
+      "name": "If: Is P&ID Drawing",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [560, 60]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/documents/pid/process",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ingest_body) }}",
+        "options": {
+          "timeout": 900000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000008",
+      "name": "HTTP: Process P&ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, -40],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 30000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Workbench API Token"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Local PaddleOCR is slow on CPU. Long timeout, low retry count."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ix1",
+              "leftValue": "={{ $('Set: Run Context').first().json.pid_auto_index }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            },
+            {
+              "id": "ix2",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 300,
+              "operator": { "type": "number", "operation": "lt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000009",
+      "name": "If: Auto-Index P&ID",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1000, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/documents/pid/{{ $json.body.document_version_id }}/index",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 600000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b1000000-0000-4000-8000-00000000000a",
+      "name": "HTTP: Index P&ID Regions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, -120],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 15000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Workbench API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/documents/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ingest_body) }}",
+        "options": {
+          "timeout": 900000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b1000000-0000-4000-8000-00000000000b",
+      "name": "HTTP: Ingest Document",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 160],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 20000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Workbench API Token"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Phase 3A synchronous ingest: Docling + BGE + Qdrant on CPU can take minutes."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Classify one file's outcome. Runs for every branch, including error outputs.\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\n\nconst plan = $('Loop Over Files').first().json;\nconst res  = $input.first().json || {};\n\nconst status = Number(res.statusCode || 0);\nconst body   = res.body || {};\nconst netErr = res.error || res.message || null;\n\nlet outcome, retryable;\nif (!status && netErr)          { outcome = 'transport_error'; retryable = true;  }\nelse if (status === 409)        { outcome = 'conflict';        retryable = false; }\nelse if (status >= 500)         { outcome = 'server_error';    retryable = true;  }\nelse if (status >= 400)         { outcome = 'rejected';        retryable = false; }\nelse if (body.status === 'duplicate' || body.duplicate === true) { outcome = 'duplicate'; retryable = false; }\nelse if (status >= 200 && status < 300) { outcome = 'ingested'; retryable = false; }\nelse                            { outcome = 'unknown';         retryable = true;  }\n\n// Only cache outcomes that will not change on a retry.\nif (['ingested', 'duplicate', 'rejected', 'conflict'].includes(outcome) && plan.cache_key) {\n  store.seen[plan.cache_key] = { outcome, at: new Date().toISOString() };\n}\n\nreturn [{\n  json: {\n    run_id: plan.run_id,\n    file_name: plan.file_name,\n    rel_path: plan.rel_path,\n    is_pid: plan.is_pid === true,\n    document_type: plan.document_type,\n    outcome,\n    retryable,\n    http_status: status || null,\n    document_id: body.document_id || null,\n    document_version_id: body.document_version_id || null,\n    sha256: body.checksum_sha256 || body.sha256 || null,\n    warnings: body.warnings || [],\n    api_message: typeof body.detail === 'string' ? body.detail.slice(0, 300) : null,\n    transport_error: netErr ? String(netErr).slice(0, 300) : null,\n    recorded_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "b1000000-0000-4000-8000-00000000000c",
+      "name": "Code: Record Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1460, 60]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Aggregate the whole run into one JSONL blob + a summary item.\nconst ctx = $('Set: Run Context').first().json;\n\nconst planned = $('Code: Validate And Plan').all().map((i) => i.json);\nconst skipped = planned.filter((p) => p.decision === 'skip');\nconst results = $input.all().map((i) => i.json);\n\nconst tally = (name) => results.filter((r) => r.outcome === name).length;\n\nconst summary = {\n  event: 'ingest_run_summary',\n  run_id: ctx.run_id,\n  started_at: ctx.started_at,\n  finished_at: new Date().toISOString(),\n  files_seen: planned.length,\n  files_skipped: skipped.length,\n  files_submitted: results.length,\n  ingested: tally('ingested'),\n  duplicate: tally('duplicate'),\n  rejected: tally('rejected'),\n  conflict: tally('conflict'),\n  server_error: tally('server_error'),\n  transport_error: tally('transport_error'),\n  skip_reasons: skipped.reduce((a, s) => { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {})\n};\n\nsummary.failures = summary.rejected + summary.conflict + summary.server_error + summary.transport_error;\nsummary.has_failures = summary.failures > 0;\n\nconst lines = [...skipped, ...results, summary].map((r) => JSON.stringify(r)).join('\\n') + '\\n';\nconst day = new Date().toISOString().slice(0, 10);\n\nreturn [{\n  json: {\n    ...summary,\n    log_path: `${$env.WB_LOG_DIR || '/data/n8n/logs'}/ingest-${day}.jsonl`,\n    failed_files: results.filter((r) => ['rejected','conflict','server_error','transport_error'].includes(r.outcome))\n                         .map((r) => ({ file: r.file_name, outcome: r.outcome, status: r.http_status }))\n  },\n  binary: {\n    data: await this.helpers.prepareBinaryData(Buffer.from(lines, 'utf8'), `ingest-${day}.jsonl`, 'application/x-ndjson')\n  }\n}];"
+      },
+      "id": "b1000000-0000-4000-8000-00000000000d",
+      "name": "Code: Summarise Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, -260]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.log_path }}",
+        "dataPropertyName": "data",
+        "options": { "append": true }
+      },
+      "id": "b1000000-0000-4000-8000-00000000000e",
+      "name": "Append Ingest Log",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [780, -260],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "hf1",
+              "leftValue": "={{ $('Code: Summarise Run').first().json.has_failures }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-00000000000f",
+      "name": "If: Any Failures",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1000, -260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_NOTIFICATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'sovereign-workbench-ops', severity: 'warning', title: 'Document ingestion completed with failures', run_id: $('Code: Summarise Run').first().json.run_id, submitted: $('Code: Summarise Run').first().json.files_submitted, ingested: $('Code: Summarise Run').first().json.ingested, duplicate: $('Code: Summarise Run').first().json.duplicate, failures: $('Code: Summarise Run').first().json.failures, failed_files: $('Code: Summarise Run').first().json.failed_files, note: 'Filenames only. No document content is transmitted.' }) }}",
+        "options": {
+          "timeout": 15000,
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000010",
+      "name": "Notify Ingest Failures",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, -340],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "id": "b1000000-0000-4000-8000-000000000011",
+      "name": "Run Complete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1220, -180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_NOTIFICATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'sovereign-workbench-ops', severity: 'error', title: 'Ingestion watch folder could not be read', detail: 'Check the data/raw bind mount and N8N_RESTRICT_FILE_ACCESS_TO.', run_id: $('Set: Run Context').first().json.run_id }) }}",
+        "options": {
+          "timeout": 15000,
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000012",
+      "name": "Notify Scan Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-120, 180],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "Watch folder unreadable - ingestion aborted for this run."
+      },
+      "id": "b1000000-0000-4000-8000-000000000013",
+      "name": "Stop: Scan Failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [100, 180]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [[{ "node": "Set: Run Context", "type": "main", "index": 0 }]]
+    },
+    "Set: Run Context": {
+      "main": [[{ "node": "Read Watch Folder", "type": "main", "index": 0 }]]
+    },
+    "Read Watch Folder": {
+      "main": [
+        [{ "node": "Code: Validate And Plan", "type": "main", "index": 0 }],
+        [{ "node": "Notify Scan Failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Scan Failure": {
+      "main": [[{ "node": "Stop: Scan Failed", "type": "main", "index": 0 }]]
+    },
+    "Code: Validate And Plan": {
+      "main": [[{ "node": "Filter: Submittable", "type": "main", "index": 0 }]]
+    },
+    "Filter: Submittable": {
+      "main": [[{ "node": "Loop Over Files", "type": "main", "index": 0 }]]
+    },
+    "Loop Over Files": {
+      "main": [
+        [{ "node": "Code: Summarise Run", "type": "main", "index": 0 }],
+        [{ "node": "If: Is P&ID Drawing", "type": "main", "index": 0 }]
+      ]
+    },
+    "If: Is P&ID Drawing": {
+      "main": [
+        [{ "node": "HTTP: Process P&ID", "type": "main", "index": 0 }],
+        [{ "node": "HTTP: Ingest Document", "type": "main", "index": 0 }]
+      ]
+    },
+    "HTTP: Process P&ID": {
+      "main": [
+        [{ "node": "If: Auto-Index P&ID", "type": "main", "index": 0 }],
+        [{ "node": "Code: Record Outcome", "type": "main", "index": 0 }]
+      ]
+    },
+    "If: Auto-Index P&ID": {
+      "main": [
+        [{ "node": "HTTP: Index P&ID Regions", "type": "main", "index": 0 }],
+        [{ "node": "Code: Record Outcome", "type": "main", "index": 0 }]
+      ]
+    },
+    "HTTP: Index P&ID Regions": {
+      "main": [
+        [{ "node": "Code: Record Outcome", "type": "main", "index": 0 }],
+        [{ "node": "Code: Record Outcome", "type": "main", "index": 0 }]
+      ]
+    },
+    "HTTP: Ingest Document": {
+      "main": [
+        [{ "node": "Code: Record Outcome", "type": "main", "index": 0 }],
+        [{ "node": "Code: Record Outcome", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Record Outcome": {
+      "main": [[{ "node": "Loop Over Files", "type": "main", "index": 0 }]]
+    },
+    "Code: Summarise Run": {
+      "main": [[{ "node": "Append Ingest Log", "type": "main", "index": 0 }]]
+    },
+    "Append Ingest Log": {
+      "main": [[{ "node": "If: Any Failures", "type": "main", "index": 0 }]]
+    },
+    "If: Any Failures": {
+      "main": [
+        [{ "node": "Notify Ingest Failures", "type": "main", "index": 0 }],
+        [{ "node": "Run Complete", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "REPLACE_WITH_WB00_WORKFLOW_ID",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 3600
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {}
+}
