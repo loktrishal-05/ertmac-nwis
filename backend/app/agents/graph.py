@@ -19,6 +19,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.nodes.knowledge import knowledge_node
 from app.agents.nodes.maintenance import maintenance_node
+from app.agents.nodes.optimization import optimization_node
 from app.agents.nodes.router import router_node
 from app.agents.nodes.safety import safety_node
 from app.agents.nodes.stubs import make_stub_node
@@ -82,6 +83,7 @@ def build_graph(session=None):
         "maintenance": lambda state: maintenance_node(state, gateway=gateway, session=session),
         "safety": lambda state: safety_node(state, gateway=gateway, session=session),
         "combined_safety_maintenance": lambda state: safety_node(state, gateway=gateway, session=session),
+        "process_optimization": lambda state: optimization_node(state, gateway=gateway, session=session),
         "guardrail_refusal": guardrail_refusal_node,
         "clarification": clarification_node,
     }
