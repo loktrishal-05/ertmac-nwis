@@ -245,3 +245,92 @@ Review priority: HIGH — this is a product-behavior-shaping number with no
 empirical backing yet; the operator should tune it against real retrieval
 traffic before relying on it in production.
 Reversible: yes — a single `Field(default=...)` in `app/core/config.py`.
+
+### D-010 · 4D · The authorisation-language validator is a fixed regex list, not exhaustive
+Context: The 4D brief requires "a deterministic authorisation-language
+validator over the output — a forbidden-construction check for phrasings
+like 'you are cleared to', 'permission granted', 'you may now isolate',
+'authorised to'". No canonical phrase list exists anywhere in the
+repository or spec to import; one had to be authored.
+Options: (a) a short list matching only the brief's own four example
+phrasings verbatim; (b) a broader list covering the same four semantic
+categories (clearance, permission, permit issuance, "go ahead") with a
+handful of phrasings each, plus a narrow negative-lookahead so "authorised
+to request/obtain/seek [a permit]" — which reports a requirement, not a
+grant — is not falsely flagged.
+Chose: (b) — `app/agents/safety_language.py`.
+Because: (a) would satisfy the brief's literal text but miss trivial
+paraphrases (e.g. "you're cleared for entry", "the permit has been
+issued") that carry the identical risk the property exists to prevent; a
+regex list can never be exhaustive against open-ended model phrasing, but a
+broader deterministic net is more conservative than a narrower one, and (as
+`enforce_citations_and_authorization_language` shows) a false positive here
+only costs one bounded regeneration, not an incorrect refusal — a false
+negative is the more dangerous failure mode by far.
+Review priority: HIGH — this list is the entire enforcement mechanism for
+4D's stated safety property; the operator should red-team it with
+paraphrases the four seed phrasings do not cover (regional phrasing,
+non-English-influenced English, abbreviations) before relying on it as a
+sole safeguard, and should treat it as a floor, not a ceiling — Phase 5's
+actual approval gate is the real control, per the continuation doc's own
+framing that 4C-4F only *record* `human_approval_required`.
+Reversible: yes — `_FORBIDDEN_PATTERNS` is one list in one module, shared by
+4D and 4F per the brief's explicit reuse instruction.
+
+### D-011 · 4D · combined_safety_maintenance equipment-tag detection is deterministic, capped at 3 tags
+Context: `combined_safety_maintenance` (D-004) needs to pull maintenance/
+sensor evidence for whatever equipment the query concerns, but the query is
+free text — nothing hands the node a structured `equipment_tag`.
+Options: (a) ask the model, in a separate structured call, to extract the
+equipment tag(s) from the query before gathering evidence; (b) reuse the
+existing deterministic identifier extractor
+(`app.services.sparse.identifiers`, already used by `retrieval.py`'s own
+identifier-miss check) to find tag-shaped substrings in the query text
+directly, with no model call, capped at the first 3 distinct tags found.
+Chose: (b) — `app/agents/nodes/safety.py::_gather_evidence`.
+Because: (a) adds a model call (latency, and a second surface for the model
+to hallucinate a tag that does not exist) to what is fundamentally a
+pattern-matching problem the codebase already solves deterministically
+elsewhere. The cap of 3 exists to bound the number of tool calls a single
+turn can trigger — consistent with the project's existing bounded-window/
+bounded-limit discipline (`app/agents/tools/base.py`) — and is itself a
+provisional number with no calibration behind it beyond "small and
+finite."
+Review priority: MEDIUM
+Reversible: yes — `_MAX_COMBINED_TAGS` is one module-level constant.
+
+### D-012 · 4D · The node overrides the model's approval_status/human_approval_required, not just validates them
+Context: The 4D brief requires `action_class` and `human_approval_required`
+"recorded as fields" on every action-adjacent proposal, and separately that
+4D "must not gate" — approval *enforcement* is explicitly Phase 5's job
+(continuation doc section 2's prohibition list). It was ambiguous whether
+`_harden_action_recommendation` correcting the model's own
+`approval_status`/`human_approval_required` values crosses into
+"enforcement."
+Options: (a) pass the model's `approval_status`/`human_approval_required`
+values through unmodified, only validating the *shape* (schema-level enum
+membership, already covered) — treat any semantic wrongness as the model's
+problem to fix via the citation/language regeneration loop only; (b)
+deterministically override `approval_status="approved"` to `"required"`
+unconditionally, and force `human_approval_required=True` whenever any
+proposed action's `action_class` is not `"informational"`, regardless of
+what the model set.
+Chose: (b).
+Because: This is *recording accurately*, not *enforcing a gate* — the
+distinction the prohibition draws is about whether the system BLOCKS an
+output pending approval (it does not: 4D always returns a result, S7 or
+S5, synchronously, same as every other sub-phase), not about whether the
+recorded fields are trustworthy. A model that emits
+`approval_status="approved"` on its own output would otherwise let the
+*record itself* claim an approval that never happened — precisely the
+"reads as authorisation" failure mode 4D's safety property exists to
+prevent, just relocated from prose into a structured field a future Phase 5
+gate might trust naively. Overriding it in code makes "this system never
+self-approves" a code-enforced fact rather than a prompt instruction (the
+same reasoning D-006/D-007 already applied to language and evidence).
+Review priority: HIGH — this is exactly the kind of decision the operator
+should re-derive independently before Phase 5 is built, since Phase 5's
+approval gate will presumably trust `approval_status`/`human_approval_required`
+as ground truth; confirm this override matches that future design.
+Reversible: yes — `_harden_action_recommendation` is one function in
+`app/agents/nodes/safety.py`.

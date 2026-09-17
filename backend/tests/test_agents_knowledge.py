@@ -249,12 +249,14 @@ class GraphWiringTests(unittest.TestCase):
         with patch("app.agents.graph.get_model_gateway", return_value=self._fake_gateway("knowledge")), \
              patch("app.agents.nodes.knowledge.invoke_tool", return_value=({"results": [], "warnings": []}, [])):
             graph = build_graph(session=MagicMock())
-        state = graph.invoke({
-            "run_id": "r", "query": "q", "route": None, "route_confidence": None, "route_reasoning": None,
-            "evidence": [], "tool_invocations": [], "agent_result": None, "warnings": [], "errors": [],
-            "human_approval_required": False, "action_class": None, "started_at": "x", "finished_at": None,
-            "step_records": [],
-        }, config={"recursion_limit": cfg.agent_max_steps})
+            # invoke_tool is looked up at call time inside knowledge_node, not captured by
+            # closure the way `gateway` is -- the patch must still be active here.
+            state = graph.invoke({
+                "run_id": "r", "query": "q", "route": None, "route_confidence": None, "route_reasoning": None,
+                "evidence": [], "tool_invocations": [], "agent_result": None, "warnings": [], "errors": [],
+                "human_approval_required": False, "action_class": None, "started_at": "x", "finished_at": None,
+                "step_records": [],
+            }, config={"recursion_limit": cfg.agent_max_steps})
         self.assertEqual(state["agent_result"]["schema"], "S5")  # empty evidence -> refusal, but schema-valid
         self.assertNotIn("status", state["agent_result"])  # not the old stub shape
 

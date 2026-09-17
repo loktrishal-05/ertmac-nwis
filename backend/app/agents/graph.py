@@ -19,6 +19,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.nodes.knowledge import knowledge_node
 from app.agents.nodes.router import router_node
+from app.agents.nodes.safety import safety_node
 from app.agents.nodes.stubs import make_stub_node
 from app.agents.nodes.terminal import clarification_node, guardrail_refusal_node
 from app.agents.prompts.router import ROUTE_NAMES
@@ -65,10 +66,10 @@ def _route_selector(state) -> str:
 
 def build_graph(session=None):
     """session=None preserves 4B's exact behaviour (every route a stub; no DB
-    access). Phase 4C's real nodes need a per-request SQLAlchemy session for
-    their read-only tool calls, which a process-wide cached singleton graph
-    cannot hold (a session is request-scoped, not process-scoped) -- so a
-    node that needs one is bound to it via closure at build time here, and
+    access). Phase 4C/4D's real nodes need a per-request SQLAlchemy session
+    for their read-only tool calls, which a process-wide cached singleton
+    graph cannot hold (a session is request-scoped, not process-scoped) -- so
+    a node that needs one is bound to it via closure at build time here, and
     run_graph() below builds a fresh graph per call once a session is
     supplied rather than reusing get_graph()'s cache. See
     docs/phase4-decisions.md D-008 for the alternatives considered."""
@@ -77,6 +78,8 @@ def build_graph(session=None):
     builder.add_node("router", _traced("router", lambda state: router_node(state, gateway=gateway)))
     route_nodes = {
         "knowledge": lambda state: knowledge_node(state, gateway=gateway, session=session),
+        "safety": lambda state: safety_node(state, gateway=gateway, session=session),
+        "combined_safety_maintenance": lambda state: safety_node(state, gateway=gateway, session=session),
         "guardrail_refusal": guardrail_refusal_node,
         "clarification": clarification_node,
     }

@@ -12,13 +12,20 @@ into the actual reject-or-regenerate control flow 4B stopped short of: one
 bounded regeneration attempt carrying the validator's own error message, then
 a structural refusal. It never strips a bad citation and ships the answer --
 callers must propagate CitationEnforcementFailure into an S5 response, never
-catch it and return the prior (invalid) result."""
+catch it and return the prior (invalid) result.
+
+enforce_citations_and_authorization_language() is the 4D/4F variant: the same
+reject-or-regenerate shape, but checking both citation validity AND the
+authorisation-language validator (app.agents.safety_language) in a single
+bounded regeneration, since the 4D brief requires 4F to reuse 4D's validator
+directly rather than reimplement it. See docs/phase4-decisions.md D-006."""
 from typing import Callable, Sequence, TypeVar
 
 from pydantic import BaseModel
 
 from app.agents.citations import validate_citations
 from app.agents.evidence import EvidenceRef
+from app.agents.safety_language import find_authorization_language
 from app.schemas.agent_outputs import Citation, Refusal
 
 T = TypeVar("T", bound=BaseModel)
@@ -34,13 +41,18 @@ def refuse(
     )
 
 
-class CitationEnforcementFailure(Exception):
-    """Carries a ready-to-return S5 Refusal. The node that raises this must
-    return the refusal, never the invalid structured result that triggered it."""
+class EnforcementFailure(Exception):
+    """Carries a ready-to-return S5 Refusal. The node that raises this (or a
+    subclass of it) must return the refusal, never the invalid structured
+    result that triggered it."""
 
     def __init__(self, refusal: Refusal):
         super().__init__(refusal.reason)
         self.refusal = refusal
+
+
+class CitationEnforcementFailure(EnforcementFailure):
+    """Raised by enforce_citations() specifically -- a citation-only failure."""
 
 
 def enforce_citations(
@@ -74,4 +86,51 @@ def enforce_citations(
         ),
         missing_evidence=last_check.unknown_ids,
         safe_next_step="Rephrase the question or narrow it to a specific document, region, or equipment tag.",
+    ))
+
+
+def enforce_citations_and_authorization_language(
+    *, generate: Callable[[str | None], T], extract_citations: Callable[[T], Sequence[Citation]],
+    extract_language_text: Callable[[T], str], available: Sequence[EvidenceRef], max_attempts: int = 2,
+) -> T:
+    """Used by 4D (safety & incident) and 4F (process optimization): the same
+    bounded reject-or-regenerate shape as enforce_citations(), but a single
+    regeneration attempt must fix BOTH a citation problem and an
+    authorisation-language problem if both are present -- never two separate
+    regeneration budgets stacked on top of each other."""
+    retry_note = None
+    last_unknown_ids: list[str] = []
+    last_violations: list[str] = []
+    for _ in range(max_attempts):
+        result = generate(retry_note)
+        emitted = [c.evidence_id for c in extract_citations(result)]
+        citation_check = validate_citations(emitted=emitted, available=available)
+        violations = find_authorization_language(extract_language_text(result))
+        if citation_check.valid and not violations:
+            return result
+        last_unknown_ids, last_violations = citation_check.unknown_ids, violations
+        notes = []
+        if not citation_check.valid:
+            notes.append(f"cited evidence_id value(s) not gathered this turn: {citation_check.unknown_ids}")
+        if violations:
+            notes.append(
+                "used language that reads as granting authorisation or clearance to act "
+                f"(matched: {violations}); restate any procedure reference as a citation to what the "
+                "procedure says, never as permission granted by you"
+            )
+        retry_note = "The previous response is invalid: " + "; and ".join(notes) + ". Respond again with only the corrected JSON object."
+    # The refusal's own `reason` is user-facing (returned in agent_result), so it
+    # never repeats the model's rejected wording -- only that a rejection happened
+    # and the pattern-match count, never the raw regex source or the flagged text.
+    reason_parts = []
+    if last_unknown_ids:
+        reason_parts.append(f"cited {len(last_unknown_ids)} unknown evidence_id value(s)")
+    if last_violations:
+        reason_parts.append(f"used authorisation-implying language ({len(last_violations)} pattern match(es))")
+    raise EnforcementFailure(refuse(
+        status="refused" if last_violations else "insufficient_evidence",
+        reason="The generated recommendation " + " and ".join(reason_parts) + ", even after one bounded regeneration attempt.",
+        missing_evidence=last_unknown_ids,
+        safe_next_step="A qualified, authorised person must independently confirm and grant any permit, LOTO, "
+                       "or isolation clearance; this system never grants one.",
     ))
