@@ -68,13 +68,22 @@ class FoundationTests(unittest.TestCase):
         # picks depends on the live model's own classification rather than a
         # fixed placeholder. Assert the (extended, not broken) contract shape
         # instead of one hardcoded route.
+        # As of Phase 4C-4E, knowledge/maintenance/safety/combined_safety_maintenance
+        # (plus the always-terminal guardrail_refusal/clarification) are real agents
+        # with an S1-S7 agent_result.schema, not the flat not_implemented stub shape;
+        # process_optimization remains the one stub pending 4F. Branch on which the
+        # live model actually picked rather than assuming either shape.
         # A generous timeout: this is the one request in this file that reaches
         # the live model gateway, and a cold model load (MODEL_FIRST_LOAD_TIMEOUT_SECONDS)
         # can take well past the 5s default used elsewhere in this file.
         from app.agents.prompts.router import ROUTE_NAMES
+        STUB_ROUTES = {"process_optimization"}
         body = self.request("/query", "POST", {"query": "What is the status of pump P-204?"}, timeout=180)
         self.assertIn(body["route"], ROUTE_NAMES)
-        self.assertIn(body["agent_result"]["status"], ("not_implemented",))
+        if body["route"] in STUB_ROUTES:
+            self.assertEqual(body["agent_result"]["status"], "not_implemented")
+        else:
+            self.assertIn(body["agent_result"]["schema"], ("S1", "S3", "S4", "S5", "S6", "S7"))
         self.assertIsInstance(body["run_id"], str)
         self.assertIsInstance(body["evidence"], list)
         for body in ({}, {"query": "   "}, {"query": "x", "model": "other"}):

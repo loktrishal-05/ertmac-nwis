@@ -274,10 +274,14 @@ class GraphWiringTests(unittest.TestCase):
         self.assertEqual(state["agent_result"]["schema"], "S5")
         self.assertEqual(state["agent_result"]["output"]["status"], "refused")
 
-    def test_maintenance_route_still_reports_not_implemented(self):
+    def test_process_optimization_route_still_reports_not_implemented(self):
+        # process_optimization is the last route still a stub, pending 4F -- this is
+        # the regression guard that would catch an accidental over-broad rewire.
+        # (maintenance was this test's witness route until Phase 4E made it real too;
+        # see tests/test_agents_maintenance.py for its own coverage.)
         from app.agents.graph import build_graph
         from app.core.config import settings as cfg
-        with patch("app.agents.graph.get_model_gateway", return_value=self._fake_gateway("maintenance")):
+        with patch("app.agents.graph.get_model_gateway", return_value=self._fake_gateway("process_optimization")):
             graph = build_graph()
         state = graph.invoke({
             "run_id": "r", "query": "q", "route": None, "route_confidence": None, "route_reasoning": None,

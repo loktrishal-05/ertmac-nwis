@@ -18,13 +18,21 @@ enforce_citations_and_authorization_language() is the 4D/4F variant: the same
 reject-or-regenerate shape, but checking both citation validity AND the
 authorisation-language validator (app.agents.safety_language) in a single
 bounded regeneration, since the 4D brief requires 4F to reuse 4D's validator
-directly rather than reimplement it. See docs/phase4-decisions.md D-006."""
+directly rather than reimplement it. See docs/phase4-decisions.md D-006.
+
+enforce_citations_and_diagnostic_language() is the 4E variant, for the S4
+maintenance-assessment path specifically: free-text `observations` must never
+name a failure mode (app.agents.observation_language's word ban) while
+`hypotheses` remain free to. Only used on the S4 (general assessment) path --
+4E's S6 (threshold-loop) path never lets the model author `observations` at
+all, so there is nothing there for this function to check."""
 from typing import Callable, Sequence, TypeVar
 
 from pydantic import BaseModel
 
 from app.agents.citations import validate_citations
 from app.agents.evidence import EvidenceRef
+from app.agents.observation_language import find_diagnostic_language
 from app.agents.safety_language import find_authorization_language
 from app.schemas.agent_outputs import Citation, Refusal
 
@@ -133,4 +141,46 @@ def enforce_citations_and_authorization_language(
         missing_evidence=last_unknown_ids,
         safe_next_step="A qualified, authorised person must independently confirm and grant any permit, LOTO, "
                        "or isolation clearance; this system never grants one.",
+    ))
+
+
+def enforce_citations_and_diagnostic_language(
+    *, generate: Callable[[str | None], T], extract_citations: Callable[[T], Sequence[Citation]],
+    extract_observation_text: Callable[[T], str], available: Sequence[EvidenceRef], max_attempts: int = 2,
+) -> T:
+    """4E's S4 variant: `observations` (free text) must never name a failure
+    mode; `hypotheses` are never checked here (the ban is asymmetric by
+    design -- see app.agents.observation_language)."""
+    retry_note = None
+    last_unknown_ids: list[str] = []
+    last_violations: list[str] = []
+    for _ in range(max_attempts):
+        result = generate(retry_note)
+        emitted = [c.evidence_id for c in extract_citations(result)]
+        citation_check = validate_citations(emitted=emitted, available=available)
+        violations = find_diagnostic_language(extract_observation_text(result))
+        if citation_check.valid and not violations:
+            return result
+        last_unknown_ids, last_violations = citation_check.unknown_ids, violations
+        notes = []
+        if not citation_check.valid:
+            notes.append(f"cited evidence_id value(s) not gathered this turn: {citation_check.unknown_ids}")
+        if violations:
+            notes.append(
+                f"used a diagnostic/failure-mode word {violations} inside `observations`, which must stay "
+                "strictly factual (measured values, trends, or quality flags only) -- move any diagnostic "
+                "interpretation into `hypotheses` instead, with its own supporting_evidence or "
+                "contradicting_evidence"
+            )
+        retry_note = "The previous response is invalid: " + "; and ".join(notes) + ". Respond again with only the corrected JSON object."
+    reason_parts = []
+    if last_unknown_ids:
+        reason_parts.append(f"cited {len(last_unknown_ids)} unknown evidence_id value(s)")
+    if last_violations:
+        reason_parts.append(f"named a failure mode inside `observations` ({len(last_violations)} word match(es))")
+    raise EnforcementFailure(refuse(
+        status="insufficient_evidence",
+        reason="The generated assessment " + " and ".join(reason_parts) + ", even after one bounded regeneration attempt.",
+        missing_evidence=last_unknown_ids,
+        safe_next_step="Rephrase the question or narrow it to a specific equipment tag or time range.",
     ))

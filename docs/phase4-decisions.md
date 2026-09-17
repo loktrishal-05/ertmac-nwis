@@ -334,3 +334,111 @@ approval gate will presumably trust `approval_status`/`human_approval_required`
 as ground truth; confirm this override matches that future design.
 Reversible: yes — `_harden_action_recommendation` is one function in
 `app/agents/nodes/safety.py`.
+
+### D-013 · 4E · The threshold loop bypasses the model entirely for observations/anomaly_status
+Context: The 4E brief's threshold loop describes the model "locating the
+limit in cited text" and Python doing the extraction/comparison, but leaves
+open how much of the FINAL S6 output the model is allowed to author once
+that comparison is done.
+Options: (a) let the model see the deterministic observations and author
+the entire `SensorInterpretation` object, including `observations`,
+`anomaly_status`, `asset_tag`, `time_window`, and `citations`, trusting it
+to transcribe them faithfully; (b) let the model author only the
+interpretive fields (`hypotheses`, `required_checks`, `confidence`) and
+deterministically overwrite `observations`/`anomaly_status`/`asset_tag`/
+`time_window`/`citations` with the Python-computed values regardless of
+what the model returned.
+Chose: (b) — `app/agents/nodes/maintenance.py::_threshold_loop`.
+Because: 4E's stated safety property is "the model never performs
+arithmetic or asserts a threshold." A model that transcribes a Python-
+computed observation is still, structurally, the thing whose output decides
+what the operator reads as the observation — a transcription error
+(dropping a threshold-exceeded finding, softening "exceeded" to "near") is
+indistinguishable downstream from the model asserting the threshold itself.
+Overwriting these fields in code makes "the model did not decide this"
+verifiable by reading `nodes/maintenance.py`, not merely likely by reading
+a prompt. This mirrors D-012's identical reasoning for 4D.
+Review priority: MEDIUM
+Reversible: yes — the `model_copy(update={...})` call is one block; removing
+it reverts to trusting the model's own transcription.
+
+### D-014 · 4E · Threshold-numeral regex, lookback window, and history-row cap are all provisional constants
+Context: Three numbers had no source to derive from: (1) the deterministic
+regex pattern used to locate a numeral near a limit-keyword in SOP text
+(`_THRESHOLD_PATTERN`); (2) how far back to query sensor readings once a
+threshold is found, since the query text carries no explicit time range
+(`_THRESHOLD_WINDOW_DAYS`); (3) how many maintenance-history rows to pull
+per turn (`_MAX_HISTORY_ROWS`).
+Options considered: for the regex, a wider character gap between keyword
+and numeral (more recall, more risk of grabbing an unrelated number) versus
+a narrower one (current choice: keyword, then up to 15 non-digit
+characters, then the numeral) — chosen for keeping the numeral tightly
+scoped to the keyword that licenses it, since a threshold extracted from
+the wrong sentence is exactly the "asserts a threshold" failure mode this
+sub-phase exists to prevent, just moved into the regex instead of the
+model. For the window, 7 days was chosen as a small, human-legible default
+consistent with the "bounded" instruction in the brief's item 4, with no
+calibration behind the specific number 7. For the row cap, `20` matches the
+existing default `limit` on `GetMaintenanceHistoryArguments`
+(`app/agents/tools/maintenance.py`), reusing an existing convention rather
+than inventing a new one.
+Chose: as implemented; all three are named module-level constants, not
+buried literals.
+Because: each is a defensible, bounded default with an honest paper trail,
+not a guess dressed up as a calibrated number — consistent with the
+project's standing preference (see D-009) for provisional-but-flagged over
+silently invented.
+Review priority: MEDIUM — none of these gate a safety property directly
+(the threshold VALUE always comes from cited text, never from these
+constants); they shape recall/coverage, not correctness. The operator
+should tune `_THRESHOLD_WINDOW_DAYS` in particular once real SOP phrasing
+conventions are known, since a real limit written as "maximum permissible
+value of X" would currently slip past the 15-character gap and fall
+through to the S4 general-assessment path instead of the threshold loop —
+a safe degradation (never a false threshold), but a missed one.
+Reversible: yes — three named constants in `app/agents/nodes/maintenance.py`.
+
+### D-015 · 4E · test_query's live-model call marked INCONCLUSIVE after three attempts; two stale test assumptions fixed
+Context: Running the self-audit gate's `unittest discover` after wiring
+`maintenance` to a real node surfaced two failures. One,
+`test_agents_knowledge.py::GraphWiringTests
+::test_maintenance_route_still_reports_not_implemented`, was a
+deterministic logic bug: it hardcoded `"maintenance"` as its witness for "a
+route that is still a stub," which this sub-phase's own work made false.
+The other, `test_foundation.py::FoundationTests::test_query`, asserted the
+same now-false stub-shape unconditionally, AND depends on a real live
+Ollama call through a real `uvicorn` subprocess, which failed identically
+in three separate attempts (one inside the full suite, two isolated
+reruns) with `HTTP Error 504: Gateway Timeout` at 158-172 seconds each
+time — originating from `query.py`'s own `ModelTimeoutError` handling, not
+a connectivity error.
+Options for the deterministic bug: (a) leave it failing and note it as a
+"regression" for the operator to sort out; (b) fix it by repointing it at
+`"process_optimization"`, the one route still genuinely a stub.
+Options for the live-latency failure: (a) keep retrying until it passes;
+(b) weaken or skip the test; (c) fix the now-stale assertion shape (a
+genuine, separate bug from the timing issue) and record the timing failure
+itself as INCONCLUSIVE with evidence, per the autonomy charter's rule 6.
+Chose: (b) for the deterministic bug; (c) for the live test — fixed
+`test_query`'s assertion to branch on `body["route"]` the same way
+`scripts/smoke_agents.py` already does, AND separately recorded three
+consistent 504 timeouts as INCONCLUSIVE rather than retrying indefinitely
+or silently marking the gate green.
+Because: (a) for the deterministic bug would leave a known-wrong assertion
+in the tree, which the charter explicitly prohibits papering over. For the
+live test, (a) contradicts the charter's explicit three-attempt cap; (b)
+(skipping/weakening) is explicitly prohibited ("Never delete or weaken a
+test to make it pass"); (c) is exactly what the charter prescribes: fix the
+part that is genuinely wrong (the stale assertion), and honestly report the
+part that is an environment characteristic, not a code defect (the model
+runtime is too slow in this sandbox to complete a cold classify+generate
+round trip within a 180s client timeout, consistent with 4A/4B's own
+recorded latency figures on comparable hardware).
+Review priority: MEDIUM — no safety property depends on this test; it is
+purely an end-to-end wiring smoke check duplicated, more thoroughly, by the
+deterministic `tests/test_agents_maintenance.py`/`test_agents_knowledge.py`
+suites. The operator should re-run `test_query` once against a warmed,
+adequately-resourced model runtime to confirm it passes outright before
+treating its live-path coverage as verified.
+Reversible: n/a for the INCONCLUSIVE determination itself (a disclosure);
+the two test fixes are ordinary test edits, reversible like any other.

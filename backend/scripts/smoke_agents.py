@@ -7,14 +7,16 @@ fixture built around the fictional tag ZZ-8888, distinct from Phase 4A's
 ZZ-9999. Nothing under data/evaluation/ is read by this script, and the
 hash-guard check re-verifies that at the end.
 
-As of Phase 4C, "knowledge" is a real agent (app/agents/nodes/knowledge.py);
-the remaining routes are still stubs pending 4D-4F. This script validates
-that the ROUTER genuinely classifies (against the real model), that tracing
-genuinely persists to Postgres, that every route plus the tool registry is
-correctly wired end to end, and that the knowledge route's live output is
-schema-valid. It does not assert knowledge ANSWER QUALITY -- that is the
-75-case evaluation harness's job under docs/model-evaluation-spec.md, kept
-firewalled from this script by the same manifest-hash check below."""
+As of Phase 4E, "knowledge", "maintenance", "safety", and
+"combined_safety_maintenance" are real agents (app/agents/nodes/*.py);
+"process_optimization" is the one route still a stub, pending 4F. This
+script validates that the ROUTER genuinely classifies (against the real
+model), that tracing genuinely persists to Postgres, that every route plus
+the tool registry is correctly wired end to end, and that every real
+route's live output is schema-valid. It does not assert answer QUALITY for
+any of them -- that is the 75-case evaluation harness's job under
+docs/model-evaluation-spec.md, kept firewalled from this script by the same
+manifest-hash check below."""
 import json
 import platform
 import statistics
@@ -37,6 +39,10 @@ from app.main import app
 
 EVALUATION_DIR = Path(__file__).resolve().parents[2] / "data" / "evaluation"
 GUARDED_FILES = ("model_eval_cases.jsonl", "model_eval_config.json", "README.md")
+REAL_ROUTES = {
+    "knowledge", "maintenance", "safety", "combined_safety_maintenance",
+    "guardrail_refusal", "clarification",
+}
 
 ROUTE_PROBES = {
     "knowledge": "Where in our indexed SOPs can I find the startup procedure referenced for fictional test "
@@ -125,8 +131,8 @@ def main():
             body = response.json()
             assert body["route"] in ROUTE_NAMES
             result = body["agent_result"]
-            if body["route"] == "knowledge":
-                assert result["schema"] in ("S1", "S3", "S5"), result
+            if body["route"] in REAL_ROUTES:
+                assert result["schema"] in ("S1", "S3", "S4", "S5", "S6", "S7"), result
             else:
                 assert result["status"] == "not_implemented", result
             matched = body["route"] == intended_route
@@ -151,8 +157,8 @@ def main():
         report["steps"]["9_rejection_contract"] = rejected
 
         # Step 10 — tracing actually persisted to Postgres: one AgentRun + one
-        # AgentRunStep per graph step, for a still-stubbed route.
-        sample_run_id = route_results["maintenance"]["run_id"]
+        # AgentRunStep per graph step, for the one route still a stub.
+        sample_run_id = route_results["process_optimization"]["run_id"]
         with SessionLocal() as session:
             run = session.get(AgentRun, sample_run_id)
             assert run is not None, "AgentRun row was not persisted"
@@ -170,20 +176,21 @@ def main():
                 "router_step_usage": steps[0].usage, "router_step_timings": steps[0].timings,
             }
 
-        # Step 10b — the real knowledge agent traces its own evidence_ids (or,
-        # on a refusal/insufficient-evidence outcome, an empty list is still a
+        # Step 10b — every real agent traces its own evidence_ids (or, on a
+        # refusal/insufficient-evidence outcome, an empty list is still a
         # legitimate traced result, never an error).
-        knowledge_run_id = route_results["knowledge"]["run_id"]
-        with SessionLocal() as session:
-            steps = session.scalars(
-                select(AgentRunStep).where(AgentRunStep.run_id == knowledge_run_id).order_by(AgentRunStep.step_index)
-            ).all()
-            assert len(steps) == 2, f"Expected 2 traced steps (router + knowledge), found {len(steps)}"
-            assert steps[1].node_name == "knowledge"
-            report["steps"]["10b_knowledge_tracing"] = {
-                "run_id": str(knowledge_run_id), "agent_result_schema": route_results["knowledge"].get("agent_result_schema"),
-                "evidence_ids": steps[1].evidence_ids,
-            }
+        for route in REAL_ROUTES - {"guardrail_refusal", "clarification"}:
+            run_id = route_results[route]["run_id"]
+            with SessionLocal() as session:
+                steps = session.scalars(
+                    select(AgentRunStep).where(AgentRunStep.run_id == run_id).order_by(AgentRunStep.step_index)
+                ).all()
+                assert len(steps) == 2, f"Expected 2 traced steps (router + {route}), found {len(steps)}"
+                assert steps[1].node_name == route
+                report["steps"][f"10b_{route}_tracing"] = {
+                    "run_id": str(run_id), "agent_result_schema": route_results[route].get("agent_result_schema"),
+                    "evidence_ids": steps[1].evidence_ids,
+                }
 
         # Step 11 — hardware/context record.
         report["steps"]["11_hardware_context"] = {
