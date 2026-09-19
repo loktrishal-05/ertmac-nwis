@@ -29,12 +29,13 @@ from app.agents.enforcement import (
     EnforcementFailure,
     enforce_citations_and_authorization_language,
     refuse,
+    unknown_reference_ids,
 )
 from app.agents.prompts.optimization import (
     OPTIMIZATION_SYSTEM_PROMPT,
     build_optimization_user_message,
 )
-from app.agents.prompts.shared import format_evidence_block
+from app.agents.prompts.shared import format_evidence_block, format_evidence_ref
 from app.agents.registry import invoke_tool
 from app.schemas.agent_outputs import ActionRecommendation, Citation, ProposedAction
 from app.services.model_gateway import ChatMessage, StructuredOutputError, get_model_gateway
@@ -44,6 +45,7 @@ SUB_PHASE = "4F"
 
 _TREND_WINDOW_DAYS = 30
 _MAX_HISTORY_ROWS = 20
+_MAX_SENSOR_FEATURES = 6
 
 
 def _row_block(evidence_id: str, locator: str, row: dict) -> str:
@@ -93,7 +95,7 @@ def optimization_node(state, gateway=None, session=None) -> dict:
     warnings += doc_payload.get("warnings", [])
     evidence += doc_refs
     for ref in doc_refs:
-        blocks.append(format_evidence_block(ref.evidence_id, ref.locator, getattr(ref, "quote", "") or ""))
+        blocks.append(format_evidence_ref(ref))
 
     # Retrieve latest sensor reading to identify the sensor_tag for trend analysis.
     latest_payload, latest_refs = invoke_tool("get_latest_reading", session, {"equipment_tag": tag})
@@ -101,8 +103,11 @@ def optimization_node(state, gateway=None, session=None) -> dict:
 
     # Retrieve sensor trends for the equipment tag using compute_sensor_features
     # (pre-computed slope, percentage_change, etc. from Phase 3C, no thresholds).
-    sensor_tag = latest_readings[0]["sensor_tag"] if latest_readings else None
-    if sensor_tag:
+    evidence += latest_refs
+    for reading in latest_readings[:_MAX_SENSOR_FEATURES]:
+        sensor_tag = reading.get("sensor_tag")
+        if not sensor_tag:
+            continue
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=_TREND_WINDOW_DAYS)
         trend_payload, trend_refs = invoke_tool("compute_sensor_features", session, {
@@ -111,12 +116,19 @@ def optimization_node(state, gateway=None, session=None) -> dict:
         })
         warnings += trend_payload.get("warnings", [])
         evidence += trend_refs
-        if trend_payload.get("observations"):
-            trend_blocks = [
-                format_evidence_block(trend_refs[0].evidence_id, trend_refs[0].locator,
-                                      json.dumps(trend_payload.get("observations", []), default=str))
-            ]
-            blocks.extend(trend_blocks)
+        if trend_refs:
+            # Forward the deterministic feature summary itself. The model may
+            # explain it, but it must not recompute authoritative numbers.
+            feature_payload = {
+                "sensor_tag": sensor_tag,
+                "measurement": trend_payload.get("measurement"),
+                "features": trend_payload.get("features", {}),
+                "observations": trend_payload.get("observations", [])[:20],
+            }
+            blocks.append(format_evidence_block(
+                trend_refs[0].evidence_id, trend_refs[0].locator,
+                json.dumps(feature_payload, default=str),
+            ))
 
     # Retrieve maintenance history for operational context.
     hist_payload, hist_refs = invoke_tool(
@@ -158,19 +170,28 @@ def optimization_node(state, gateway=None, session=None) -> dict:
         return result.value
 
     def _language_text(recommendation: ActionRecommendation) -> str:
-        return " ".join([recommendation.summary, *recommendation.warnings,
+        return " ".join([recommendation.summary, *recommendation.evidence_basis, *recommendation.warnings,
+                          *(citation.claim for citation in recommendation.citations),
                           *(action.action for action in recommendation.proposed_actions)])
 
     try:
         recommendation = enforce_citations_and_authorization_language(
             generate=_generate, extract_citations=lambda value: value.citations,
-            extract_language_text=_language_text, available=evidence,
+            extract_language_text=_language_text, available=evidence, require_citations=True,
         )
     except EnforcementFailure as failure:
         return {"agent_result": {"schema": "S5", "output": failure.refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 
     recommendation = _harden_process_change_recommendation(recommendation)
+    bad_refs = unknown_reference_ids(recommendation.evidence_basis, evidence)
+    if bad_refs:
+        refusal = refuse(status="insufficient_evidence",
+                         reason="The generated optimization proposal referenced evidence not supplied for this turn.",
+                         missing_evidence=bad_refs,
+                         safe_next_step="Retry using only the evidence supplied for this request.")
+        return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
+                "evidence": evidence, "warnings": warnings}
     return {
         "agent_result": {"schema": "S7", "output": recommendation.model_dump(mode="json")},
         "evidence": evidence, "warnings": warnings,

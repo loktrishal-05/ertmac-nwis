@@ -21,10 +21,12 @@ class QdrantService:
         self.collection = settings.qdrant_collection
         self._lock = Lock()
 
-    def initialize(self, require_sparse=None):
+    def initialize(self, require_sparse=None, *, read_only=False):
         require_sparse = settings.sparse_retrieval_enabled if require_sparse is None else require_sparse
         with self._lock:
             if not self.client.collection_exists(self.collection):
+                if read_only:
+                    raise RuntimeError("Qdrant collection is not initialized; retrieval cannot create it")
                 try:
                     self.client.create_collection(
                         self.collection,
@@ -43,9 +45,13 @@ class QdrantService:
                 raise RuntimeError("Sparse migration required: python -m scripts.reindex_sparse; existing collection preserved")
             if "sparse" in sparse and sparse["sparse"].modifier != models.Modifier.IDF:
                 raise RuntimeError("Existing sparse vector must use IDF; collection was not modified")
-            for name, kind in PAYLOAD_INDEXES.items():
-                if name not in info.payload_schema:
-                    self.client.create_payload_index(self.collection, name, field_schema=kind, wait=True)
+            if not read_only:
+                for name, kind in PAYLOAD_INDEXES.items():
+                    if name not in info.payload_schema:
+                        self.client.create_payload_index(self.collection, name, field_schema=kind, wait=True)
+            # Retrieval remains read-only even when an operator has not yet
+            # provisioned every optional payload index; query filters still
+            # apply, with the expected performance trade-off.
 
     def upsert(self, chunks: list[ChunkMetadata], vectors: list[list[float]]):
         if len(chunks) != len(vectors) or any(len(v) != 768 for v in vectors):

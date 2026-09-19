@@ -28,10 +28,12 @@ class RetrieveDocumentsArguments(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=6, ge=1, le=30)
     document_types: list[str] = Field(default_factory=list, max_length=10)
+    access_scope: str = Field(default="internal", min_length=1, max_length=50)
 
 
 def retrieve_documents(session, arguments: RetrieveDocumentsArguments):
-    request = RetrieveRequest(query=arguments.query, top_k=arguments.top_k, document_types=arguments.document_types)
+    request = RetrieveRequest(query=arguments.query, top_k=arguments.top_k, document_types=arguments.document_types,
+                              filters={"access_scope": arguments.access_scope})
     response = retrieve(request, session)
     refs, results = [], []
     for result in response.results:
@@ -43,6 +45,8 @@ def retrieve_documents(session, arguments: RetrieveDocumentsArguments):
             bounding_boxes=[box.model_dump(mode="json") for box in citation.bounding_boxes],
             quote=citation.quote, ocr_derived=citation.ocr_derived, ocr_confidence=citation.ocr_confidence,
             ocr_status=_ocr_status(citation.ocr_derived, citation.ocr_confidence),
+            source_uri=citation.source_uri, source_image_uri=citation.source_image_uri,
+            region_id=citation.region_id, revision=citation.revision,
         )
         refs.append(ref)
         results.append({"evidence_id": ref.evidence_id, "score": result.score, "content_type": result.content_type})
@@ -77,6 +81,7 @@ def get_pid_regions(session, arguments: GetPIDRegionsArguments):
             source_filename=manifest.source_filename, source_sha256=manifest.source_sha256,
             page=region.page, bbox=region.bbox, confidence=confidence,
             ocr_status="ambiguous" if confidence < 0.6 else "unverified", combined_text=region.combined_text,
+            source_uri=manifest.source_filename, revision=getattr(manifest, "revision", None),
         ))
     payload = {"region_count": len(refs), "evidence_ids": [ref.evidence_id for ref in refs]}
     return payload, refs

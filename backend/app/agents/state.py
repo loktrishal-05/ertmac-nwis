@@ -26,6 +26,26 @@ from pydantic import BaseModel, ConfigDict
 from app.agents.evidence import EvidenceRef
 
 
+def _or_bool(previous: bool | None, current: bool | None) -> bool:
+    """Approval requirement is monotonic within a graph run.
+
+    Phase 4 records an advisory requirement only; Phase 5 will enforce the
+    actual approval boundary.  Keeping this reducer monotonic prevents a
+    later node or model-shaped update from clearing a requirement already
+    established by deterministic policy.
+    """
+    return bool(previous) or bool(current)
+
+
+def _strongest_action_class(previous: str | None, current: str | None) -> str | None:
+    order = {"shutdown": 0, "isolation": 1, "process_change": 2, "inspection": 3, "informational": 4}
+    if previous is None:
+        return current
+    if current is None:
+        return previous
+    return previous if order.get(previous, 99) <= order.get(current, 99) else current
+
+
 class ToolInvocationRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tool_name: str
@@ -39,6 +59,7 @@ class ToolInvocationRecord(BaseModel):
 class WorkbenchState(TypedDict):
     run_id: str
     query: str
+    access_scope: str
     route: str | None
     route_confidence: float | None
     route_reasoning: str | None
@@ -47,8 +68,9 @@ class WorkbenchState(TypedDict):
     agent_result: dict | None
     warnings: Annotated[list[str], operator.add]
     errors: Annotated[list[str], operator.add]
-    human_approval_required: bool
-    action_class: str | None
+    human_approval_required: Annotated[bool, _or_bool]
+    action_class: Annotated[str | None, _strongest_action_class]
     started_at: str
     finished_at: str | None
     step_records: Annotated[list[dict], operator.add]
+    gateway_repair_attempts: int

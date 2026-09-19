@@ -95,7 +95,7 @@ class FoundationTests(unittest.TestCase):
         from app.agents.prompts.router import ROUTE_NAMES
         body = self.request("/agents/status")
         self.assertEqual({route["route"] for route in body["routes"]}, set(ROUTE_NAMES))
-        self.assertTrue(all(route["status"] == "not_implemented" for route in body["routes"]))
+        self.assertEqual({route["status"] for route in body["routes"]}, {"implemented", "guardrail"})
         self.assertTrue(len(body["tools"]) >= 1)
         self.assertTrue(all(tool["read_only"] for tool in body["tools"]))
         self.assertIn("reachable", body["gateway"])

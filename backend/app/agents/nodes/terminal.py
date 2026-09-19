@@ -6,9 +6,10 @@ from app.agents.enforcement import refuse
 
 
 def guardrail_refusal_node(state) -> dict:
+    reason = "The request was blocked by a deterministic safety or capability guardrail."
     refusal = refuse(
         status="refused",
-        reason=state.get("route_reasoning") or "This request was classified as unsafe, unauthorized, or unsupported.",
+        reason=reason,
         safe_next_step="Rephrase the request without the unsupported or unsafe element, or contact a supervisor "
                        "for anything requiring an authorization this workbench does not grant.",
     )
@@ -16,9 +17,10 @@ def guardrail_refusal_node(state) -> dict:
 
 
 def clarification_node(state) -> dict:
+    reason = "The request needs a specific equipment tag, document reference, or operational question before it can be answered."
     refusal = refuse(
         status="clarification_required",
-        reason=state.get("route_reasoning") or "This request is missing information needed to proceed.",
+        reason=reason,
         missing_evidence=["clarifying details from the requester"],
         safe_next_step="Provide the missing identifier, time range, or equipment tag and ask again.",
     )

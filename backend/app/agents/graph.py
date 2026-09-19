@@ -28,6 +28,9 @@ from app.agents.prompts.router import ROUTE_NAMES
 from app.agents.state import WorkbenchState
 from app.core.config import settings
 from app.services.model_gateway import get_model_gateway
+from app.agents.context import (reset_access_scope, set_access_scope, reset_deadline, set_deadline,
+                                reset_tool_records, set_tool_records, tool_records)
+from app.agents.context import gateway_repairs, reset_gateway_repairs, set_gateway_repairs
 
 
 def _now() -> str:
@@ -44,17 +47,27 @@ def _traced(node_name: str, fn):
     def _wrapped(state):
         started = perf_counter()
         started_at = _now()
+        tools_before = len(tool_records())
         update = dict(fn(state))
+        # Nested specialist outputs are advisory, but a true requirement is
+        # still a requirement.  Mirror it at graph state for every route.
+        result = update.get("agent_result") or {}
+        output = result.get("output") if isinstance(result, dict) else None
+        if isinstance(output, dict) and output.get("human_approval_required") is True:
+            update["human_approval_required"] = True
         usage = update.pop("_usage", {})
         timings = update.pop("_timings", {})
         finished_at = _now()
         duration_ms = (perf_counter() - started) * 1000
+        tool_delta = tool_records()[tools_before:]
         step = {
             "node_name": node_name, "started_at": started_at, "finished_at": finished_at,
-            "duration_ms": duration_ms, "tool_name": None,
+            "duration_ms": duration_ms, "tool_name": tool_delta[0].get("tool_name") if len(tool_delta) == 1 else None,
             "evidence_ids": [ref.evidence_id for ref in update.get("evidence", [])],
             "usage": usage, "timings": timings, "warnings": update.get("warnings", []), "error": None,
         }
+        if tool_delta:
+            update["tool_invocations"] = tool_delta
         update["step_records"] = [step]
         return update
     _wrapped.__name__ = f"traced_{node_name}"
@@ -64,6 +77,14 @@ def _traced(node_name: str, fn):
 def _route_selector(state) -> str:
     route = state.get("route")
     return route if route in ROUTE_NAMES else "clarification"
+
+
+class GraphExecutionError(RuntimeError):
+    """Carries partial state so failed runs can still be traced."""
+    def __init__(self, original: Exception, state: WorkbenchState):
+        super().__init__(str(original))
+        self.original = original
+        self.state = state
 
 
 def build_graph(session=None):
@@ -101,14 +122,34 @@ def get_graph():
     return build_graph()
 
 
-def run_graph(query: str, *, session=None) -> WorkbenchState:
+def run_graph(query: str, *, session=None, access_scope: str = "internal") -> WorkbenchState:
+    scope_token = set_access_scope(access_scope)
+    deadline_token = set_deadline(settings.agent_run_timeout_seconds)
+    records_token = set_tool_records([])
+    repairs_token = set_gateway_repairs([0])
     graph = get_graph() if session is None else build_graph(session=session)
     initial_state: WorkbenchState = {
-        "run_id": str(uuid4()), "query": query, "route": None, "route_confidence": None,
+        "run_id": str(uuid4()), "query": query, "access_scope": access_scope or "internal", "route": None, "route_confidence": None,
         "route_reasoning": None, "evidence": [], "tool_invocations": [], "agent_result": None,
         "warnings": [], "errors": [], "human_approval_required": False, "action_class": None,
         "started_at": _now(), "finished_at": None, "step_records": [],
+        "gateway_repair_attempts": 0,
     }
-    result = graph.invoke(initial_state, config={"recursion_limit": settings.agent_max_steps})
-    result["finished_at"] = _now()
-    return result
+    try:
+        result = graph.invoke(initial_state, config={"recursion_limit": settings.agent_max_steps})
+        result["tool_invocations"] = tool_records()
+        result["gateway_repair_attempts"] = gateway_repairs()
+        result["finished_at"] = _now()
+        return result
+    except Exception as error:
+        partial = dict(initial_state)
+        partial["finished_at"] = _now()
+        partial["errors"] = [str(error)]
+        partial["tool_invocations"] = tool_records()
+        partial["gateway_repair_attempts"] = gateway_repairs()
+        raise GraphExecutionError(error, partial) from error
+    finally:
+        reset_access_scope(scope_token)
+        reset_deadline(deadline_token)
+        reset_tool_records(records_token)
+        reset_gateway_repairs(repairs_token)

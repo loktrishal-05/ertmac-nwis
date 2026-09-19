@@ -1,6 +1,6 @@
 # Sovereign On-Premise Agentic AI Workbench
 
-SIH 2026 project. Phases 0–4A provide FastAPI, a React/Vite dashboard,
+SIH 2026 project. Phases 0–4R provide FastAPI, a React/Vite dashboard,
 PostgreSQL/SQLAlchemy, local PDF/P&ID evidence retrieval with Docling, BGE, and
 Qdrant, structured maintenance/sensor data ingestion and query, and a local
 model gateway abstraction over Ollama.
@@ -12,6 +12,8 @@ See [Phase 3C guide](docs/phase3c.md) for maintenance/sensor CSV ingestion,
 deterministic feature extraction, and anomaly observations.
 See [Phase 4A guide](docs/phase4a.md) for the local model gateway: structured
 output, tool-call parsing, and the Ollama/vLLM runtime abstraction.
+See [Phase 4R repair record](docs/phase4-repair.md) for current specialist
+agent safety and evidence-handling status.
 
 ## Fixed architecture
 
@@ -23,7 +25,7 @@ storage, Ollama for local development, vLLM as a future deployment option, and
 Docker Compose. Only local/open-weight models will be used; hosted model APIs
 are excluded.
 
-## Current scope — Phase 4A
+## Current scope — Phase 4R
 
 The frontend dashboard preserves its backend health connection. PostgreSQL and
 Qdrant run through `infra/docker-compose.yml`. PDFs and P&IDs are extracted,
@@ -31,12 +33,11 @@ chunked/OCR'd, embedded locally, and retrieved with source citations; maintenanc
 and sensor CSVs are ingested and queryable with deterministic feature extraction
 and factual anomaly observations. Final runtime uses local embeddings and local
 model inference (Ollama, development). No hosted inference API is required or
-permitted. Phase 4A adds a local model gateway — a policy/transport split so a
-future runtime (vLLM-compatible) can replace Ollama without touching agent code —
-exposing only `GET /models/status`. LangGraph, agents, a tool executor,
-authentication, answer generation, approval workflow, and audit hash chaining
-remain absent. OCR does not establish process topology or pipe connectivity, and
-sensor anomaly observations are factual, never diagnoses.
+permitted. Phase 4R includes the local model gateway and LangGraph specialist
+routes for advisory knowledge, safety, maintenance, and optimization outputs.
+Authentication, approval workflow, audit hash chaining, and plant-control
+capabilities remain absent. OCR does not establish process topology or pipe
+connectivity, and sensor anomaly observations are factual, never diagnoses.
 
 See [backend setup instructions](backend/README.md) for Windows commands.
 Copy `.env.example` to a local root `.env` if configuration is needed; never

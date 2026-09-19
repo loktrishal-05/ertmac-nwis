@@ -1,5 +1,10 @@
 # Phase 4 completion — autonomous specialist agents (4C–4F)
 
+> Historical completion record. The independent audit found defects in this
+> implementation; Phase 4R repairs and superseding validation are recorded in
+> [phase4-repair.md](phase4-repair.md). The original 267-test figure is not an
+> authoritative current count.
+
 Written per `docs/phase4-autonomous-continuation.md` §9.
 
 ## Per-sub-phase summary

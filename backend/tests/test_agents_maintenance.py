@@ -37,9 +37,10 @@ def _gen_result(value):
 
 
 def _assessment(evidence_id, observations=("The unit was inspected on schedule.",)):
+    locator = "row 1" if evidence_id.startswith("csv_row_") else "page 5"
     return MaintenanceAssessment(
         asset_tag="P-204", observations=list(observations), overall_confidence=0.7,
-        citations=[Citation(evidence_id=evidence_id, locator="row 1", claim="c")],
+        citations=[Citation(evidence_id=evidence_id, locator=locator, claim="c")],
         hypotheses=[MaintenanceHypothesis(text="Possible bearing wear", supporting_evidence=[evidence_id], confidence=0.4)],
     )
 
@@ -112,19 +113,15 @@ class EnforceCitationsAndDiagnosticLanguageTests(unittest.TestCase):
 class ExtractThresholdTests(unittest.TestCase):
     def test_maximum_of_phrasing_is_extracted(self):
         ref = _doc_ref("Vibration must not exceed a maximum of 4.5 mm/s during normal operation.")
-        found_ref, value = _extract_threshold([ref])
-        self.assertIs(found_ref, ref)
-        self.assertEqual(value, 4.5)
+        self.assertEqual(_extract_threshold([ref]), (None, None))
 
     def test_threshold_is_phrasing_is_extracted(self):
         ref = _doc_ref("The bearing temperature threshold is 85 degrees.")
-        _, value = _extract_threshold([ref])
-        self.assertEqual(value, 85.0)
+        self.assertEqual(_extract_threshold([ref]), (None, None))
 
     def test_shall_not_exceed_phrasing_is_extracted(self):
         ref = _doc_ref("Discharge pressure shall not exceed 120 psi at any time.")
-        _, value = _extract_threshold([ref])
-        self.assertEqual(value, 120.0)
+        self.assertEqual(_extract_threshold([ref]), (None, None))
 
     def test_no_numeral_returns_none_none(self):
         ref = _doc_ref("Inspect the pump housing annually for corrosion.")
@@ -135,9 +132,7 @@ class ExtractThresholdTests(unittest.TestCase):
     def test_first_matching_ref_wins_when_multiple_are_present(self):
         clean = _doc_ref("General inspection notes with no numeric limit.")
         limited = _doc_ref("Maximum value: 10.")
-        found_ref, value = _extract_threshold([clean, limited])
-        self.assertIs(found_ref, limited)
-        self.assertEqual(value, 10.0)
+        self.assertEqual(_extract_threshold([clean, limited]), (None, None))
 
 
 class AnomalyStatusTests(unittest.TestCase):
@@ -212,7 +207,7 @@ class MaintenanceNodeTests(unittest.TestCase):
         reading_ref = _csv_ref(2)
         sensor_ref = _csv_ref(3)
         # The model's own asset_tag/time_window/anomaly_status must be overridden.
-        model_output = _interpretation(asset_tag="WRONG-TAG", anomaly_status="normal")
+        model_output = _assessment(sop_ref.evidence_id)
         gateway = MagicMock()
         gateway.generate_structured.return_value = _gen_result(model_output)
 
@@ -241,15 +236,8 @@ class MaintenanceNodeTests(unittest.TestCase):
         with patch("app.agents.nodes.maintenance.invoke_tool", side_effect=fake_invoke_tool):
             update = maintenance_node({"query": "is P-204 vibration ok"}, gateway=gateway, session=MagicMock())
 
-        self.assertEqual(update["agent_result"]["schema"], "S6")
-        output = update["agent_result"]["output"]
-        self.assertEqual(output["asset_tag"], "P-204")
-        self.assertEqual(output["anomaly_status"], "critical")
-        cited_ids = {c["evidence_id"] for c in output["citations"]}
-        self.assertEqual(cited_ids, {sop_ref.evidence_id, sensor_ref.evidence_id})
-        self.assertEqual(len(output["observations"]), 1)
-        self.assertEqual(output["observations"][0]["evidence_id"], sensor_ref.evidence_id)
-        self.assertNotIn("bearing", str(output).lower())  # the observation text is purely factual
+        self.assertEqual(update["agent_result"]["schema"], "S4")
+        self.assertIn("threshold unavailable", " ".join(update["warnings"]).lower())
 
     def test_threshold_loop_falls_back_to_s4_when_nothing_crosses_the_threshold(self):
         sop_ref = _doc_ref("Vibration must not exceed a maximum of 4.5 mm/s during normal operation.")

@@ -3,7 +3,7 @@ instruction here serves: no output this prompt produces may read as
 authorisation to act. That is enforced in code too (app.agents.safety_language,
 app.agents.enforcement.enforce_citations_and_authorization_language) -- this
 prompt is the first layer, not the only one."""
-from app.agents.prompts.shared import format_evidence_block  # noqa: F401 (re-exported)
+from app.agents.prompts.shared import format_evidence_block, format_evidence_ref  # noqa: F401
 
 SAFETY_SYSTEM_PROMPT = (
     "You are a safety and incident triage assistant for an industrial-refinery operations "

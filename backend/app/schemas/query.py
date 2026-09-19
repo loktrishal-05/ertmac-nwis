@@ -8,7 +8,7 @@ extra='forbid' on the request rejects any attempt to route
 model/runtime/base_url/temperature through this endpoint: those are operator
 configuration (app.core.config), never a per-request override."""
 from typing import Annotated
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.agents.evidence import EvidenceRef
 
@@ -16,6 +16,7 @@ from app.agents.evidence import EvidenceRef
 class QueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10000)]
+    access_scope: str = Field(default="internal", min_length=1, max_length=50)
 
 
 class QueryResponse(BaseModel):

@@ -15,6 +15,7 @@ from app.agents.prompts.knowledge import (
     KNOWLEDGE_SYSTEM_PROMPT,
     build_knowledge_user_message,
     format_evidence_block,
+    format_evidence_ref,
 )
 from app.agents.registry import invoke_tool
 from app.core.config import settings
@@ -105,7 +106,7 @@ def knowledge_node(state, gateway=None, session=None) -> dict:
             "evidence": refs, "warnings": warnings,
         }
 
-    blocks = [format_evidence_block(ref.evidence_id, ref.locator, getattr(ref, "quote", "")) for ref in refs]
+    blocks = [format_evidence_ref(ref) for ref in refs]
 
     def _generate(retry_note: str | None) -> GroundedAnswer:
         messages = [
@@ -125,7 +126,8 @@ def knowledge_node(state, gateway=None, session=None) -> dict:
         return result.value
 
     try:
-        answer = enforce_citations(generate=_generate, extract_citations=lambda value: value.citations, available=refs)
+        answer = enforce_citations(generate=_generate, extract_citations=lambda value: value.citations,
+                                    available=refs, require_citations=True)
     except CitationEnforcementFailure as failure:
         return {
             "agent_result": {"schema": "S5", "output": failure.refusal.model_dump(mode="json")},

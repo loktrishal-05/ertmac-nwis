@@ -50,7 +50,15 @@ class ModelGateway:
     def _effective_timeout(self, timeout_seconds: float | None) -> float:
         if timeout_seconds is not None:
             return timeout_seconds
-        return self._settings.model_timeout_seconds if self._warmed_up else self._settings.model_first_load_timeout_seconds
+        selected = self._settings.model_timeout_seconds if self._warmed_up else self._settings.model_first_load_timeout_seconds
+        try:
+            from app.agents.context import remaining_deadline
+            remaining = remaining_deadline()
+            if remaining is not None:
+                selected = min(selected, remaining)
+        except ImportError:
+            pass
+        return selected
 
     def _chat(self, *, messages, temperature=None, max_output_tokens=None, stop=None,
               json_schema=None, tools=None, think=None, timeout_seconds=None) -> GenerationResult:
@@ -105,6 +113,11 @@ class ModelGateway:
                 ]
                 continue
             result.repair_attempts = attempts_used
+            try:
+                from app.agents.context import record_gateway_repairs
+                record_gateway_repairs(attempts_used)
+            except ImportError:
+                pass
             return StructuredResult(value=value, result=result)
 
     def generate_with_tools(self, *, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec],

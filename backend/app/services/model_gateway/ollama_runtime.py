@@ -49,7 +49,8 @@ class OllamaRuntime:
     def _http(self) -> httpx.Client:
         with self._client_lock:
             if self._client is None:
-                self._client = httpx.Client(base_url=self._settings.model_base_url, transport=self._transport)
+                self._client = httpx.Client(base_url=self._settings.model_base_url, transport=self._transport,
+                                            trust_env=False)
             return self._client
 
     def _request(self, method: str, path: str, *, json_body: dict | None = None, timeout_seconds: float) -> httpx.Response:

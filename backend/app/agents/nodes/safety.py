@@ -14,8 +14,8 @@ what the model says, and every non-informational action always carries
 `human_approval_required=True` on the record."""
 import json
 
-from app.agents.enforcement import EnforcementFailure, enforce_citations_and_authorization_language, refuse
-from app.agents.prompts.safety import SAFETY_SYSTEM_PROMPT, build_safety_user_message, format_evidence_block
+from app.agents.enforcement import EnforcementFailure, enforce_citations_and_authorization_language, operational_action_text, refuse, unknown_reference_ids
+from app.agents.prompts.safety import SAFETY_SYSTEM_PROMPT, build_safety_user_message, format_evidence_block, format_evidence_ref
 from app.agents.registry import invoke_tool
 from app.schemas.agent_outputs import ActionRecommendation
 from app.services.model_gateway import ChatMessage, StructuredOutputError, get_model_gateway
@@ -44,7 +44,7 @@ def _gather_evidence(state, session):
     payload, refs = invoke_tool("retrieve_documents", session, {"query": query})
     warnings = list(payload.get("warnings", []))
     evidence = list(refs)
-    blocks = [format_evidence_block(ref.evidence_id, ref.locator, ref.quote) for ref in refs]
+    blocks = [format_evidence_ref(ref) for ref in refs]
 
     if state.get("route") == "combined_safety_maintenance":
         tags = extract_identifiers(query).get("equipment_tags", [])[:_MAX_COMBINED_TAGS]
@@ -84,11 +84,14 @@ def _harden_action_recommendation(recommendation: ActionRecommendation) -> Actio
         approval_status = action.approval_status
         if approval_status == "approved":
             approval_status = "required"
-        if action.action_class != "informational":
+        action_class = action.action_class
+        if action_class == "informational" and operational_action_text(action.action):
+            action_class = "shutdown" if any(word in action.action.lower() for word in ("start", "stop", "restart", "shut", "isolate", "bypass", "override")) else "process_change"
+        if action_class != "informational":
             any_non_informational = True
             if approval_status == "not_required":
                 approval_status = "required"
-        hardened_actions.append(action.model_copy(update={"approval_status": approval_status}))
+        hardened_actions.append(action.model_copy(update={"approval_status": approval_status, "action_class": action_class}))
     return recommendation.model_copy(update={
         "proposed_actions": hardened_actions,
         "human_approval_required": recommendation.human_approval_required or any_non_informational,
@@ -128,19 +131,28 @@ def safety_node(state, gateway=None, session=None) -> dict:
         return result.value
 
     def _language_text(recommendation: ActionRecommendation) -> str:
-        return " ".join([recommendation.summary, *recommendation.warnings,
+        return " ".join([recommendation.summary, *recommendation.evidence_basis, *recommendation.warnings,
+                          *(citation.claim for citation in recommendation.citations),
                           *(action.action for action in recommendation.proposed_actions)])
 
     try:
         recommendation = enforce_citations_and_authorization_language(
             generate=_generate, extract_citations=lambda value: value.citations,
-            extract_language_text=_language_text, available=evidence,
+            extract_language_text=_language_text, available=evidence, require_citations=True,
         )
     except EnforcementFailure as failure:
         return {"agent_result": {"schema": "S5", "output": failure.refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 
     recommendation = _harden_action_recommendation(recommendation)
+    bad_refs = unknown_reference_ids(recommendation.evidence_basis, evidence)
+    if bad_refs:
+        refusal = refuse(status="insufficient_evidence",
+                         reason="The generated safety recommendation referenced evidence not supplied for this turn.",
+                         missing_evidence=bad_refs,
+                         safe_next_step="Retry using only the evidence supplied for this request.")
+        return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
+                "evidence": evidence, "warnings": warnings}
     return {
         "agent_result": {"schema": "S7", "output": recommendation.model_dump(mode="json")},
         "evidence": evidence, "warnings": warnings,

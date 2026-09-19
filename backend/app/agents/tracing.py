@@ -53,7 +53,7 @@ def record_run(
         error=error,
         model=model,
         runtime=runtime,
-        gateway_repair_attempts=0,
+        gateway_repair_attempts=state.get("gateway_repair_attempts", 0),
         warnings=list(state.get("warnings", [])),
     )
     session.add(run)

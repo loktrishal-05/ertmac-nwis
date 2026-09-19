@@ -4,6 +4,7 @@ Two independent controls guard MODEL_BASE_URL: an allowlist (only these hosts
 are permitted) and a denylist (these hosted-provider hosts are never permitted,
 even if someone adds them to the allowlist by mistake). Deliberately redundant:
 a one-line allowlist edit alone must not be enough to break sovereignty."""
+import ipaddress
 from urllib.parse import urlparse
 
 from app.services.model_gateway.errors import ModelConfigurationError
@@ -45,6 +46,14 @@ def validate_model_url(base_url: str, allowed_hosts: set[str]) -> str:
     if host not in {h.lower() for h in allowed_hosts}:
         raise ModelConfigurationError(f"Host '{host}' is not in MODEL_ALLOWED_HOSTS")
     _check_denylist(host)
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        address = None
+    if address is not None and not (address.is_loopback or address.is_private or address.is_link_local):
+        raise ModelConfigurationError(f"Model runtime host '{host}' is public; use a loopback/private on-prem address")
+    if address is None and "." in host and not host.endswith((".local", ".internal", ".svc")):
+        raise ModelConfigurationError(f"Model runtime host '{host}' is not a local on-prem hostname")
     return base_url
 
 

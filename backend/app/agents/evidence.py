@@ -26,6 +26,7 @@ class _EvidenceBase(BaseModel):
     source_filename: str
     source_sha256: str
     locator: str
+    source_uri: str | None = None
 
 
 class DocumentChunkEvidence(_EvidenceBase):
@@ -41,6 +42,9 @@ class DocumentChunkEvidence(_EvidenceBase):
     ocr_derived: bool = False
     ocr_confidence: float | None = None
     ocr_status: Literal["unverified", "ambiguous"] | None = None
+    source_image_uri: str | None = None
+    region_id: str | None = None
+    revision: str | None = None
 
 
 class PIDRegionEvidence(_EvidenceBase):
@@ -53,6 +57,8 @@ class PIDRegionEvidence(_EvidenceBase):
     confidence: float
     ocr_status: Literal["unverified", "ambiguous"]
     combined_text: str
+    source_image_uri: str | None = None
+    revision: str | None = None
 
 
 class CSVRowEvidence(_EvidenceBase):
@@ -71,25 +77,29 @@ EvidenceRef = Union[DocumentChunkEvidence, PIDRegionEvidence, CSVRowEvidence, Se
 
 def document_chunk_evidence(*, chunk_id, document_id, document_version_id, source_filename, source_sha256,
                              section_path, page_start, page_end, bounding_boxes, quote,
-                             ocr_derived=False, ocr_confidence=None, ocr_status=None) -> DocumentChunkEvidence:
+                             ocr_derived=False, ocr_confidence=None, ocr_status=None, source_uri=None,
+                             source_image_uri=None, region_id=None, revision=None) -> DocumentChunkEvidence:
     locator = f"page {page_start}" if page_start == page_end else f"pages {page_start}-{page_end}"
     return DocumentChunkEvidence(
         evidence_id=make_evidence_id("document_chunk", source_sha256, str(chunk_id)),
-        source_filename=source_filename, source_sha256=source_sha256, locator=locator,
+        source_filename=source_filename, source_sha256=source_sha256, locator=locator, source_uri=source_uri,
         document_id=str(document_id), document_version_id=str(document_version_id), chunk_id=str(chunk_id),
         section_path=section_path, page_start=page_start, page_end=page_end, bounding_boxes=bounding_boxes,
         quote=quote, ocr_derived=ocr_derived, ocr_confidence=ocr_confidence, ocr_status=ocr_status,
+        source_image_uri=source_image_uri, region_id=str(region_id) if region_id else None, revision=revision,
     )
 
 
 def pid_region_evidence(*, region_id, document_id, document_version_id, source_filename, source_sha256,
-                         page, bbox, confidence, ocr_status, combined_text) -> PIDRegionEvidence:
+                         page, bbox, confidence, ocr_status, combined_text, source_image_uri=None, revision=None,
+                         source_uri=None) -> PIDRegionEvidence:
     locator = f"region {region_id} page {page}"
     return PIDRegionEvidence(
         evidence_id=make_evidence_id("pid_region", source_sha256, str(region_id)),
-        source_filename=source_filename, source_sha256=source_sha256, locator=locator,
+        source_filename=source_filename, source_sha256=source_sha256, locator=locator, source_uri=source_uri,
         document_id=str(document_id), document_version_id=str(document_version_id), region_id=str(region_id),
         page=page, bbox=bbox, confidence=confidence, ocr_status=ocr_status, combined_text=combined_text,
+        source_image_uri=source_image_uri, revision=revision,
     )
 
 

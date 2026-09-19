@@ -131,7 +131,7 @@ def sensor_features_query(session, request, as_of, write_artifact=True) -> Senso
     provenance = [StructuredCitation(source_filename=r.source_filename, source_sha256=r.source_sha256,
                                       source_row_number=r.source_row_number) for r, _ in rows]
     citation_label = (
-        f"{rows[0][0].source_filename} {request.start.isoformat()} to {request.end.isoformat()}" if rows
+        f"{request.equipment_tag}/{request.sensor_tag} {rows[0][0].source_filename} {request.start.isoformat()} to {request.end.isoformat()}" if rows
         else f"{request.equipment_tag}/{request.sensor_tag} {request.start.isoformat()} to {request.end.isoformat()}"
     )
     response = SensorFeatureResponse(

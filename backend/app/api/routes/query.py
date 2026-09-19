@@ -3,7 +3,7 @@ yet; every route resolves to its stub node's not_implemented result."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.agents.graph import run_graph
+from app.agents.graph import GraphExecutionError, run_graph
 from app.agents.tracing import record_run
 from app.core.config import settings
 from app.db.session import get_db
@@ -27,7 +27,22 @@ def _timings(state: dict) -> dict:
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest, session: Session = Depends(get_db)) -> QueryResponse:
     try:
-        state = run_graph(request.query, session=session)
+        state = run_graph(request.query, session=session, access_scope=request.access_scope)
+    except GraphExecutionError as wrapped:
+        session.rollback()
+        try:
+            record_run(session, wrapped.state, status="error", model=settings.model_name,
+                       runtime=settings.model_runtime, error=str(wrapped.original))
+        except Exception:
+            session.rollback()
+        error = wrapped.original
+        if isinstance(error, ModelTimeoutError):
+            raise HTTPException(status_code=504, detail="Model gateway timed out.") from error
+        if isinstance(error, ModelUnavailableError):
+            raise HTTPException(status_code=503, detail="Model runtime is unavailable.") from error
+        if isinstance(error, ModelRuntimeError):
+            raise HTTPException(status_code=502, detail="Model runtime returned an error.") from error
+        raise
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except ModelTimeoutError as error:

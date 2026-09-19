@@ -48,7 +48,7 @@ def retrieve(request, session, embeddings=None, qdrant=None, reranker=None):
         response.timings_ms["total"] = (perf_counter() - started) * 1000
         return response
     qdrant = qdrant or get_qdrant()
-    qdrant.initialize(require_sparse=strategy != "dense")
+    qdrant.initialize(require_sparse=strategy != "dense", read_only=True)
     filters = request.filters.model_dump(mode="json")
     for key in ("equipment_tags", "instrument_tags", "facility_id", "unit_id"):
         if getattr(request, key):

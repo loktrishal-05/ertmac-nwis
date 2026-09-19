@@ -442,3 +442,14 @@ adequately-resourced model runtime to confirm it passes outright before
 treating its live-path coverage as verified.
 Reversible: n/a for the INCONCLUSIVE determination itself (a disclosure);
 the two test fixes are ordinary test edits, reversible like any other.
+
+## Phase 4R correction notice
+
+The effective setting name is `KNOWLEDGE_RELEVANCE_FLOOR` under the
+`WORKBENCH_` settings prefix; `WORKBENCH_KNOWLEDGE_RELEVANCE_FLOOR` is the
+environment spelling. The default `0.0` is uncalibrated and is not a safety
+claim. Phase 4R adds evidence sufficiency and identifier-support checks rather
+than silently treating the score as a universal relevance boundary. The
+authorization-language detector is supplemental, and approval metadata is
+advisory until Phase 5. Free-text threshold extraction was retired unless
+typed applicability is supplied; D-014 remains open.

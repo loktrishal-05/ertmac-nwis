@@ -20,10 +20,18 @@ class CitationValidationResult(BaseModel):
     available_count: int
 
 
-def validate_citations(*, emitted: Sequence[str], available: Sequence[EvidenceRef]) -> CitationValidationResult:
+def validate_citations(*, emitted: Sequence[str], available: Sequence[EvidenceRef], citations=None,
+                       require_citations: bool = False) -> CitationValidationResult:
     available_ids = {ref.evidence_id for ref in available}
     emitted_set = set(emitted)
     unknown_ids = sorted(emitted_set - available_ids)
+    available_by_id = {ref.evidence_id: ref for ref in available}
+    for citation in citations or []:
+        ref = available_by_id.get(citation.evidence_id)
+        if ref is not None and citation.locator != ref.locator:
+            unknown_ids.append(f"{citation.evidence_id}:locator")
+    if require_citations and not emitted_set:
+        unknown_ids.append("(citation required)")
     uncited_ids = sorted(available_ids - emitted_set)
     return CitationValidationResult(
         valid=not unknown_ids,

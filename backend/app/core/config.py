@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,7 +69,10 @@ class Settings(BaseSettings):
     # logit under the default hybrid_rerank strategy (unbounded, positive-leaning for
     # relevant pairs), or an RRF fusion score otherwise. 0.0 is a conservative,
     # provisional default: see docs/phase4-decisions.md D-009.
-    knowledge_relevance_floor: float = Field(default=0.0, validation_alias="KNOWLEDGE_RELEVANCE_FLOOR")
+    knowledge_relevance_floor: float = Field(
+        default=0.0,
+        validation_alias=AliasChoices("WORKBENCH_KNOWLEDGE_RELEVANCE_FLOOR", "KNOWLEDGE_RELEVANCE_FLOOR"),
+    )
 
     @property
     def model_allowed_hosts_set(self) -> set[str]:

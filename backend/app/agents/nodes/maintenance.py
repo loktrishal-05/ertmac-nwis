@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from app.agents.enforcement import (
     EnforcementFailure,
     enforce_citations_and_diagnostic_language,
+    unknown_reference_ids,
     refuse,
 )
 from app.agents.prompts.maintenance import (
@@ -29,6 +30,7 @@ from app.agents.prompts.maintenance import (
     SENSOR_INTERPRETATION_SYSTEM_PROMPT,
     build_maintenance_user_message,
     format_evidence_block,
+    format_evidence_ref,
 )
 from app.agents.registry import invoke_tool
 from app.schemas.agent_outputs import Citation, MaintenanceAssessment, SensorInterpretation, SensorObservation
@@ -46,7 +48,7 @@ _MAX_HISTORY_ROWS = 20
 # "maximum/max/limit/threshold/upper limit/(shall) not exceed" followed within
 # 15 characters by a number -- never a model guess.
 _THRESHOLD_PATTERN = re.compile(
-    r"(?:maximum|max|limit|not exceed|shall not exceed|threshold|upper limit)\D{0,15}?(-?\d+(?:\.\d+)?)",
+    r"(?:maximum|max|limit|not exceed|shall not exceed|threshold|upper limit)\D{0,15}?(-?\d+(?:\.\d+)?)\s*([A-Za-z/%°]+)?",
     re.IGNORECASE,
 )
 
@@ -55,15 +57,15 @@ _WARNING_KINDS = {"sudden_change", "missing_samples", "stale_sensor", "bad_quali
                    "relative_increase", "relative_decrease"}
 
 
-def _extract_threshold(sop_refs):
-    """Returns (EvidenceRef, float) for the first SOP chunk whose quoted text
-    yields a numeral, or (None, None) if none does. A threshold with no SOP
-    citation behind it is structurally impossible here: the value and its
-    ref are always found together, from the same quoted text."""
+def _extract_threshold(sop_refs, *, equipment_tag=None, measurement=None, unit=None):
+    """Return a limit only when asset, measurement, and unit are applicable."""
+    if not all((equipment_tag, measurement, unit)):
+        return None, None
     for ref in sop_refs:
         quote = getattr(ref, "quote", None) or ""
         match = _THRESHOLD_PATTERN.search(quote)
-        if match:
+        lowered = quote.lower()
+        if match and all(str(value).lower() in lowered for value in (equipment_tag, measurement, unit)):
             try:
                 return ref, float(match.group(1))
             except ValueError:
@@ -108,7 +110,7 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
     warnings += doc_payload.get("warnings", [])
     evidence += doc_refs
     for ref in doc_refs:
-        doc_blocks.append(format_evidence_block(ref.evidence_id, ref.locator, getattr(ref, "quote", "") or ""))
+        doc_blocks.append(format_evidence_ref(ref))
 
     hist_payload, hist_refs = invoke_tool(
         "get_maintenance_history", session, {"equipment_tag": tag, "limit": _MAX_HISTORY_ROWS},
@@ -123,8 +125,12 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
     latest_payload, latest_refs = invoke_tool("get_latest_reading", session, {"equipment_tag": tag})
     latest_readings = latest_payload.get("readings", [])
 
-    sop_ref, threshold_value = _extract_threshold(doc_refs)
     sensor_tag = latest_readings[0]["sensor_tag"] if latest_readings else None
+    sensor_measurement = latest_readings[0].get("measurement") or latest_readings[0].get("sensor_type") if latest_readings else None
+    sensor_unit = latest_readings[0].get("unit") if latest_readings else None
+    sop_ref, threshold_value = _extract_threshold(
+        doc_refs, equipment_tag=tag, measurement=sensor_measurement or sensor_tag, unit=sensor_unit,
+    )
 
     if sop_ref is not None and sensor_tag is not None:
         return _threshold_loop(
@@ -134,6 +140,8 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
         )
 
     evidence += latest_refs
+    if sop_ref is None:
+        warnings.append("threshold unavailable / insufficient authoritative limit evidence")
     latest_blocks = [
         _row_block(ref.evidence_id, f"latest reading for {tag}", row)
         for row, ref in zip(latest_readings, latest_refs)
@@ -176,9 +184,21 @@ def _general_assessment(state, gateway, *, tag, evidence, warnings, blocks):
         assessment = enforce_citations_and_diagnostic_language(
             generate=_generate, extract_citations=lambda value: value.citations,
             extract_observation_text=lambda value: " ".join(value.observations), available=evidence,
+            require_citations=True,
         )
     except EnforcementFailure as failure:
         return {"agent_result": {"schema": "S5", "output": failure.refusal.model_dump(mode="json")},
+                "evidence": evidence, "warnings": warnings}
+
+    referenced = [item for hypothesis in assessment.hypotheses
+                  for item in (*hypothesis.supporting_evidence, *hypothesis.contradicting_evidence)]
+    bad_refs = unknown_reference_ids(referenced, evidence)
+    if bad_refs:
+        refusal = refuse(status="insufficient_evidence",
+                         reason="The generated assessment referenced evidence not supplied for this turn.",
+                         missing_evidence=bad_refs,
+                         safe_next_step="Retry with the supplied equipment records and citations.")
+        return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 
     return {"agent_result": {"schema": "S4", "output": assessment.model_dump(mode="json")},
@@ -221,7 +241,7 @@ def _threshold_loop(state, gateway, session, *, tag, sensor_tag, sop_ref, thresh
     ]
 
     blocks = [
-        format_evidence_block(sop_ref.evidence_id, sop_ref.locator, getattr(sop_ref, "quote", "") or ""),
+        format_evidence_ref(sop_ref),
         format_evidence_block(sensor_ref.evidence_id, sensor_ref.locator, json.dumps(raw_observations, default=str)),
     ]
 
@@ -238,6 +258,17 @@ def _threshold_loop(state, gateway, session, *, tag, sensor_tag, sop_ref, thresh
             reason="The model did not produce a schema-valid sensor interpretation from the gathered evidence.",
             safe_next_step="Retry the request, or ask again with a narrower time range.",
         )
+        return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
+                "evidence": evidence, "warnings": warnings}
+
+    hypothesis_refs = [item for hypothesis in interpretation.hypotheses
+                       for item in (*hypothesis.supporting_evidence, *hypothesis.contradicting_evidence)]
+    bad_refs = unknown_reference_ids(hypothesis_refs, evidence)
+    if bad_refs:
+        refusal = refuse(status="insufficient_evidence",
+                         reason="The generated sensor interpretation referenced evidence not supplied for this turn.",
+                         missing_evidence=bad_refs,
+                         safe_next_step="Retry with the supplied sensor evidence.")
         return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 

@@ -8,7 +8,7 @@ sanitisation beyond chunking, so this framing is the only defence against an
 instruction embedded in an ingested document. No benchmark query or case
 content is used here or anywhere in this module -- see docs/phase4-decisions.md
 D-002/D-003."""
-from app.agents.prompts.shared import format_evidence_block  # noqa: F401 (re-exported; see prompts/shared.py)
+from app.agents.prompts.shared import format_evidence_block, format_evidence_ref  # noqa: F401
 
 KNOWLEDGE_SYSTEM_PROMPT = (
     "You are a grounded-answering assistant for an industrial-refinery operations "

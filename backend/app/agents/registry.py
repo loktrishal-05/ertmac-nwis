@@ -8,6 +8,9 @@ input."""
 from pydantic import BaseModel
 
 from app.services.model_gateway.types import ToolSpec
+from app.agents.context import get_access_scope
+from app.agents.context import tool_records
+from time import perf_counter
 
 
 class ToolArgumentError(ValueError):
@@ -26,11 +29,27 @@ class RegisteredTool:
         self.adapter = adapter
 
     def invoke(self, session, raw_arguments: dict):
+        started = perf_counter()
         try:
-            arguments = self.argument_model.model_validate(raw_arguments)
+            values = dict(raw_arguments)
+            if "access_scope" in self.argument_model.model_fields and "access_scope" not in values:
+                values["access_scope"] = get_access_scope()
+            arguments = self.argument_model.model_validate(values)
+            result = self.adapter(session, arguments)
+            payload, refs = result if isinstance(result, tuple) and len(result) == 2 else (result, [])
+            tool_records().append({"tool_name": self.spec.name, "arguments": values,
+                                   "evidence_ids": [ref.evidence_id for ref in refs],
+                                   "duration_ms": (perf_counter() - started) * 1000,
+                                   "warnings": list(payload.get("warnings", [])) if isinstance(payload, dict) else [],
+                                   "error": None})
+            return result
         except Exception as error:
-            raise ToolArgumentError(f"Invalid arguments for tool '{self.spec.name}': {error}") from error
-        return self.adapter(session, arguments)
+            if "arguments" not in locals():
+                raise ToolArgumentError(f"Invalid arguments for tool '{self.spec.name}': {error}") from error
+            tool_records().append({"tool_name": self.spec.name, "arguments": dict(raw_arguments),
+                                   "evidence_ids": [], "duration_ms": (perf_counter() - started) * 1000,
+                                   "warnings": [], "error": str(error)})
+            raise
 
 
 _REGISTRY: dict[str, RegisteredTool] = {}

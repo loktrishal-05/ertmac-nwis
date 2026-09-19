@@ -14,7 +14,7 @@ model is NOT asked to compute or assert `observations`/`anomaly_status` at
 all -- those are entirely deterministic (app.agents.nodes.maintenance
 overrides them regardless of what the model returns) -- only to propose
 `hypotheses`/`required_checks`/`confidence` from the evidence it is shown."""
-from app.agents.prompts.shared import format_evidence_block  # noqa: F401 (re-exported)
+from app.agents.prompts.shared import format_evidence_block, format_evidence_ref  # noqa: F401
 
 MAINTENANCE_ASSESSMENT_SYSTEM_PROMPT = (
     "You are a maintenance and asset reliability assistant for an industrial-refinery operations "

@@ -1,44 +1,54 @@
-"""The deterministic authorisation-language validator (Phase 4D brief item 1),
-reused unchanged by Phase 4F (brief item 2 there: "Reuse 4D's
-authorisation-language validator"). A pure function: no database access, no
-model call, no state.
-
-Permit, LOTO, isolation, and process-change language may cite what a
-procedure or SOP says. It must never read as this system itself granting
-clearance, permission, or authorisation to act -- that decision belongs to a
-qualified human, every time, with no exception this phase or the next may
-create. Phase 5 is where an actual approval workflow gets built; 4D/4F only
-record `action_class`/`human_approval_required`, they do not gate on them
-(docs/phase4-autonomous-continuation.md section 2's "No approval
-enforcement... those are Phase 5" prohibition)."""
+"""Supplemental authorization-language heuristic; never an approval boundary."""
 import re
 
-_FORBIDDEN_PATTERNS: list[re.Pattern] = [
-    re.compile(pattern, re.IGNORECASE) for pattern in (
-        r"you(?:'re| are) (?:now |hereby )?cleared (?:to|for)",
-        r"permission (?:is |has been )?(?:hereby )?granted",
-        r"you may now (?:isolate|proceed|open|close|start|stop|shut ?down|begin|enter)",
-        r"authoris(?:ed|ation) to (?!.{0,40}\b(?:request|obtain|seek)\b)",
-        r"authoriz(?:ed|ation) to (?!.{0,40}\b(?:request|obtain|seek)\b)",
-        r"you(?:'re| are) authoris",
-        r"you(?:'re| are) authoriz",
-        r"permit (?:is |has been )?(?:issued|approved)",
-        r"consider (?:it|this) (?:approved|authorised|authorized|granted)",
-        r"go ahead and (?:isolate|proceed|open|close|start|stop|shut ?down)",
-        r"cleared for (?:isolation|entry|work|confined space)",
-        r"you have (?:clearance|authorisation|authorization)",
+_PATTERNS = (
+    r"you(?:'re| are)\s+(?:now\s+|hereby\s+)?cleared\s+(?:to|for)",
+    r"permission\s+(?:is|has been)\s+(?:hereby\s+)?granted",
+    r"(?:you may now|go ahead and|proceed with|authorize|authorise)\b",
+    r"you(?:'re| are)\s+authori[sz](?:ed|ation)\b",
+    r"permit\s+(?:is|has been)\s+(?:issued|approved)",
+    r"(?:consider|mark)\s+(?:it|this|the action)\s+(?:approved|authori[sz]ed|granted)",
+    r"\b(?:start|stop|restart|open|close|isolate|bypass|override|suppress|defeat|energize|de-energize)\s+(?:the\s+)?[A-Z0-9][A-Z0-9_-]{1,}",
+    r"\b(?:bring|take|return)\s+[A-Z0-9][A-Z0-9_-]{1,}.*\b(?:online|offline|to service)\b",
+    r"\bremove\s+(?:the\s+)?(?:trip|alarm|interlock)\b",
+    r"\b(?:already|supervisor)\s+approved\b.{0,40}\bproceed\b",
+    r"\bsupervisor\s+approved\b",
+    r"\bmark\s+(?:this\s+)?action\s+approved\b",
+    r"\bexecute\s+(?:the\s+)?(?:isolation|shutdown|restart)\b",
+    r"\b(?:if|when)\b.{0,100}\b(?:start|stop|restart|open|close|isolate|bypass|override|shut down)\b",
+)
+_FORBIDDEN_PATTERNS = [re.compile(pattern, re.IGNORECASE) for pattern in _PATTERNS]
+_ACTION_WORD = re.compile(r"\b(?:start|stop|restart|open|close|isolate|bypass|override|suppress|defeat|energize|de-energize|shut\s*down)\b", re.IGNORECASE)
+
+
+def _normalized(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _candidate_sentences(text: str) -> list[str]:
+    text = re.sub(r"(['\"]).*?\1", " ", text)
+    sentences = re.split(r"(?<=[.!?])\s+|[;\n]+", text)
+    excluded = re.compile(
+        r"\b(?:explain|describe|summari[sz]e|the\s+(?:sop|phrase|instruction)\s+says|"
+        r"what\s+could\s+happen|consequences\s+of|do\s+not|don't|never|must\s+not|"
+        r"not\s+authorized|not\s+authorised|authorized\s+to\s+request|authorised\s+to\s+request|"
+        r"no\s+(?:permit|approval)\s+is?\s+approved|if\s+someone\s+said|would\s+be)\b", re.IGNORECASE,
     )
-]
+    return [s for s in sentences if s and not excluded.search(s)]
 
 
 def find_authorization_language(text: str) -> list[str]:
-    """Returns the list of matched pattern sources (empty if clean). Scans
-    the literal text only -- callers decide which free-text fields of an
-    S7/S6 output to concatenate and pass in (see nodes/safety.py,
-    nodes/process_optimization.py)."""
-    if not text:
+    normalized = _normalized(text)
+    if not normalized:
         return []
-    return [pattern.pattern for pattern in _FORBIDDEN_PATTERNS if pattern.search(text)]
+    candidates = _candidate_sentences(normalized)
+    violations = []
+    for index, pattern in enumerate(_FORBIDDEN_PATTERNS):
+        if any(pattern.search(sentence) for sentence in candidates):
+            violations.append(("direct operational action: " if index >= 6 else "") + pattern.pattern)
+    if any(_ACTION_WORD.search(sentence) for sentence in candidates):
+        violations.append("direct operational action language")
+    return violations
 
 
 def contains_authorization_language(text: str) -> bool:

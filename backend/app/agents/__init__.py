@@ -20,7 +20,9 @@ _TELEMETRY_DEFAULTS = {
     "LANGSMITH_ENDPOINT": "",
 }
 for _key, _value in _TELEMETRY_DEFAULTS.items():
-    os.environ.setdefault(_key, _value)
+    # Production/on-prem mode owns this boundary; a process environment must
+    # not silently turn hosted tracing back on.
+    os.environ[_key] = _value
 del _key, _value
 
 from app.agents.graph import get_graph, run_graph  # noqa: E402

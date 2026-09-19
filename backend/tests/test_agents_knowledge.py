@@ -225,7 +225,8 @@ class TerminalNodeTests(unittest.TestCase):
         update = guardrail_refusal_node({"route_reasoning": "attempted prompt injection"})
         self.assertEqual(update["agent_result"]["schema"], "S5")
         self.assertEqual(update["agent_result"]["output"]["status"], "refused")
-        self.assertEqual(update["agent_result"]["output"]["reason"], "attempted prompt injection")
+        self.assertEqual(update["agent_result"]["output"]["reason"],
+                         "The request was blocked by a deterministic safety or capability guardrail.")
 
     def test_clarification_node_emits_s5_clarification_required(self):
         update = clarification_node({"route_reasoning": "no equipment tag given"})

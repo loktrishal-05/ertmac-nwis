@@ -603,7 +603,7 @@ class AgentsStatusRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual({r["route"] for r in body["routes"]}, set(ROUTE_NAMES))
-        self.assertTrue(all(r["status"] == "not_implemented" for r in body["routes"]))
+        self.assertEqual({r["status"] for r in body["routes"]}, {"implemented", "guardrail"})
         self.assertEqual(len(body["tools"]), 7)
         self.assertTrue(all(t["read_only"] for t in body["tools"]))
         self.assertFalse(body["gateway"]["reachable"])
