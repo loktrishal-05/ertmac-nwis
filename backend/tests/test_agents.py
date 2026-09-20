@@ -484,7 +484,9 @@ class AgentConfigTests(unittest.TestCase):
     def _settings(self, **overrides):
         values = dict(model_name="qwen-test", model_base_url="http://127.0.0.1:11434")
         values.update(overrides)
-        return Settings(**values)
+        # Isolated from the developer's local .env: this class tests Settings'
+        # own Python-level field defaults, not this machine's dev configuration.
+        return Settings(_env_file=None, **values)
 
     def test_agent_settings_defaults(self):
         s = self._settings()
