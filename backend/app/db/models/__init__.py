@@ -15,5 +15,6 @@ from app.db.models.structured_data_source import StructuredDataSource
 from app.db.models.maintenance_record import MaintenanceRecord
 from app.db.models.agent_run import AgentRun
 from app.db.models.agent_run_step import AgentRunStep
+from app.db.models.action_revision import GovernanceRequest, ActionRevision
 
-__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep"]
+__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep","GovernanceRequest","ActionRevision"]

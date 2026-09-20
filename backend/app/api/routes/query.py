@@ -1,5 +1,4 @@
-"""Runs the Phase 4B router graph. No route beyond routing itself reasons
-yet; every route resolves to its stub node's not_implemented result."""
+"""Validated specialist output enters the common Phase 5A boundary."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -9,25 +8,20 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.query import QueryRequest, QueryResponse
 from app.services.model_gateway import ModelRuntimeError, ModelTimeoutError, ModelUnavailableError
+from app.services.governance import GovernanceConflict, govern_response, replay_request
 
 router = APIRouter(tags=["query"])
-
-
-def _timings(state: dict) -> dict:
-    return {
-        "started_at": state.get("started_at"),
-        "finished_at": state.get("finished_at"),
-        "steps": [
-            {"node_name": step.get("node_name"), "duration_ms": step.get("duration_ms")}
-            for step in state.get("step_records", [])
-        ],
-    }
 
 
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest, session: Session = Depends(get_db)) -> QueryResponse:
     try:
+        replayed = replay_request(session, request)
+        if replayed is not None:
+            return replayed
         state = run_graph(request.query, session=session, access_scope=request.access_scope)
+    except GovernanceConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     except GraphExecutionError as wrapped:
         session.rollback()
         try:
@@ -52,17 +46,7 @@ def query(request: QueryRequest, session: Session = Depends(get_db)) -> QueryRes
     except ModelRuntimeError as error:
         raise HTTPException(status_code=502, detail="Model runtime returned an error.") from error
 
-    status = "error" if state.get("errors") else "ok"
-    record_run(
-        session, state, status=status,
-        model=settings.model_name, runtime=settings.model_runtime,
-        error="; ".join(state.get("errors", [])) or None,
-    )
-
-    return QueryResponse(
-        run_id=state["run_id"], route=state.get("route"), route_confidence=state.get("route_confidence"),
-        route_reasoning=state.get("route_reasoning"), agent_result=state.get("agent_result"),
-        evidence=state.get("evidence", []), warnings=state.get("warnings", []),
-        human_approval_required=state.get("human_approval_required", False),
-        action_class=state.get("action_class"), timings=_timings(state),
-    )
+    try:
+        return govern_response(session, request, state)
+    except GovernanceConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error

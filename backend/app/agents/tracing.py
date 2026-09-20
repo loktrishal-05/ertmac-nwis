@@ -4,8 +4,8 @@ run_graph() returns.
 Only evidence_id STRINGS ever reach these tables — never an EvidenceRef
 body, never retrieved document text, never an OCR region quote, never a
 sensor row value. The operator's own query text is stored only when
-AGENT_TRACE_STORE_QUERY is true; recording is a no-op entirely when
-AGENT_TRACE_ENABLED is false."""
+AGENT_TRACE_STORE_QUERY is true. Phase 5A can require a minimal originating
+run even when optional tracing is disabled, and share its transaction."""
 import uuid
 from datetime import datetime
 
@@ -29,8 +29,10 @@ def record_run(
     model: str | None,
     runtime: str | None,
     error: str | None = None,
+    required: bool = False,
+    commit: bool = True,
 ) -> AgentRun | None:
-    if not settings.agent_trace_enabled:
+    if not settings.agent_trace_enabled and not required:
         return None
 
     started_at = _parse(state.get("started_at"))
@@ -43,7 +45,7 @@ def record_run(
 
     run = AgentRun(
         id=uuid.UUID(state["run_id"]),
-        query_text=state["query"] if settings.agent_trace_store_query else None,
+        query_text=state["query"] if settings.agent_trace_enabled and settings.agent_trace_store_query else None,
         route=state.get("route"),
         route_confidence=state.get("route_confidence"),
         status=status,
@@ -59,7 +61,7 @@ def record_run(
     session.add(run)
     session.flush()
 
-    for index, step in enumerate(state.get("step_records", [])):
+    for index, step in enumerate(state.get("step_records", []) if settings.agent_trace_enabled else []):
         session.add(
             AgentRunStep(
                 run_id=run.id,
@@ -77,6 +79,7 @@ def record_run(
             )
         )
 
-    session.commit()
-    session.refresh(run)
+    if commit:
+        session.commit()
+        session.refresh(run)
     return run

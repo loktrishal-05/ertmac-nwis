@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -63,6 +64,8 @@ class FoundationTests(unittest.TestCase):
             "status": "ok", "service": "sovereign-agentic-workbench-backend",
         })
 
+    @unittest.skipUnless(os.environ.get("WORKBENCH_TEST_LIVE_MODEL") == "1",
+                         "Live local-model /query smoke not enabled")
     def test_query(self):
         # Phase 4B: /query now runs the real router graph, so the route it
         # picks depends on the live model's own classification rather than a
@@ -73,12 +76,15 @@ class FoundationTests(unittest.TestCase):
         # with an S1-S7 agent_result.schema, not the flat not_implemented stub shape;
         # process_optimization remains the one stub pending 4F. Branch on which the
         # live model actually picked rather than assuming either shape.
-        # A generous timeout: this is the one request in this file that reaches
-        # the live model gateway, and a cold model load (MODEL_FIRST_LOAD_TIMEOUT_SECONDS)
-        # can take well past the 5s default used elsewhere in this file.
+        # Opt-in only (WORKBENCH_TEST_LIVE_MODEL=1), mirroring WORKBENCH_TEST_POSTGRES
+        # in test_phase5a_postgres.py: this is a live-model integration probe, not a
+        # deterministic unit test -- its wall-clock time depends on this machine's
+        # token throughput (measured ~3.3 tok/s for qwen3.5:9b/CPU on 2026-09-20;
+        # see docs/phase5a-validation.md), not on this code. A generous client-side
+        # timeout matches that measured throughput rather than papering over it.
         from app.agents.prompts.router import ROUTE_NAMES
         STUB_ROUTES = {"process_optimization"}
-        body = self.request("/query", "POST", {"query": "What is the status of pump P-204?"}, timeout=180)
+        body = self.request("/query", "POST", {"query": "What is the status of pump P-204?"}, timeout=600)
         self.assertIn(body["route"], ROUTE_NAMES)
         if body["route"] in STUB_ROUTES:
             self.assertEqual(body["agent_result"]["status"], "not_implemented")
@@ -134,8 +140,8 @@ class FoundationTests(unittest.TestCase):
 
     def test_metadata_and_offline_migration(self):
         configure_mappers()
-        self.assertEqual(len(models.__all__), 14)
-        self.assertEqual(len(Base.metadata.tables), 14)
+        self.assertEqual(len(models.__all__), 16)
+        self.assertEqual(len(Base.metadata.tables), 16)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])
