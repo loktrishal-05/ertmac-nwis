@@ -125,7 +125,12 @@ class FoundationTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 422)
 
     def test_audit_and_sovereignty(self):
-        self.assertEqual(self.request("/audit/log"), [])
+        # Phase 5C: GET /audit/log is now real (reviewer/admin only) rather
+        # than a permanent []. See test_phase5c.py for the authenticated
+        # contract and the tamper-evident chain itself.
+        with self.assertRaises(HTTPError) as error:
+            self.request("/audit/log")
+        self.assertEqual(error.exception.code, 401)
         self.assertEqual(self.request("/sovereignty/proof"), {
             "external_ai_calls": 0, "cloud_ai_enabled": False,
             "inference_mode": "local_only", "status": "sovereign",
@@ -145,8 +150,8 @@ class FoundationTests(unittest.TestCase):
 
     def test_metadata_and_offline_migration(self):
         configure_mappers()
-        self.assertEqual(len(models.__all__), 18)
-        self.assertEqual(len(Base.metadata.tables), 18)
+        self.assertEqual(len(models.__all__), 21)
+        self.assertEqual(len(Base.metadata.tables), 21)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])

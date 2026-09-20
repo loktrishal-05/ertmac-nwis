@@ -24,6 +24,7 @@ from app.schemas.approval import (
     RevisionDetail,
 )
 from app.services.approval import DecisionConflict, DecisionNotAllowed, apply_decision, pending_reviews, release_advisory, revision_detail
+from app.services.audit import append_event
 from app.services.governance import ReleaseNotAllowed
 
 router = APIRouter(tags=["approvals"])
@@ -70,6 +71,17 @@ def decide_approval(revision_id: UUID, payload: DecisionRequest,
         session.commit()
     except DecisionNotAllowed as error:
         session.rollback()
+        # Best-effort (docs/phase5c.md "Atomic governance/audit behavior"):
+        # nothing authoritative changed, so a failure to record this denial
+        # must never turn a correct 403/404 into a 500. The session was just
+        # rolled back to a clean state, so this starts and commits its own
+        # small, independent transaction.
+        try:
+            append_event(session, event_type="APPROVAL_AUTHORIZATION_DENIED", actor_id=user.id, actor_kind="user",
+                        action_revision_id=revision_id, payload={"attempted_decision": payload.decision, "reason": str(error)})
+            session.commit()
+        except Exception:
+            session.rollback()
         raise HTTPException(status_code=403 if "identity is unverified" in str(error)
                             or "Self-approval" in str(error)
                             or "authorized reviewer" in str(error) else 404, detail=str(error)) from error
@@ -87,6 +99,16 @@ def decide_approval(revision_id: UUID, payload: DecisionRequest,
 def release_approval(revision_id: UUID, user: User = Depends(get_current_user),
                      session: Session = Depends(get_db)) -> ReleaseResult:
     try:
-        return ReleaseResult(**release_advisory(session, revision_id))
+        return ReleaseResult(**release_advisory(session, revision_id, actor=user))
     except ReleaseNotAllowed as error:
+        session.rollback()
+        # Best-effort, same reasoning as the decision-denial case above:
+        # nothing state-changing happened, so this must never turn a correct
+        # 403 into a 500.
+        try:
+            append_event(session, event_type="ADVISORY_RELEASE_DENIED", actor_id=user.id, actor_kind="user",
+                        action_revision_id=revision_id, payload={"reason": str(error)})
+            session.commit()
+        except Exception:
+            session.rollback()
         raise HTTPException(status_code=403, detail=str(error)) from error

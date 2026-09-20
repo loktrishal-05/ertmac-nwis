@@ -13,6 +13,7 @@ from app.core.security import hash_session_token, new_session_token, verify_pass
 from app.db.models import AuthSession, User
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, UserPublic
+from app.services.audit import append_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,11 +24,24 @@ def login(payload: LoginRequest, response: Response, session: Session = Depends(
     # Same generic failure for "unknown user" and "wrong password": do not let
     # a client distinguish the two (username enumeration).
     if user is None or not user.password_hash or not verify_password(payload.password, user.password_hash):
+        # Best-effort (docs/phase5c.md "Atomic governance/audit behavior"):
+        # nothing state-changing happened, so a failure to record this must
+        # never turn a correct 401 into a 500. Never the attempted password.
+        try:
+            append_event(session, event_type="LOGIN_FAILURE", actor_id=None, actor_kind="anonymous",
+                        payload={"attempted_username": payload.username})
+            session.commit()
+        except Exception:
+            session.rollback()
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
     token = new_session_token()
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.session_ttl_seconds)
     session.add(AuthSession(user_id=user.id, token_hash=hash_session_token(token), expires_at=expires_at))
+    # Mandatory, same transaction as the AuthSession insert above -- never
+    # the session token itself, only the username.
+    append_event(session, event_type="LOGIN_SUCCESS", actor_id=user.id, actor_kind="user",
+                payload={"username": user.username})
     session.commit()
 
     response.set_cookie(

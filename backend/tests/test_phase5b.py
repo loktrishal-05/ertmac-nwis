@@ -15,8 +15,8 @@ from app.core.config import settings
 from app.core.security import hash_password, verify_password
 from app.db.base import Base
 from app.db.models import (
-    ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuthSession,
-    GovernanceRequest, User,
+    ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuditChainHead,
+    AuditEvent, AuthSession, GovernanceRequest, User,
 )
 from app.db.session import get_db
 from app.main import app
@@ -29,7 +29,7 @@ from test_phase5a import state
 
 TABLES = [model.__table__ for model in (
     User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
-    AuthSession, ApprovalDecision,
+    AuthSession, ApprovalDecision, AuditChainHead, AuditEvent,
 )]
 
 
@@ -161,7 +161,7 @@ class ApprovalServiceTests(unittest.TestCase):
         revision = self.make_revision(requester_user_id=self.requester.id)
         apply_decision(self.session, revision_id=revision.id, reviewer=self.reviewer, decision="approve")
         assert_release_allowed(self.session, revision.id)  # must not raise
-        released = release_advisory(self.session, revision.id)
+        released = release_advisory(self.session, revision.id, actor=self.reviewer)
         self.assertEqual(released["governance_status"], "RELEASED")
 
     def test_revoked_approval_cannot_release(self):
@@ -256,7 +256,7 @@ class ApprovalServiceTests(unittest.TestCase):
         before = {tool.name for tool in list_tools()}
         revision = self.make_revision(requester_user_id=self.requester.id)
         apply_decision(self.session, revision_id=revision.id, reviewer=self.reviewer, decision="approve")
-        release_advisory(self.session, revision.id)
+        release_advisory(self.session, revision.id, actor=self.reviewer)
         after = {tool.name for tool in list_tools()}
         self.assertEqual(before, after)
         self.assertEqual(after, {"retrieve_documents", "get_pid_regions", "get_maintenance_history",

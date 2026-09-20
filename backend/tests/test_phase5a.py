@@ -22,8 +22,8 @@ from app.agents.state import _or_bool
 from app.core.config import settings
 from app.db.base import Base
 from app.db.models import (
-    ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuthSession,
-    GovernanceRequest, User,
+    ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuditChainHead,
+    AuditEvent, AuthSession, GovernanceRequest, User,
 )
 from app.db.session import get_db
 from app.main import app
@@ -36,7 +36,7 @@ from app.services.governance import (
 
 TABLES = [model.__table__ for model in (
     User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
-    AuthSession, ApprovalDecision,
+    AuthSession, ApprovalDecision, AuditChainHead, AuditEvent,
 )]
 
 

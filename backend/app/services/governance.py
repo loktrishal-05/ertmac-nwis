@@ -24,6 +24,7 @@ from app.agents.tracing import record_run
 from app.core.config import settings
 from app.db.models import ActionRevision, Agent, AgentAction, AgentRun, ApprovalDecision, GovernanceRequest
 from app.schemas.query import QueryRequest, QueryResponse
+from app.services.audit import append_event
 from app.services.canonicalization import CANONICALIZATION_VERSION, canonical_hash, canonical_json
 
 POLICY_VERSION = "governance-5a-v1"
@@ -296,6 +297,20 @@ def govern_response(session, request: QueryRequest, state: dict, *,
     if evaluate_governance(request, state) == "PENDING_REVIEW":
         try:
             revision = create_revision(session, request, state, replay=True, requester_user_id=requester_user_id)
+            # Mandatory, same-transaction (Phase 5C, docs/phase5c.md "Atomic
+            # governance/audit behavior"): replay_request already returned
+            # None above, so this create_revision call is always the genuine
+            # first-time creation of this request_id's governed revision --
+            # exactly the "governed revision created" / "PENDING_REVIEW
+            # created" event. If the audit append fails, the exception below
+            # rolls back the revision too rather than leaving it unaudited.
+            append_event(
+                session, event_type="GOVERNED_REVISION_CREATED",
+                actor_id=requester_user_id, actor_kind="user" if requester_user_id else "anonymous",
+                request_id=revision.request_id, action_revision_id=revision.id,
+                payload={"route": state.get("route"), "risk_category": revision.risk_category,
+                        "governance_status": revision.governance_status},
+            )
             response = _draft_response(session, revision)
             session.commit()
             return response

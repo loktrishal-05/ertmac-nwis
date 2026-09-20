@@ -18,5 +18,6 @@ from app.db.models.agent_run_step import AgentRunStep
 from app.db.models.action_revision import GovernanceRequest, ActionRevision
 from app.db.models.auth_session import AuthSession
 from app.db.models.approval_decision import ApprovalDecision
+from app.db.models.audit_event import AuditEvent, AuditChainHead, AuditCheckpoint
 
-__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep","GovernanceRequest","ActionRevision","AuthSession","ApprovalDecision"]
+__all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep","GovernanceRequest","ActionRevision","AuthSession","ApprovalDecision","AuditEvent","AuditChainHead","AuditCheckpoint"]

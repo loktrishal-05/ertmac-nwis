@@ -16,6 +16,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.core.config import settings
 from app.db.models import ActionRevision, ApprovalDecision, GovernanceRequest, User
+from app.services.audit import append_event
 from app.services.governance import POLICY_VERSION as REVISION_POLICY_VERSION
 from app.services.governance import ReleaseNotAllowed, _ledger_state, _without_authority, assert_release_allowed
 
@@ -202,16 +203,44 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
             f"This revision was already decided ({winner.decision} by a different reviewer at "
             f"{winner.decided_at.isoformat()}); this decision was not recorded"
         )
+
+    # Mandatory, same-transaction (Phase 5C, docs/phase5c.md "Atomic
+    # governance/audit behavior"): only reached once `winner` is confirmed to
+    # be OUR OWN freshly-inserted decision (never on a losing race, and never
+    # on an idempotent same-reviewer/same-decision retry that returned early
+    # above) -- exactly once per actual authoritative decision. If the audit
+    # append fails, the exception propagates and the caller's transaction
+    # rolls back the decision too, rather than leaving it unaudited.
+    event_type = {"APPROVE": "APPROVAL_DECISION_APPROVE", "REJECT": "APPROVAL_DECISION_REJECT",
+                 "REVOKE": "APPROVAL_DECISION_REVOKE"}[decision_upper]
+    append_event(
+        session, event_type=event_type, actor_id=reviewer.id, actor_kind="user",
+        request_id=revision.request_id, action_revision_id=revision.id, decision_id=winner.id,
+        payload={"decision": decision_upper, "requester_user_id": binding.requester_user_id,
+                "policy_version": winner.policy_version},
+    )
     return winner
 
 
-def release_advisory(session, revision_id: UUID) -> dict:
+def release_advisory(session, revision_id: UUID, *, actor: User) -> dict:
     """The shared release gate (docs/phase5b.md section 10): hands back an
     already-APPROVED advisory recommendation for human/operational
     consideration. This is never execution and creates no new capability --
-    assert_release_allowed fails closed for anything but APPROVED."""
+    assert_release_allowed fails closed for anything but APPROVED.
+
+    Phase 5C: release success is a mandatory, fail-closed audit event
+    (docs/phase5c.md "Atomic governance/audit behavior") -- this function
+    commits its own transaction (release itself makes no OTHER write) only
+    after the audit append succeeds; if it fails, the exception propagates
+    and no release is reported to have happened."""
     assert_release_allowed(session, revision_id)
     detail = revision_detail(session, revision_id)
     detail["governance_status"] = "RELEASED"
     detail["released_at"] = datetime.now(timezone.utc)
+    append_event(
+        session, event_type="ADVISORY_RELEASE_SUCCESS", actor_id=actor.id, actor_kind="user",
+        request_id=detail["request_id"], action_revision_id=revision_id,
+        payload={"route": detail.get("route")},
+    )
+    session.commit()
     return detail
