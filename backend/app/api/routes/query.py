@@ -1,10 +1,12 @@
-"""Validated specialist output enters the common Phase 5A boundary."""
+"""Validated specialist output enters the common Phase 5A/5B boundary."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.agents.graph import GraphExecutionError, run_graph
 from app.agents.tracing import record_run
+from app.api.deps import get_optional_current_user
 from app.core.config import settings
+from app.db.models import User
 from app.db.session import get_db
 from app.schemas.query import QueryRequest, QueryResponse
 from app.services.model_gateway import ModelRuntimeError, ModelTimeoutError, ModelUnavailableError
@@ -14,7 +16,8 @@ router = APIRouter(tags=["query"])
 
 
 @router.post("/query", response_model=QueryResponse)
-def query(request: QueryRequest, session: Session = Depends(get_db)) -> QueryResponse:
+def query(request: QueryRequest, session: Session = Depends(get_db),
+         current_user: User | None = Depends(get_optional_current_user)) -> QueryResponse:
     try:
         replayed = replay_request(session, request)
         if replayed is not None:
@@ -47,6 +50,7 @@ def query(request: QueryRequest, session: Session = Depends(get_db)) -> QueryRes
         raise HTTPException(status_code=502, detail="Model runtime returned an error.") from error
 
     try:
-        return govern_response(session, request, state)
+        return govern_response(session, request, state,
+                              requester_user_id=current_user.id if current_user else None)
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error

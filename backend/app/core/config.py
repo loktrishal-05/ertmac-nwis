@@ -74,6 +74,17 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("WORKBENCH_KNOWLEDGE_RELEVANCE_FLOOR", "KNOWLEDGE_RELEVANCE_FLOOR"),
     )
 
+    # Phase 5B local authentication. No hosted identity, no client-trusted header.
+    session_cookie_name: str = Field(default="workbench_session", validation_alias="SESSION_COOKIE_NAME")
+    session_ttl_seconds: float = Field(default=8 * 3600, gt=0, validation_alias="SESSION_TTL_SECONDS")
+    # True requires HTTPS (browsers drop Secure cookies over plain http). Local
+    # dev over http needs this False; set True behind TLS in any real deployment.
+    session_cookie_secure: bool = Field(default=False, validation_alias="SESSION_COOKIE_SECURE")
+    # Provisional operator-configurable default, not an MRPL-approved policy
+    # (see docs/phase5b.md): how long an APPROVED decision stays valid for
+    # release before it is treated as EXPIRED.
+    approval_validity_seconds: float = Field(default=24 * 3600, gt=0, validation_alias="APPROVAL_VALIDITY_SECONDS")
+
     @property
     def model_allowed_hosts_set(self) -> set[str]:
         return {host.strip().lower() for host in self.model_allowed_hosts.split(",") if host.strip()}

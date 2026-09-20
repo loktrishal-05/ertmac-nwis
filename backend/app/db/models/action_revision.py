@@ -21,6 +21,12 @@ class GovernanceRequest(IdentityMixin, CreatedAtMixin, Base):
     canonical_request_hash: Mapped[str] = mapped_column(String(64))
     requester_context: Mapped[str] = mapped_column(Text)
     identity_status: Mapped[str] = mapped_column(String(20))
+    # Phase 5B: the AUTHENTICATED session's user at request time, set once at
+    # insert (never updated) when /query was called with a valid session
+    # cookie; NULL for an unauthenticated /query call. This is the only
+    # trustworthy requester identity self-approval checks may rely on --
+    # requester_context above remains an unverified CLAIMED reference.
+    requester_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
     __table_args__ = (
         ForeignKeyConstraint(["initial_revision_id", "id"], ["action_revisions.id", "action_revisions.request_id"],
                              name="fk_governance_initial_revision", use_alter=True, deferrable=True, initially="DEFERRED"),

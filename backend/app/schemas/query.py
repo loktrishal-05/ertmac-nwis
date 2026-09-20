@@ -32,7 +32,7 @@ class QueryResponse(BaseModel):
     action_class: str | None
     timings: dict
     request_id: UUID
-    governance_status: Literal["INFORMATIONAL", "PENDING_REVIEW"]
+    governance_status: Literal["INFORMATIONAL", "PENDING_REVIEW", "APPROVED", "REJECTED", "REVOKED", "EXPIRED"]
     action_revision_id: UUID | None = None
     human_review_required: bool
     presentation: Literal["INFORMATIONAL", "DRAFT"]

@@ -107,7 +107,12 @@ class FoundationTests(unittest.TestCase):
         self.assertIn("reachable", body["gateway"])
 
     def test_approvals(self):
-        self.assertEqual(self.request("/approvals"), [])
+        # Phase 5B: GET /approvals now lists real pending governed revisions
+        # for an authenticated reviewer/admin; unauthenticated is rejected.
+        # See test_phase5b.py for the authenticated contract.
+        with self.assertRaises(HTTPError) as error:
+            self.request("/approvals")
+        self.assertEqual(error.exception.code, 401)
         result = self.request("/approvals/00000000-0000-0000-0000-000000000001", "POST")
         self.assertEqual(result["status"], "not_implemented")
         with self.assertRaises(HTTPError) as error:
@@ -140,8 +145,8 @@ class FoundationTests(unittest.TestCase):
 
     def test_metadata_and_offline_migration(self):
         configure_mappers()
-        self.assertEqual(len(models.__all__), 16)
-        self.assertEqual(len(Base.metadata.tables), 16)
+        self.assertEqual(len(models.__all__), 18)
+        self.assertEqual(len(Base.metadata.tables), 18)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])

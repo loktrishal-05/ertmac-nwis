@@ -21,7 +21,10 @@ from app.agents.registry import list_tools
 from app.agents.state import _or_bool
 from app.core.config import settings
 from app.db.base import Base
-from app.db.models import ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest
+from app.db.models import (
+    ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuthSession,
+    GovernanceRequest, User,
+)
 from app.db.session import get_db
 from app.main import app
 from app.schemas.query import QueryRequest
@@ -31,7 +34,10 @@ from app.services.governance import (
     evaluate_governance, get_governance_state, govern_response, replay_request,
 )
 
-TABLES = [model.__table__ for model in (Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision)]
+TABLES = [model.__table__ for model in (
+    User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
+    AuthSession, ApprovalDecision,
+)]
 
 
 def state(schema="S7", **output):
@@ -256,7 +262,11 @@ class PersistenceTests(unittest.TestCase):
                 response = client.post("/query", json={"query": "review", field: True})
                 self.assertEqual(response.status_code, 422, field)
             self.assertEqual(client.post(f"/approvals/{uuid4()}", json={"approved": True}).json()["status"], "not_implemented")
-            self.assertEqual(client.post(f"/approvals/{uuid4()}/decision", json={"approved": True}).status_code, 404)
+            # Phase 5B: this endpoint is now real and requires authentication;
+            # an unauthenticated caller is rejected before any body/authority
+            # field is even considered. See test_phase5b.py for the full
+            # authenticated decision-endpoint contract.
+            self.assertEqual(client.post(f"/approvals/{uuid4()}/decision", json={"approved": True}).status_code, 401)
 
     def test_commit_failure_does_not_return_draft(self):
         with patch.object(self.session, "commit", side_effect=RuntimeError("commit failed")):

@@ -1,10 +1,18 @@
-"""The common post-validation governance boundary. No approval or release in 5A.
+"""The common post-validation governance boundary.
 
 Raw graph outputs are advisory computation, never a release credential.
 This service owns persistence and derives response metadata from stored rows.
+
+Phase 5A never persists anything but PENDING_REVIEW (action_revisions.governance_status
+is a DB-enforced constant). Phase 5B's approve/reject/revoke ledger
+(app.db.models.ApprovalDecision, app.services.approval) is a SEPARATE
+append-only table; get_governance_state below computes the current state
+by combining that immutable baseline with the ledger, rather than the
+baseline column ever changing.
 """
 import json
 import re
+from datetime import datetime, timezone
 from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import select
@@ -14,7 +22,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.agents.enforcement import operational_action_text
 from app.agents.tracing import record_run
 from app.core.config import settings
-from app.db.models import ActionRevision, Agent, AgentAction, AgentRun, GovernanceRequest
+from app.db.models import ActionRevision, Agent, AgentAction, AgentRun, ApprovalDecision, GovernanceRequest
 from app.schemas.query import QueryRequest, QueryResponse
 from app.services.canonicalization import CANONICALIZATION_VERSION, canonical_hash, canonical_json
 
@@ -104,25 +112,100 @@ def _first_revision(session, request_id):
     return session.get(ActionRevision, binding.initial_revision_id)
 
 
+def _ledger_state(session, revision_id: UUID) -> str | None:
+    """The Phase 5B decision ledger's verdict for this revision, or None if no
+    terminal decision exists yet (still PENDING_REVIEW). A pure read of the
+    immutable app.db.models.ApprovalDecision rows -- never a caller's claim."""
+    row = session.execute(
+        select(ApprovalDecision.decision, ApprovalDecision.expires_at)
+        .where(ApprovalDecision.action_revision_id == revision_id,
+              ApprovalDecision.decision.in_(("APPROVE", "REJECT")))
+    ).one_or_none()
+    if row is None:
+        return None
+    decision, expires_at = row
+    if decision == "REJECT":
+        return "REJECTED"
+    revoked = session.execute(
+        select(ApprovalDecision.id).where(ApprovalDecision.action_revision_id == revision_id,
+                                          ApprovalDecision.decision == "REVOKE")
+    ).scalar_one_or_none()
+    if revoked is not None:
+        return "REVOKED"
+    if expires_at is not None:
+        # SQLite (test fixtures only) returns naive datetimes even for
+        # DateTime(timezone=True); PostgreSQL never does. Treat a naive value
+        # as already UTC rather than fail the comparison.
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            return "EXPIRED"
+    return "APPROVED"
+
+
 def get_governance_state(session, revision_id: UUID) -> str:
     # Load a fresh stored row; caller-supplied objects/legacy approvals are not authority.
     row = session.execute(select(ActionRevision.governance_status).where(ActionRevision.id == revision_id)).scalar_one_or_none()
     if row != "PENDING_REVIEW":
         raise ReleaseNotAllowed("No recognized governed revision")
-    return row
+    return _ledger_state(session, revision_id) or "PENDING_REVIEW"
 
 
 def assert_release_allowed(session, revision_id: UUID) -> None:
-    get_governance_state(session, revision_id)
-    raise ReleaseNotAllowed("PENDING_REVIEW cannot be released: authenticated human approval is not implemented")
+    """Fails closed for anything except a currently APPROVED (non-expired,
+    non-revoked) exact revision. Missing, PENDING_REVIEW, REJECTED, REVOKED,
+    and EXPIRED all deny release; there is no bypass path.
+
+    The computed "APPROVED" state alone is NEVER sufficient: an APPROVE row
+    existing is not proof it actually binds to THIS exact revision. Both rows
+    are independently reloaded fresh here and every field the decision claims
+    to be deciding is re-verified against the revision it is being released
+    against -- never trusted from a caller-held object, and never inferred
+    from get_governance_state's state label by itself.
+    """
+    state = get_governance_state(session, revision_id)
+    if state != "APPROVED":
+        raise ReleaseNotAllowed(
+            f"{state} cannot be released: only an authenticated, valid, approved, non-expired, "
+            "non-revoked exact revision may be released"
+        )
+
+    revision = session.get(ActionRevision, revision_id)
+    decision = session.execute(
+        select(ApprovalDecision).where(ApprovalDecision.action_revision_id == revision_id,
+                                       ApprovalDecision.decision == "APPROVE")
+    ).scalar_one_or_none()
+    # Deferred import: avoids a module-load-time circular import (approval.py
+    # already imports from governance.py); by call time both modules are
+    # fully loaded. APPROVAL_POLICY_VERSION is the single source of truth for
+    # the policy version stamped on every decision row.
+    from app.services.approval import APPROVAL_POLICY_VERSION
+    if (revision is None or decision is None
+            or decision.action_revision_id != revision.id
+            or decision.canonical_request_hash != revision.canonical_request_hash
+            or decision.canonical_proposal_hash != revision.canonical_proposal_hash
+            or decision.approval_purpose != revision.approval_purpose
+            or revision.policy_version != POLICY_VERSION
+            or decision.policy_version != APPROVAL_POLICY_VERSION):
+        raise ReleaseNotAllowed(
+            "Approval decision does not match this exact revision's binding (revision id, request "
+            "hash, proposal hash, approval purpose, or policy version) -- release denied"
+        )
 
 
-def create_revision(session, request: QueryRequest, state: dict, *, replay: bool = False) -> ActionRevision:
+def create_revision(session, request: QueryRequest, state: dict, *, replay: bool = False,
+                    requester_user_id: UUID | None = None) -> ActionRevision:
     """Atomically persist a governed draft; never accept a caller's status/policy/hash.
 
     A request-row lock serializes revisions for one request in PostgreSQL.
     Explicit service edits use replay=False; /query retries use replay=True.
     Caller owns commit/rollback, so provenance and the revision commit together.
+
+    requester_user_id (Phase 5B) is the AUTHENTICATED session's user at request
+    time, resolved by app.api.deps from a verified session cookie -- never a
+    client-supplied field. It is written once, on the first insert of this
+    request_id's GovernanceRequest row, and is never overwritten by a later
+    replay (on_conflict_do_nothing, same as every other immutable 5A binding).
     """
     request_id = request.request_id or uuid4()
     payload = _request_payload(request)
@@ -146,6 +229,7 @@ def create_revision(session, request: QueryRequest, state: dict, *, replay: bool
         "canonicalization_version": CANONICALIZATION_VERSION,
         "canonical_request": canonical_json(payload), "canonical_request_hash": request_hash,
         "requester_context": canonical_json(payload["requester"]), "identity_status": "UNVERIFIED",
+        "requester_user_id": requester_user_id,
     })
     binding = session.scalars(select(GovernanceRequest).where(GovernanceRequest.id == request_id).with_for_update()).one()
     _check_request(binding, request)
@@ -170,14 +254,20 @@ def create_revision(session, request: QueryRequest, state: dict, *, replay: bool
     return session.get(ActionRevision, revision_id)
 
 
-def _draft_response(revision) -> QueryResponse:
+def _draft_response(session, revision) -> QueryResponse:
+    # The immutable proposal snapshot never changes; governance_status DOES,
+    # as a live computation over the Phase 5B decision ledger (see
+    # get_governance_state) -- a replay after approval must not show stale
+    # PENDING_REVIEW.
     proposal = json.loads(revision.canonical_proposal)["payload"]
+    status = _ledger_state(session, revision.id) or "PENDING_REVIEW"
+    pending = status == "PENDING_REVIEW"
     return QueryResponse(
         request_id=revision.request_id, run_id=str(revision.originating_run_id), route=proposal["route"],
         route_confidence=None, route_reasoning=None, agent_result=_without_authority(proposal["agent_result"]),
-        evidence=proposal["evidence"], warnings=proposal["warnings"], human_approval_required=True,
-        action_class=None, timings={}, governance_status=revision.governance_status,
-        action_revision_id=revision.id, human_review_required=True, presentation="DRAFT",
+        evidence=proposal["evidence"], warnings=proposal["warnings"], human_approval_required=pending,
+        action_class=None, timings={}, governance_status=status,
+        action_revision_id=revision.id, human_review_required=pending, presentation="DRAFT",
         canonicalization_version=revision.canonicalization_version,
         canonical_request_hash=revision.canonical_request_hash, canonical_proposal_hash=revision.canonical_proposal_hash,
         evidence_binding_status=revision.evidence_binding_status, policy_version=revision.policy_version,
@@ -194,18 +284,19 @@ def replay_request(session, request: QueryRequest) -> QueryResponse | None:
     revision = _first_revision(session, binding.id)
     if revision is None:
         raise GovernanceConflict("Request has no committed revision")
-    return _draft_response(revision)
+    return _draft_response(session, revision)
 
 
-def govern_response(session, request: QueryRequest, state: dict) -> QueryResponse:
+def govern_response(session, request: QueryRequest, state: dict, *,
+                    requester_user_id: UUID | None = None) -> QueryResponse:
     """Only public response assembler; commit before returning a pending draft."""
     replayed = replay_request(session, request)
     if replayed is not None:
         return replayed
     if evaluate_governance(request, state) == "PENDING_REVIEW":
         try:
-            revision = create_revision(session, request, state, replay=True)
-            response = _draft_response(revision)
+            revision = create_revision(session, request, state, replay=True, requester_user_id=requester_user_id)
+            response = _draft_response(session, revision)
             session.commit()
             return response
         except Exception:
