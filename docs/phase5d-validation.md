@@ -357,8 +357,139 @@ pair. Modified: 11 backend files. `frontend/src/App.jsx`, `.codex/`,
 - No frontend evidence-integrity UI (explicitly out of scope for this
   phase).
 
+## Independent security audit repair — 2026-09-21 (Astra)
+
+An independent audit ("Astra") found two HIGH-severity evidence-integrity
+bypasses in the implementation above, both in
+`app.services.evidence_integrity._reverify_against_source`. Both are
+repaired here. No commit was performed by this repair; Phase 5E was not
+started; `frontend/src/App.jsx`, `.codex/`, and `claudex-loop/` remain
+untouched.
+
+### Finding 1 (HIGH): missing document provenance silently passed re-verification
+
+**Root cause:** the `document_chunk`/`pid_region` branch of
+`_reverify_against_source` treated a missing/empty `document_version_id` in
+an item's `provenance` as `return True, None` — an unconditional PASS — on
+the mistaken assumption that this was a "legacy" case predating the field.
+It never was: `document_version_id` is a REQUIRED field on every
+`DocumentChunkEvidence`/`PIDRegionEvidence` (`app.agents.evidence`), so a
+legitimately-frozen item never lacks it. The only way an item reaches
+re-verification with it missing is a forged or corrupted evidence item —
+exactly what Astra reproduced. Because the item's `canonical_item_hash` is
+computed FROM that same (empty) provenance at freeze time, such an item is
+internally self-consistent and passes the item-hash check; only this
+live-source re-check was supposed to catch it, and it didn't.
+
+**Repair:** the branch now fails closed at every step: an empty/missing
+`document_version_id` → `document_provenance_missing`; a value that isn't a
+parseable UUID → `document_provenance_missing`; no matching `DocumentVersion`
+row → `document_version_unresolved`; a missing or mismatched `source_hash`
+against the live `DocumentVersion.source_sha256` → `document_source_hash_mismatch`.
+No path returns `True` without a concrete, resolved, matching source.
+
+### Finding 2 (HIGH): unresolved sensor readings silently passed re-verification
+
+**Root cause:** `_resolve_window_reading_hashes` already computed an
+`unresolved` count (readings whose citation doesn't resolve to any real
+`SensorReading` row), but the `sensor_window` branch of
+`_reverify_against_source` never checked it. An unresolved citation still
+produces a deterministic `"unresolved": True` placeholder hash, appended in
+its ordered position — so if a citation was unresolvable from the moment
+the window was frozen, the freeze-time and verify-time placeholder hashes
+are IDENTICAL and the outer content-hash comparison matches trivially,
+reporting `VERIFIED` for a window that never bound real evidence for that
+reading. The adjacent `citations is None` case had the identical fail-open
+shape (an unconditional `True` for "no retained citation list", on the same
+mistaken "legacy" assumption as Finding 1 — `_sensor_window_content` always
+sets `"citations"` in provenance, even to `[]`, so this case is likewise
+never legitimate).
+
+**Repair:** a missing citation list → `sensor_window_incomplete`; the
+recomputed `unresolved` count checked and, if greater than zero →
+`sensor_reading_unresolved`, checked BEFORE the content-hash comparison is
+ever trusted; a genuine post-freeze value mutation on an otherwise-fully-
+resolved window → `sensor_evidence_mismatch` (renamed from the generic
+`source_content_changed` for this evidence type, for a clearer, distinct
+diagnostic). Every cited reading must now actually resolve for a
+`sensor_window` item to verify.
+
+### Regression tests added
+
+- `backend/tests/test_phase5d.py` (`EvidenceIntegrityTests`, SQLite, +9, all
+  in a new "ASTRA REPAIR REGRESSIONS" section): empty `document_version_id`
+  → `document_provenance_missing`; nonexistent `document_version_id` →
+  `document_version_unresolved`; valid version/hash → `VERIFIED`; a sensor
+  window citing a wholly nonexistent reading → `sensor_reading_unresolved`;
+  an otherwise-valid 3-reading window with one nonexistent citation added →
+  `sensor_reading_unresolved`; a window where a previously-resolved reading
+  is deleted between freeze and verify (resolved count now below the
+  manifest's claimed count) → `sensor_reading_unresolved`; a valid complete
+  window → `VERIFIED`; an approved revision with missing document
+  provenance → `EvidenceIntegrityFailure` on release; an approved revision
+  with an unresolved sensor reading → `EvidenceIntegrityFailure` on release.
+  Both scenarios freeze SELF-CONSISTENT evidence (the defect is present from
+  the moment the `EvidenceRef` is created, not introduced by later
+  corruption) — the same shape Astra actually reproduced, not a weaker proxy
+  for it.
+- `backend/tests/test_phase5d_postgres.py` (real PostgreSQL, +2, opt-in
+  `WORKBENCH_TEST_POSTGRES=1`, "ASTRA REPAIR REGRESSIONS" section): the
+  same two probes reproduced end-to-end against the live database —
+  `verify_manifest` denial with the correct `error_type`, then a real
+  `apply_decision` approval followed by a real `release_advisory` call
+  raising `EvidenceIntegrityFailure` — for both the missing-document-
+  provenance and unresolved-sensor-reading cases.
+- Two pre-existing tests asserting the now-renamed generic
+  `"source_content_changed"` reason were updated to the new, more specific
+  strings (`test_phase5d.py::test_modified_sensor_reading_detected_on_reverify`
+  → `sensor_evidence_mismatch`; `test_phase5d_postgres.py::test_document_version_source_change_detected_live`
+  → `document_source_hash_mismatch`) — a naming consequence of the repair,
+  not a weakening: both still assert `valid == False` and denial, unchanged.
+
+### Test results after repair
+
+| Suite | Result |
+|---|---|
+| `test_phase5d.py` (deterministic, SQLite) | 37 passed (28 original + 9 new) |
+| `test_phase5d_postgres.py` (real PostgreSQL, opt-in) | 7 passed (5 original + 2 new) |
+| Phase 5A/5B/5C regression | unchanged, all passing |
+| Full backend suite, `WORKBENCH_TEST_POSTGRES=1` | 436 passed, 1 skipped (live-model opt-in only), 14 subtests passed |
+| `alembic check` (live PostgreSQL, head `0008_phase5d_evidence_integrity`) | PASS, no new upgrade operations detected — no migration needed, this was an application-logic-only repair |
+| `git diff --check` | PASS (only pre-existing CRLF/LF autocrlf warnings, no actual whitespace errors) |
+| Benchmark assets | Untouched |
+
+### Live PostgreSQL security-probe results
+
+Both new `test_phase5d_postgres.py` regressions ran against the live
+`sovereign_workbench` database in an isolated schema, at
+`0008_phase5d_evidence_integrity` head:
+
+- A document-chunk item frozen with `document_version_id=""` from the start:
+  `verify_manifest` returned `valid: False`, `error_type:
+  "document_provenance_missing"`; after a real `apply_decision` approval,
+  `release_advisory` raised `EvidenceIntegrityFailure` — release denied live.
+- A sensor-window item frozen citing a single nonexistent reading:
+  `verify_manifest` returned `valid: False`, `error_type:
+  "sensor_reading_unresolved"`; after a real `apply_decision` approval,
+  `release_advisory` raised `EvidenceIntegrityFailure` — release denied live.
+
+### Files touched by this repair
+
+Modified only: `backend/app/services/evidence_integrity.py` (both fixes,
+plus the updated `verify_manifest` docstring error-type list),
+`backend/tests/test_phase5d.py`, `backend/tests/test_phase5d_postgres.py`
+(regression tests and the two renamed-string assertion updates), this file.
+No migration, no schema change, no new file, no other Phase 5D file
+touched. `frontend/src/App.jsx`, `.codex/`, `claudex-loop/` — untouched, as
+required. Nothing committed.
+
+### Remaining BLOCKER/HIGH findings
+
+None known, after repair and re-verification of both reported findings plus
+full regression.
+
 ## Exact git status
 
 See "Repository state after work" above (identical content, git-status form).
 
-## Final verdict: **PHASE 5D COMPLETE**
+## Final verdict: **PHASE 5D COMPLETE** (as of the 2026-09-21 Astra repair, above)

@@ -148,6 +148,22 @@ class EvidenceIntegrityTests(unittest.TestCase):
             citation_label=citation_label, provenance=citations,
         ))
 
+    def document_chunk_raw(self, *, document_version_id, quote="original text", chunk_id="chunk-1"):
+        """Unlike document_chunk() above, never falls back to a real
+        document_version_id -- lets a test freeze evidence with an empty or
+        nonexistent value verbatim, exactly as a forged/corrupted EvidenceRef
+        would (Astra finding 1)."""
+        return _dump(document_chunk_evidence(
+            chunk_id=chunk_id, document_id=str(self.document.id), document_version_id=document_version_id,
+            source_filename="manual.pdf", source_sha256=self.document_version.source_sha256,
+            section_path=["1"], page_start=1, page_end=1, bounding_boxes=[], quote=quote,
+        ))
+
+    def fake_citation(self, row_number=999):
+        """A citation that never resolves to any real SensorReading -- for
+        Astra finding 2's unresolved-reading regressions."""
+        return {"source_filename": "sensors.csv", "source_sha256": "9" * 64, "source_row_number": row_number}
+
     # -- HASHING -------------------------------------------------------------
 
     def test_same_evidence_same_item_hash(self):
@@ -422,7 +438,9 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.session.commit()
         result = verify_manifest(self.session, response.action_revision_id)
         self.assertFalse(result["valid"])
-        self.assertEqual(result["error_type"], "source_content_changed")
+        # Astra repair: renamed from the generic "source_content_changed" to
+        # "sensor_evidence_mismatch" for this evidence_type specifically.
+        self.assertEqual(result["error_type"], "sensor_evidence_mismatch")
 
     # -- AUDIT ------------------------------------------------------------
 
@@ -440,6 +458,77 @@ class EvidenceIntegrityTests(unittest.TestCase):
         release_advisory(self.session, response.action_revision_id, actor=self.reviewer)
         row = self.session.query(AuditEvent).filter_by(event_type="EVIDENCE_INTEGRITY_VERIFIED").one()
         self.assertEqual(row.action_revision_id, response.action_revision_id)
+
+    # -- ASTRA REPAIR REGRESSIONS: document-provenance / sensor-reading -----
+    # fail-closed bypasses (docs/phase5d-validation.md, "Independent security
+    # audit repair"). Both scenarios freeze SELF-CONSISTENT evidence (the
+    # missing/unresolved fact is present from the moment the EvidenceRef was
+    # created, not introduced by later corruption) -- exactly Astra's repro
+    # shape: the item hash matches its own (bad) provenance, so only live
+    # re-verification against the authoritative source can catch it.
+
+    def test_document_evidence_empty_version_id_fails(self):
+        response = self.make_revision([self.document_chunk_raw(document_version_id="")])
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["error_type"], "document_provenance_missing")
+        self.assertEqual(get_evidence_integrity_status(self.session, response.action_revision_id), "FAILED")
+
+    def test_document_evidence_nonexistent_version_id_fails(self):
+        response = self.make_revision([self.document_chunk_raw(document_version_id=str(uuid4()))])
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["error_type"], "document_version_unresolved")
+
+    def test_document_evidence_valid_version_and_hash_verifies(self):
+        response = self.make_revision([self.document_chunk_raw(document_version_id=str(self.document_version.id))])
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertTrue(result["valid"])
+        self.assertEqual(get_evidence_integrity_status(self.session, response.action_revision_id), "VERIFIED")
+
+    def test_sensor_manifest_nonexistent_reading_fails(self):
+        response = self.make_revision([self.sensor_window(citations=[self.fake_citation()])])
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["error_type"], "sensor_reading_unresolved")
+
+    def test_sensor_manifest_one_missing_reading_in_otherwise_valid_window_fails(self):
+        citations = self.sensor_citations(self.readings) + [self.fake_citation()]
+        response = self.make_revision([self.sensor_window(citations=citations)])
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["error_type"], "sensor_reading_unresolved")
+
+    def test_sensor_resolved_count_below_manifest_count_fails(self):
+        # All 3 readings resolve and verify cleanly at freeze time; one is
+        # then deleted from its source table (e.g. a later data-correction
+        # pass) -- the manifest's claimed reading count (3) now exceeds what
+        # actually resolves (2) on re-verification.
+        response = self.make_revision([self.sensor_window(citations=self.sensor_citations(self.readings))])
+        self.assertEqual(get_evidence_integrity_status(self.session, response.action_revision_id), "VERIFIED")
+        self.session.delete(self.readings[1])
+        self.session.commit()
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["error_type"], "sensor_reading_unresolved")
+
+    def test_sensor_valid_complete_window_verifies(self):
+        response = self.make_revision([self.sensor_window(citations=self.sensor_citations(self.readings))])
+        result = verify_manifest(self.session, response.action_revision_id)
+        self.assertTrue(result["valid"])
+        self.assertEqual(get_evidence_integrity_status(self.session, response.action_revision_id), "VERIFIED")
+
+    def test_approved_revision_missing_document_provenance_release_denied(self):
+        response = self.make_revision([self.document_chunk_raw(document_version_id="")])
+        self.approve(response.action_revision_id)
+        with self.assertRaises(EvidenceIntegrityFailure):
+            release_advisory(self.session, response.action_revision_id, actor=self.reviewer)
+
+    def test_approved_revision_unresolved_sensor_reading_release_denied(self):
+        response = self.make_revision([self.sensor_window(citations=[self.fake_citation()])])
+        self.approve(response.action_revision_id)
+        with self.assertRaises(EvidenceIntegrityFailure):
+            release_advisory(self.session, response.action_revision_id, actor=self.reviewer)
 
     # -- BOUNDARY -----------------------------------------------------------
 

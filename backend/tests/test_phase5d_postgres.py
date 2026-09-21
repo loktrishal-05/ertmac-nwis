@@ -17,7 +17,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.agents.evidence import document_chunk_evidence
+from app.agents.evidence import document_chunk_evidence, sensor_window_evidence
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.models import Document, DocumentVersion, Equipment, EvidenceManifest, EvidenceManifestItem, User
@@ -90,6 +90,25 @@ class PostgreSQLEvidenceIntegrityTests(unittest.TestCase):
                                        requester_user_id=self.requester_id)
             return response.action_revision_id
 
+    def document_chunk_missing_provenance(self):
+        """Astra finding 1: document_version_id empty from the moment the
+        EvidenceRef is created -- self-consistent at freeze, only live
+        re-verification catches it."""
+        ref = document_chunk_evidence(
+            chunk_id="chunk-1", document_id=str(self.document_id), document_version_id="",
+            source_filename="manual.pdf", source_sha256="a" * 64, section_path=["1"], page_start=1, page_end=1,
+            bounding_boxes=[], quote="text",
+        )
+        return ref.model_dump(mode="json")
+
+    def sensor_window_unresolved(self):
+        """Astra finding 2: a citation that never resolves to any real
+        SensorReading -- present from the moment the EvidenceRef is created."""
+        fake_citation = {"source_filename": "sensors.csv", "source_sha256": "9" * 64, "source_row_number": 999}
+        ref = sensor_window_evidence(source_filename="sensors.csv", source_sha256=fake_citation["source_sha256"],
+                                     citation_label="fake window", provenance=[fake_citation])
+        return ref.model_dump(mode="json")
+
     # -- IMMUTABILITY (real trigger, not the ORM/SQLAlchemy event guard) ----
 
     def test_raw_sql_update_of_manifest_denied(self):
@@ -126,7 +145,9 @@ class PostgreSQLEvidenceIntegrityTests(unittest.TestCase):
         with Session(self.engine) as session:
             result = verify_manifest(session, revision_id)
             self.assertFalse(result["valid"])
-            self.assertEqual(result["error_type"], "source_content_changed")
+            # Astra repair: renamed from the generic "source_content_changed"
+            # to "document_source_hash_mismatch" for document_chunk/pid_region.
+            self.assertEqual(result["error_type"], "document_source_hash_mismatch")
             self.assertEqual(get_evidence_integrity_status(session, revision_id), "FAILED")
 
         # Restore for other tests sharing the class-scoped document_version row.
@@ -153,6 +174,52 @@ class PostgreSQLEvidenceIntegrityTests(unittest.TestCase):
         with self.engine.begin() as connection:
             connection.execute(text("UPDATE document_versions SET source_sha256 = :orig WHERE id = :id"),
                               {"orig": "a" * 64, "id": str(self.document_version_id)})
+
+    # -- ASTRA REPAIR REGRESSIONS, live against real PostgreSQL --------------
+
+    def test_document_evidence_missing_provenance_fails_and_denies_release_live(self):
+        with Session(self.engine) as session:
+            request = QueryRequest(query="Review pump recommendation", request_id=uuid4())
+            response = govern_response(session, request, _state([self.document_chunk_missing_provenance()]),
+                                       requester_user_id=self.requester_id)
+            revision_id = response.action_revision_id
+
+        with Session(self.engine) as session:
+            result = verify_manifest(session, revision_id)
+            self.assertFalse(result["valid"])
+            self.assertEqual(result["error_type"], "document_provenance_missing")
+
+        with Session(self.engine) as session:
+            reviewer = session.get(User, self.reviewer_id)
+            apply_decision(session, revision_id=revision_id, reviewer=reviewer, decision="approve")
+            session.commit()
+
+        with Session(self.engine) as session:
+            reviewer = session.get(User, self.reviewer_id)
+            with self.assertRaises(EvidenceIntegrityFailure):
+                release_advisory(session, revision_id, actor=reviewer)
+
+    def test_sensor_evidence_unresolved_reading_fails_and_denies_release_live(self):
+        with Session(self.engine) as session:
+            request = QueryRequest(query="Review pump recommendation", request_id=uuid4())
+            response = govern_response(session, request, _state([self.sensor_window_unresolved()]),
+                                       requester_user_id=self.requester_id)
+            revision_id = response.action_revision_id
+
+        with Session(self.engine) as session:
+            result = verify_manifest(session, revision_id)
+            self.assertFalse(result["valid"])
+            self.assertEqual(result["error_type"], "sensor_reading_unresolved")
+
+        with Session(self.engine) as session:
+            reviewer = session.get(User, self.reviewer_id)
+            apply_decision(session, revision_id=revision_id, reviewer=reviewer, decision="approve")
+            session.commit()
+
+        with Session(self.engine) as session:
+            reviewer = session.get(User, self.reviewer_id)
+            with self.assertRaises(EvidenceIntegrityFailure):
+                release_advisory(session, revision_id, actor=reviewer)
 
     def test_migration_downgrade_upgrade_and_metadata(self):
         # Earlier tests in this shared schema already created audit_events

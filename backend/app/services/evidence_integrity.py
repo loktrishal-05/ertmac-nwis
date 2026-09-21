@@ -278,7 +278,11 @@ def verify_manifest(session, revision_id: UUID) -> dict:
      "error_type": str | None}
 
     error_type vocabulary: "manifest_missing", "manifest_hash_mismatch",
-    "item_hash_mismatch", "source_content_changed", "source_missing".
+    "item_hash_mismatch", "source_content_changed", "source_missing"
+    (csv_row/maintenance/sensor-reading kind); "document_provenance_missing",
+    "document_version_unresolved", "document_source_hash_mismatch"
+    (document_chunk/pid_region kind); "sensor_window_incomplete",
+    "sensor_reading_unresolved", "sensor_evidence_mismatch" (sensor_window kind).
     """
     result = {"valid": True, "manifest_id": None, "action_revision_id": revision_id, "item_count": 0,
              "items_checked": 0, "first_error_item_index": None, "error_type": None}
@@ -344,14 +348,25 @@ def _reverify_against_source(session, item: EvidenceManifestItem) -> tuple[bool,
     provenance = item.provenance or {}
 
     if item.evidence_type in ("document_chunk", "pid_region"):
+        # Astra finding 1 (HIGH): document_version_id is a REQUIRED field on
+        # every DocumentChunkEvidence/PIDRegionEvidence (see
+        # app.agents.evidence) -- a legitimately-frozen item NEVER lacks it.
+        # There is no genuine "legacy" case here (Phase 5D always populated
+        # this field from day one); missing/empty/malformed provenance is
+        # only reachable via a forged or corrupted row, so it must fail
+        # closed, never silently pass re-verification.
         document_version_id = provenance.get("document_version_id")
         if not document_version_id:
-            return True, None  # nothing to re-check against (legacy/incomplete provenance)
-        version = session.get(DocumentVersion, UUID(document_version_id))
+            return False, "document_provenance_missing"
+        try:
+            version_uuid = UUID(str(document_version_id))
+        except (ValueError, TypeError, AttributeError):
+            return False, "document_provenance_missing"
+        version = session.get(DocumentVersion, version_uuid)
         if version is None:
-            return False, "source_missing"
-        if version.source_sha256 != item.source_hash:
-            return False, "source_content_changed"
+            return False, "document_version_unresolved"
+        if not item.source_hash or version.source_sha256 != item.source_hash:
+            return False, "document_source_hash_mismatch"
         return True, None
 
     if item.evidence_type == "csv_row":
@@ -368,10 +383,30 @@ def _reverify_against_source(session, item: EvidenceManifestItem) -> tuple[bool,
         return True, None
 
     if item.evidence_type == "sensor_window":
+        # Astra finding 2 (HIGH): a sensor_window item is ALWAYS frozen with a
+        # "citations" list in provenance (see _sensor_window_content, which
+        # sets it unconditionally, even to []) -- there is no genuine legacy
+        # case where it is absent, so a missing list must fail closed rather
+        # than silently pass, the same reasoning as finding 1 above.
         citations = provenance.get("citations")
         if citations is None:
-            return True, None  # legacy item frozen before citations were retained
+            return False, "sensor_window_incomplete"
+
         reading_hashes, timestamps, unresolved = _resolve_window_reading_hashes(session, citations)
+        # The bug: `unresolved` was computed but never checked. A reading
+        # that doesn't resolve still gets a deterministic "unresolved"
+        # placeholder hash from _resolve_window_reading_hashes, appended in
+        # its citation's ordered position -- so if a citation was ALREADY
+        # unresolvable when the manifest was frozen, freeze-time and
+        # verify-time both compute the exact same placeholder hash and the
+        # content-hash comparison below matches trivially, even though real
+        # evidence was never bound. Every cited reading must actually
+        # resolve; the expected count (every citation) must equal the
+        # resolved count (citations minus unresolved) -- i.e. unresolved
+        # must be exactly zero -- checked BEFORE trusting any hash match.
+        if unresolved > 0:
+            return False, "sensor_reading_unresolved"
+
         window_start = min(timestamps) if timestamps else None
         window_end = max(timestamps) if timestamps else None
         fresh_content_hash = canonical_hash({
@@ -380,7 +415,7 @@ def _reverify_against_source(session, item: EvidenceManifestItem) -> tuple[bool,
             "normalization_version": RECORD_NORMALIZATION_VERSION,
         })
         if fresh_content_hash != item.content_hash:
-            return False, "source_content_changed"
+            return False, "sensor_evidence_mismatch"
         return True, None
 
     return True, None
