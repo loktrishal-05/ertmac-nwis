@@ -23,7 +23,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.models import (
     ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuditChainHead,
-    AuditEvent, AuthSession, GovernanceRequest, User,
+    AuditEvent, AuthSession, EvidenceManifest, EvidenceManifestItem, GovernanceRequest, User,
 )
 from app.db.session import get_db
 from app.main import app
@@ -36,7 +36,7 @@ from app.services.governance import (
 
 TABLES = [model.__table__ for model in (
     User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
-    AuthSession, ApprovalDecision, AuditChainHead, AuditEvent,
+    AuthSession, ApprovalDecision, AuditChainHead, AuditEvent, EvidenceManifest, EvidenceManifestItem,
 )]
 
 
@@ -221,7 +221,8 @@ class PersistenceTests(unittest.TestCase):
     def test_evidence_snapshot_bound_to_proposal_hash(self):
         candidate = state()
         first = self.make_revision(candidate)
-        candidate["evidence"] = [{"evidence_id": "new-source", "source_sha256": "a" * 64}]
+        candidate["evidence"] = [{"kind": "document_chunk", "evidence_id": "new-source", "source_sha256": "a" * 64,
+                                  "source_filename": "f.pdf", "locator": "page 1", "quote": "new evidence text"}]
         second = self.make_revision(candidate)
         self.assertNotEqual(first.canonical_proposal_hash, second.canonical_proposal_hash)
         self.assertIn("new-source", second.canonical_proposal)

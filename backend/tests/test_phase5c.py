@@ -17,7 +17,8 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.models import (
     ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuditChainHead,
-    AuditCheckpoint, AuditEvent, AuditLog, AuthSession, GovernanceRequest, User,
+    AuditCheckpoint, AuditEvent, AuditLog, AuthSession, EvidenceManifest, EvidenceManifestItem,
+    GovernanceRequest, User,
 )
 # app.db.models.AuditLog (Phase 2) is intentionally NOT in TABLES below: its
 # event_data column is a raw postgresql.JSONB (not the SQLite-compatible
@@ -39,6 +40,7 @@ from test_phase5a import state
 TABLES = [model.__table__ for model in (
     User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
     AuthSession, ApprovalDecision, AuditChainHead, AuditEvent, AuditCheckpoint,
+    EvidenceManifest, EvidenceManifestItem,
 )]
 
 
@@ -326,9 +328,14 @@ class AuditChainTests(unittest.TestCase):
         response = govern_response(self.session, request, candidate, requester_user_id=self.requester.id)
         result = verify_chain(self.session)
         self.assertTrue(result["valid"])
-        self.assertEqual(result["events_checked"], 1)
-        row = self.session.query(AuditEvent).one()
-        self.assertEqual(row.event_type, "GOVERNED_REVISION_CREATED")
+        # Phase 5D: revision creation now ALSO freezes+audits an evidence
+        # manifest in the same transaction -- see test_phase5d.py for the
+        # manifest-specific checks; this test only re-confirms the audit
+        # chain sees both events, in order, still fully valid.
+        self.assertEqual(result["events_checked"], 2)
+        rows = self.session.query(AuditEvent).order_by(AuditEvent.sequence_number).all()
+        self.assertEqual([row.event_type for row in rows], ["GOVERNED_REVISION_CREATED", "EVIDENCE_MANIFEST_CREATED"])
+        row = rows[0]
         self.assertEqual(row.actor_id, self.requester.id)
         self.assertEqual(row.actor_kind, "user")
         self.assertEqual(row.request_id, response.request_id)
@@ -338,7 +345,7 @@ class AuditChainTests(unittest.TestCase):
         request, candidate = self.make_revision()
         govern_response(self.session, request, candidate, requester_user_id=self.requester.id)
         govern_response(self.session, request, candidate, requester_user_id=self.requester.id)  # replay
-        self.assertEqual(self.session.query(AuditEvent).count(), 1)
+        self.assertEqual(self.session.query(AuditEvent).count(), 2)
 
     def test_approve_audited(self):
         request, candidate = self.make_revision()
@@ -347,8 +354,9 @@ class AuditChainTests(unittest.TestCase):
                                   decision="approve")
         self.session.commit()
         rows = self.session.query(AuditEvent).order_by(AuditEvent.sequence_number).all()
-        self.assertEqual([row.event_type for row in rows], ["GOVERNED_REVISION_CREATED", "APPROVAL_DECISION_APPROVE"])
-        approve_row = rows[1]
+        self.assertEqual([row.event_type for row in rows],
+                        ["GOVERNED_REVISION_CREATED", "EVIDENCE_MANIFEST_CREATED", "APPROVAL_DECISION_APPROVE"])
+        approve_row = rows[2]
         self.assertEqual(approve_row.actor_id, self.reviewer.id)
         self.assertEqual(approve_row.decision_id, decision.id)
         self.assertEqual(approve_row.action_revision_id, response.action_revision_id)
@@ -375,8 +383,8 @@ class AuditChainTests(unittest.TestCase):
         self.session.commit()
         event_types = [row.event_type for row in self.session.query(AuditEvent)
                       .order_by(AuditEvent.sequence_number)]
-        self.assertEqual(event_types, ["GOVERNED_REVISION_CREATED", "APPROVAL_DECISION_APPROVE",
-                                       "APPROVAL_DECISION_REVOKE"])
+        self.assertEqual(event_types, ["GOVERNED_REVISION_CREATED", "EVIDENCE_MANIFEST_CREATED",
+                                       "APPROVAL_DECISION_APPROVE", "APPROVAL_DECISION_REVOKE"])
         self.assertTrue(verify_chain(self.session)["valid"])
 
     def test_advisory_release_audited(self):
@@ -387,8 +395,13 @@ class AuditChainTests(unittest.TestCase):
         self.session.commit()
         release_advisory(self.session, response.action_revision_id, actor=self.reviewer)
         rows = self.session.query(AuditEvent).order_by(AuditEvent.sequence_number).all()
+        # Phase 5D: assert_release_allowed also re-verifies evidence integrity
+        # and audits EVIDENCE_INTEGRITY_VERIFIED before release_advisory's own
+        # ADVISORY_RELEASE_SUCCESS -- see test_phase5d.py for the dedicated
+        # integrity-verification tests.
         self.assertEqual([row.event_type for row in rows],
-                        ["GOVERNED_REVISION_CREATED", "APPROVAL_DECISION_APPROVE", "ADVISORY_RELEASE_SUCCESS"])
+                        ["GOVERNED_REVISION_CREATED", "EVIDENCE_MANIFEST_CREATED", "APPROVAL_DECISION_APPROVE",
+                         "EVIDENCE_INTEGRITY_VERIFIED", "ADVISORY_RELEASE_SUCCESS"])
         self.assertEqual(rows[-1].actor_id, self.reviewer.id)
         self.assertEqual(rows[-1].action_revision_id, response.action_revision_id)
         self.assertTrue(verify_chain(self.session)["valid"])

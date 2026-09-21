@@ -16,7 +16,7 @@ from app.core.security import hash_password, verify_password
 from app.db.base import Base
 from app.db.models import (
     ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuditChainHead,
-    AuditEvent, AuthSession, GovernanceRequest, User,
+    AuditEvent, AuthSession, EvidenceManifest, EvidenceManifestItem, GovernanceRequest, User,
 )
 from app.db.session import get_db
 from app.main import app
@@ -29,7 +29,7 @@ from test_phase5a import state
 
 TABLES = [model.__table__ for model in (
     User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
-    AuthSession, ApprovalDecision, AuditChainHead, AuditEvent,
+    AuthSession, ApprovalDecision, AuditChainHead, AuditEvent, EvidenceManifest, EvidenceManifestItem,
 )]
 
 

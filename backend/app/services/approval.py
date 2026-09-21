@@ -15,8 +15,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.core.config import settings
-from app.db.models import ActionRevision, ApprovalDecision, GovernanceRequest, User
+from app.db.models import ActionRevision, ApprovalDecision, EvidenceManifest, EvidenceManifestItem, GovernanceRequest, User
 from app.services.audit import append_event
+from app.services.evidence_integrity import get_evidence_integrity_status
 from app.services.governance import POLICY_VERSION as REVISION_POLICY_VERSION
 from app.services.governance import ReleaseNotAllowed, _ledger_state, _without_authority, assert_release_allowed
 
@@ -76,6 +77,23 @@ def revision_detail(session, revision_id: UUID) -> dict:
         select(ApprovalDecision).where(ApprovalDecision.action_revision_id == revision_id)
         .order_by(ApprovalDecision.decided_at)
     ).all()
+    # Phase 5D: read-only summary only -- evidence_type/evidence_id/
+    # source_identifier/hashes, never the raw content the item's hash covers
+    # (docs/phase5d.md, "APIs": "do not expose unnecessary raw sensitive data").
+    manifest = session.execute(
+        select(EvidenceManifest).where(EvidenceManifest.action_revision_id == revision_id)
+    ).scalar_one_or_none()
+    item_summaries = []
+    if manifest is not None:
+        items = session.scalars(
+            select(EvidenceManifestItem).where(EvidenceManifestItem.manifest_id == manifest.id)
+            .order_by(EvidenceManifestItem.item_index)
+        ).all()
+        item_summaries = [
+            {"item_index": item.item_index, "evidence_type": item.evidence_type, "evidence_id": item.evidence_id,
+             "source_identifier": item.source_identifier, "canonical_item_hash": item.canonical_item_hash}
+            for item in items
+        ]
     return {
         "action_revision_id": revision.id,
         "request_id": revision.request_id,
@@ -87,7 +105,10 @@ def revision_detail(session, revision_id: UUID) -> dict:
         "warnings": proposal.get("warnings", []),
         "canonical_request_hash": revision.canonical_request_hash,
         "canonical_proposal_hash": revision.canonical_proposal_hash,
-        "evidence_binding_status": revision.evidence_binding_status,
+        "evidence_binding_status": get_evidence_integrity_status(session, revision_id),
+        "evidence_manifest_id": manifest.id if manifest else None,
+        "evidence_manifest_hash": manifest.canonical_manifest_hash if manifest else None,
+        "evidence_item_summaries": item_summaries,
         "policy_version": revision.policy_version,
         "requester_user_id": binding.requester_user_id if binding else None,
         "decisions": [

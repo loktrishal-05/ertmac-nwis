@@ -48,6 +48,14 @@ class DecisionRecord(BaseModel):
     revoked_decision_id: UUID | None
 
 
+class EvidenceItemSummary(BaseModel):
+    item_index: int
+    evidence_type: str
+    evidence_id: str
+    source_identifier: str
+    canonical_item_hash: str
+
+
 class RevisionDetail(BaseModel):
     action_revision_id: UUID
     request_id: UUID
@@ -60,6 +68,9 @@ class RevisionDetail(BaseModel):
     canonical_request_hash: str
     canonical_proposal_hash: str
     evidence_binding_status: str
+    evidence_manifest_id: UUID | None = None
+    evidence_manifest_hash: str | None = None
+    evidence_item_summaries: list[EvidenceItemSummary] = []
     policy_version: str
     requester_user_id: UUID | None
     decisions: list[DecisionRecord]

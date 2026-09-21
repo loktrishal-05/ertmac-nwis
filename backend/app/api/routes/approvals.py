@@ -25,7 +25,7 @@ from app.schemas.approval import (
 )
 from app.services.approval import DecisionConflict, DecisionNotAllowed, apply_decision, pending_reviews, release_advisory, revision_detail
 from app.services.audit import append_event
-from app.services.governance import ReleaseNotAllowed
+from app.services.governance import EvidenceIntegrityFailure, ReleaseNotAllowed
 
 router = APIRouter(tags=["approvals"])
 
@@ -104,9 +104,13 @@ def release_approval(revision_id: UUID, user: User = Depends(get_current_user),
         session.rollback()
         # Best-effort, same reasoning as the decision-denial case above:
         # nothing state-changing happened, so this must never turn a correct
-        # 403 into a 500.
+        # 403 into a 500. EvidenceIntegrityFailure (Phase 5D) is a specific
+        # subclass of ReleaseNotAllowed -- logged as its own distinct event
+        # type so an evidence-integrity denial is never conflated with a
+        # plain approval-state denial in the audit trail.
+        event_type = "EVIDENCE_INTEGRITY_FAILED" if isinstance(error, EvidenceIntegrityFailure) else "ADVISORY_RELEASE_DENIED"
         try:
-            append_event(session, event_type="ADVISORY_RELEASE_DENIED", actor_id=user.id, actor_kind="user",
+            append_event(session, event_type=event_type, actor_id=user.id, actor_kind="user",
                         action_revision_id=revision_id, payload={"reason": str(error)})
             session.commit()
         except Exception:

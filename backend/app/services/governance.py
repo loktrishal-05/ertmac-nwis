@@ -22,10 +22,11 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.agents.enforcement import operational_action_text
 from app.agents.tracing import record_run
 from app.core.config import settings
-from app.db.models import ActionRevision, Agent, AgentAction, AgentRun, ApprovalDecision, GovernanceRequest
+from app.db.models import ActionRevision, Agent, AgentAction, AgentRun, ApprovalDecision, EvidenceManifest, GovernanceRequest
 from app.schemas.query import QueryRequest, QueryResponse
 from app.services.audit import append_event
 from app.services.canonicalization import CANONICALIZATION_VERSION, canonical_hash, canonical_json
+from app.services.evidence_integrity import freeze_manifest, get_evidence_integrity_status
 
 POLICY_VERSION = "governance-5a-v1"
 _NAMESPACE = UUID("8a73e583-c8cd-4d66-94ed-f55636683466")
@@ -44,6 +45,15 @@ class GovernanceConflict(ValueError):
 
 class ReleaseNotAllowed(PermissionError):
     """No authenticated approval authority or release workflow exists in 5A."""
+
+
+class EvidenceIntegrityFailure(ReleaseNotAllowed):
+    """Phase 5D: release denied specifically because the evidence manifest
+    failed integrity verification (missing/corrupted/source-changed), as
+    opposed to a plain approval-state denial. Subclasses ReleaseNotAllowed so
+    every existing `except ReleaseNotAllowed` handler keeps working unchanged;
+    callers that want to distinguish "why" (e.g. to log EVIDENCE_INTEGRITY_FAILED
+    instead of a generic release-denied event) can catch this specifically."""
 
 
 def _requirements(value) -> bool:
@@ -193,6 +203,26 @@ def assert_release_allowed(session, revision_id: UUID) -> None:
             "hash, proposal hash, approval purpose, or policy version) -- release denied"
         )
 
+    # Phase 5D: approval validity alone is NOT sufficient -- the evidence
+    # manifest bound to this exact revision must ALSO independently verify,
+    # every time, before release. Fails closed: missing, corrupted, or
+    # source-drifted evidence denies release exactly like an invalid
+    # approval does, never a silent pass-through (docs/phase5d.md,
+    # "Release enforcement"). The LLM never decides this -- verify_manifest
+    # is deterministic backend code only.
+    from app.services.evidence_integrity import verify_manifest
+    manifest_result = verify_manifest(session, revision_id)
+    if not manifest_result["valid"]:
+        raise EvidenceIntegrityFailure(
+            f"Evidence integrity check failed ({manifest_result['error_type']}) for this revision's evidence "
+            "manifest -- release denied"
+        )
+    append_event(
+        session, event_type="EVIDENCE_INTEGRITY_VERIFIED", actor_id=None, actor_kind="system",
+        request_id=revision.request_id, action_revision_id=revision.id,
+        payload={"manifest_id": manifest_result["manifest_id"], "item_count": manifest_result["item_count"]},
+    )
+
 
 def create_revision(session, request: QueryRequest, state: dict, *, replay: bool = False,
                     requester_user_id: UUID | None = None) -> ActionRevision:
@@ -252,6 +282,12 @@ def create_revision(session, request: QueryRequest, state: dict, *, replay: bool
         "evidence_binding_status": "PENDING_INTEGRITY", "risk_category": "HUMAN_REVIEW_REQUIRED",
         "policy_version": POLICY_VERSION, "approval_purpose": "ADVISORY_DRAFT_REVIEW", "governance_status": "PENDING_REVIEW",
     })
+    # Phase 5D: EVERY revision, however created (including direct
+    # create_revision calls from tests/fixtures, not only /query), gets
+    # exactly one frozen evidence manifest -- assert_release_allowed depends
+    # on one always existing. An empty `evidence` list freezes a valid,
+    # trivially-verifying zero-item manifest, never a missing one.
+    freeze_manifest(session, action_revision_id=revision_id, evidence=proposal["evidence"])
     return session.get(ActionRevision, revision_id)
 
 
@@ -271,7 +307,7 @@ def _draft_response(session, revision) -> QueryResponse:
         action_revision_id=revision.id, human_review_required=pending, presentation="DRAFT",
         canonicalization_version=revision.canonicalization_version,
         canonical_request_hash=revision.canonical_request_hash, canonical_proposal_hash=revision.canonical_proposal_hash,
-        evidence_binding_status=revision.evidence_binding_status, policy_version=revision.policy_version,
+        evidence_binding_status=get_evidence_integrity_status(session, revision.id), policy_version=revision.policy_version,
     )
 
 
@@ -310,6 +346,16 @@ def govern_response(session, request: QueryRequest, state: dict, *,
                 request_id=revision.request_id, action_revision_id=revision.id,
                 payload={"route": state.get("route"), "risk_category": revision.risk_category,
                         "governance_status": revision.governance_status},
+            )
+            manifest = session.execute(
+                select(EvidenceManifest).where(EvidenceManifest.action_revision_id == revision.id)
+            ).scalar_one()
+            append_event(
+                session, event_type="EVIDENCE_MANIFEST_CREATED",
+                actor_id=requester_user_id, actor_kind="user" if requester_user_id else "anonymous",
+                request_id=revision.request_id, action_revision_id=revision.id,
+                payload={"manifest_id": manifest.id, "item_count": manifest.item_count,
+                        "canonical_manifest_hash": manifest.canonical_manifest_hash},
             )
             response = _draft_response(session, revision)
             session.commit()
