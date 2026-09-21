@@ -25,8 +25,16 @@ def _normalized(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
+def strip_quoted_spans(text: str) -> str:
+    """Removes single/double-quoted substrings so a pattern scan never fires on
+    a quotation of the forbidden phrase (e.g. a document excerpt that mentions
+    it). Reused by app.services.preflight for the same reason (context
+    matters: quoting something is not saying it)."""
+    return re.sub(r"(['\"]).*?\1", " ", text)
+
+
 def _candidate_sentences(text: str) -> list[str]:
-    text = re.sub(r"(['\"]).*?\1", " ", text)
+    text = strip_quoted_spans(text)
     sentences = re.split(r"(?<=[.!?])\s+|[;\n]+", text)
     excluded = re.compile(
         r"\b(?:explain|describe|summari[sz]e|the\s+(?:sop|phrase|instruction)\s+says|"

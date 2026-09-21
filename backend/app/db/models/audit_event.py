@@ -34,6 +34,12 @@ EVENT_TYPES = (
     "APPROVAL_AUTHORIZATION_DENIED", "ADVISORY_RELEASE_SUCCESS", "ADVISORY_RELEASE_DENIED",
     # Phase 5D
     "EVIDENCE_MANIFEST_CREATED", "EVIDENCE_INTEGRITY_VERIFIED", "EVIDENCE_INTEGRITY_FAILED",
+    # Phase 5E: deterministic pre-routing guardrail outcomes (docs/phase5e.md).
+    # Best-effort events -- nothing state-changing happened, so a logging
+    # failure must never turn a correct refusal/clarification response into a
+    # 500 (same split as APPROVAL_AUTHORIZATION_DENIED/ADVISORY_RELEASE_DENIED).
+    "PREFLIGHT_OUT_OF_SCOPE_REFUSED", "PREFLIGHT_INJECTION_REFUSED",
+    "PREFLIGHT_UNSAFE_ACTION_REFUSED", "PREFLIGHT_SCOPE_DENIED", "PREFLIGHT_CLARIFICATION_REQUIRED",
 )
 ACTOR_KINDS = ("user", "system", "anonymous")
 
