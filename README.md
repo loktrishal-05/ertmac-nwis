@@ -1,5 +1,7 @@
 # Sovereign On-Premise Agentic AI Workbench
 
+Current local deployment and runtime validation: [Phase 7 PowerShell guide](docs/phase7.md).
+
 SIH 2026 project. Phases 0–5B provide FastAPI, a React/Vite dashboard,
 PostgreSQL/SQLAlchemy, local PDF/P&ID evidence retrieval with Docling, BGE, and
 Qdrant, structured maintenance/sensor data ingestion and query, and a local

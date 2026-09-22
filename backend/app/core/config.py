@@ -100,13 +100,19 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_model_gateway(self):
         from app.services.model_gateway.errors import ModelConfigurationError
-        from app.services.model_gateway.registry import validate_model_url
+        from app.services.model_gateway.registry import validate_model_url, validate_model_name
         if not self.model_name.strip():
             raise ModelConfigurationError(
                 "MODEL_NAME is required and has no default. Run 'ollama list' to see installed "
                 "tags, then set MODEL_NAME in the root .env to one of them."
             )
         validate_model_url(self.model_base_url, self.model_allowed_hosts_set)
+        validate_model_name(self.model_name)
+        from app.core.locality import classify_database, classify_http_url, local_filesystem
+        if classify_database(self.database_url) == 'invalid' or classify_http_url(self.qdrant_url) == 'invalid':
+            raise ValueError('PostgreSQL and Qdrant must use local/private on-premise endpoints')
+        if not local_filesystem(self.data_root) or not local_filesystem(self.model_root):
+            raise ValueError('Data and model roots must be local filesystem paths')
         return self
 
     model_config = SettingsConfigDict(

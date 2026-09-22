@@ -1,4 +1,4 @@
-"""Sovereignty declaration endpoint."""
+"""Read-only application-level sovereignty evidence; no network attestation."""
 
 from fastapi import APIRouter
 from app.schemas.sovereignty import SovereigntyProof

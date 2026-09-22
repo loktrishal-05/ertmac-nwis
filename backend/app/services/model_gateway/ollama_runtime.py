@@ -9,6 +9,9 @@ import time
 from threading import Lock
 
 import httpx
+from app.core.locality import classify_http_url, require_private_resolution
+from app.services.model_gateway.registry import validate_model_url, validate_model_name
+from app.services.model_gateway.observations import record_dispatch
 
 from app.services.model_gateway.errors import (
     ModelGatewayError,
@@ -50,10 +53,16 @@ class OllamaRuntime:
         with self._client_lock:
             if self._client is None:
                 self._client = httpx.Client(base_url=self._settings.model_base_url, transport=self._transport,
-                                            trust_env=False)
+                                            trust_env=False, follow_redirects=False)
             return self._client
 
     def _request(self, method: str, path: str, *, json_body: dict | None = None, timeout_seconds: float) -> httpx.Response:
+        validate_model_url(self._settings.model_base_url, self._settings.model_allowed_hosts_set)
+        validate_model_name(self._settings.model_name)
+        try:
+            require_private_resolution(self._settings.model_base_url)
+        except (OSError, ValueError) as error:
+            raise ModelUnavailableError('Model endpoint DNS is unavailable or not private') from error
         deadline = time.monotonic() + timeout_seconds
         attempt = 0
         while True:
@@ -63,6 +72,8 @@ class OllamaRuntime:
             connect_timeout = min(self._settings.model_connect_timeout_seconds, remaining)
             request_timeout = httpx.Timeout(connect=connect_timeout, read=remaining, write=remaining, pool=remaining)
             try:
+                if method == 'POST':
+                    record_dispatch(classify_http_url(self._settings.model_base_url))
                 response = self._http.request(method, path, json=json_body, timeout=request_timeout)
             except httpx.ConnectError as error:
                 if attempt >= self._settings.model_max_retries:
@@ -71,6 +82,8 @@ class OllamaRuntime:
                 if attempt >= self._settings.model_max_retries:
                     raise ModelTimeoutError(f"{method} {path} timed out") from error
             else:
+                if 300 <= response.status_code < 400:
+                    raise ModelRuntimeError('Model endpoint redirects are not permitted')
                 if response.status_code == 404:
                     raise ModelUnavailableError(f"{method} {path} returned 404")
                 if response.status_code in RETRYABLE_STATUS:

@@ -131,10 +131,11 @@ class FoundationTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             self.request("/audit/log")
         self.assertEqual(error.exception.code, 401)
-        self.assertEqual(self.request("/sovereignty/proof"), {
-            "external_ai_calls": 0, "cloud_ai_enabled": False,
-            "inference_mode": "local_only", "status": "sovereign",
-        })
+        proof = self.request('/sovereignty/proof')
+        self.assertEqual(proof['external_ai_calls'], 0)
+        self.assertFalse(proof['cloud_ai_enabled'])
+        self.assertEqual(proof['status'], 'sovereign')
+        self.assertFalse(proof['network_egress_enforced'])
 
     def test_cors(self):
         for origin in Settings().cors_origins:

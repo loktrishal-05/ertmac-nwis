@@ -1,5 +1,9 @@
 # Backend — Phase 4A
 
+Current local startup, readiness, and sovereignty controls:
+[Phase 7 deployment guide](../docs/phase7.md). Earlier phase descriptions below
+are historical; use `/docs` for the current authenticated API contracts.
+
 A local model gateway abstracts a swappable local inference runtime (Ollama in
 development) behind a policy layer with no generation endpoint yet. See the
 [Phase 4A guide](../docs/phase4a.md) and the "Local model gateway" section below.
@@ -147,11 +151,13 @@ database, so `/health` reports process liveness even when PostgreSQL is stopped.
 | POST | `/documents/ingest` | Validates a local raw PDF path; extracts and indexes evidence |
 | POST | `/knowledge/retrieve` | Returns dense-retrieved chunks and stored citations |
 | GET | `/audit/log` | Empty list |
-| GET | `/sovereignty/proof` | Static local-only foundation declaration |
+| GET | `/sovereignty/proof` | Configuration and process-scoped gateway observations; no firewall attestation |
+| GET | `/ready` | PostgreSQL, Qdrant, and installed local-model readiness; no inference |
 
 Placeholders return HTTP 200, with `not_implemented` where applicable. Invalid
 query input and malformed approval UUIDs return 422. Empty lists are placeholders,
-not database queries. Sovereignty proof is not runtime monitoring or attestation.
+not database queries. Phase 7 replaces the static sovereignty declaration with
+application-level configuration/dispatch evidence, not OS/network attestation.
 No authentication, review logic, answer generation, or agent execution exists.
 
 ## Validation
