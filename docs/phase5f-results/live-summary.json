@@ -1,0 +1,132 @@
+[
+  {
+    "event": "start",
+    "schema": "test_phase5f_f5cd3d0c395e4f6a8a527eea5ca12958",
+    "model": "qwen3.5:9b",
+    "runtime": "ollama"
+  },
+  {
+    "event": "copied_read_only_source"
+  },
+  {
+    "event": "copied_read_only_source"
+  },
+  {
+    "event": "copied_read_only_source"
+  },
+  {
+    "event": "copied_read_only_source"
+  },
+  {
+    "event": "copied_read_only_source"
+  },
+  {
+    "event": "copied_read_only_source"
+  },
+  {
+    "event": "login",
+    "status": 200
+  },
+  {
+    "event": "login",
+    "status": 200
+  },
+  {
+    "event": "login",
+    "status": 200
+  },
+  {
+    "event": "B_out_of_scope",
+    "status": 200,
+    "governance_status": "INFORMATIONAL",
+    "evidence_binding_status": null,
+    "route": null,
+    "output_schema": "S5"
+  },
+  {
+    "event": "C_injection",
+    "status": 200,
+    "governance_status": "INFORMATIONAL",
+    "evidence_binding_status": null,
+    "route": null,
+    "output_schema": "S5"
+  },
+  {
+    "event": "clarify",
+    "status": 200,
+    "governance_status": "INFORMATIONAL",
+    "evidence_binding_status": null,
+    "route": null,
+    "output_schema": "S5"
+  },
+  {
+    "event": "model_query_started"
+  },
+  {
+    "event": "A_company_query",
+    "status": 200,
+    "elapsed": 138.19,
+    "governance_status": "INFORMATIONAL",
+    "evidence_binding_status": null,
+    "route": "knowledge",
+    "output_schema": "S3"
+  },
+  {
+    "event": "model_query_started"
+  },
+  {
+    "event": "D_governed_recommendation",
+    "status": 200,
+    "elapsed": 151.38,
+    "governance_status": "PENDING_REVIEW",
+    "evidence_binding_status": "VERIFIED",
+    "route": "maintenance",
+    "output_schema": "S4"
+  },
+  {
+    "event": "F_self_approval",
+    "status": 403
+  },
+  {
+    "event": "G_wrong_revision_decision",
+    "status": 409
+  },
+  {
+    "event": "G_wrong_revision_release",
+    "status": 403
+  },
+  {
+    "event": "E_reviewer_approval",
+    "status": 200,
+    "governance_status": "APPROVED"
+  },
+  {
+    "event": "I_exact_release",
+    "status": 200,
+    "governance_status": "RELEASED",
+    "evidence_binding_status": "VERIFIED",
+    "route": "maintenance",
+    "output_schema": "S4"
+  },
+  {
+    "event": "H_evidence_drift_release",
+    "status": 403
+  },
+  {
+    "event": "audit_verification",
+    "result": {
+      "valid": true,
+      "chain_id": "workbench-governance-v1",
+      "events_checked": 13,
+      "first_sequence": 1,
+      "last_sequence": 13,
+      "head_hash": "b380e28649045e0e59b31abdf9c91c42bee64ba4d653e7252e58abf433366200",
+      "first_error_sequence": null,
+      "error_type": null
+    }
+  },
+  {
+    "event": "cleanup",
+    "schema": "test_phase5f_f5cd3d0c395e4f6a8a527eea5ca12958"
+  }
+]

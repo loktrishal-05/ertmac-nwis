@@ -33,6 +33,7 @@ from app.agents.prompts.maintenance import (
     format_evidence_ref,
 )
 from app.agents.registry import invoke_tool
+from app.agents.pid_evidence import is_ocr, pid_evidence_lookup, drawing_refusal, drawing_citations
 from app.schemas.agent_outputs import Citation, MaintenanceAssessment, SensorInterpretation, SensorObservation
 from app.services.model_gateway import ChatMessage, StructuredOutputError, get_model_gateway
 from app.services.sparse import identifiers as extract_identifiers
@@ -107,8 +108,11 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
     doc_blocks = []
 
     doc_payload, doc_refs = invoke_tool("retrieve_documents", session, {"query": query})
+    doc_refs, drawing_warnings = pid_evidence_lookup(query, doc_refs, session)
+    warnings += drawing_warnings
     warnings += doc_payload.get("warnings", [])
     evidence += doc_refs
+    doc_refs = [ref for ref in doc_refs if not is_ocr(ref)]
     for ref in doc_refs:
         doc_blocks.append(format_evidence_ref(ref))
 
@@ -153,6 +157,9 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
 
 
 def _general_assessment(state, gateway, *, tag, evidence, warnings, blocks):
+    authoritative = [ref for ref in evidence if not is_ocr(ref)]
+    if evidence and not authoritative:
+        return drawing_refusal(state['query'], evidence)
     if not evidence:
         refusal = refuse(
             status="insufficient_evidence",
@@ -183,7 +190,7 @@ def _general_assessment(state, gateway, *, tag, evidence, warnings, blocks):
     try:
         assessment = enforce_citations_and_diagnostic_language(
             generate=_generate, extract_citations=lambda value: value.citations,
-            extract_observation_text=lambda value: " ".join(value.observations), available=evidence,
+            extract_observation_text=lambda value: " ".join(value.observations), available=authoritative,
             require_citations=True,
         )
     except EnforcementFailure as failure:
@@ -192,7 +199,7 @@ def _general_assessment(state, gateway, *, tag, evidence, warnings, blocks):
 
     referenced = [item for hypothesis in assessment.hypotheses
                   for item in (*hypothesis.supporting_evidence, *hypothesis.contradicting_evidence)]
-    bad_refs = unknown_reference_ids(referenced, evidence)
+    bad_refs = unknown_reference_ids(referenced, authoritative)
     if bad_refs:
         refusal = refuse(status="insufficient_evidence",
                          reason="The generated assessment referenced evidence not supplied for this turn.",
@@ -201,6 +208,7 @@ def _general_assessment(state, gateway, *, tag, evidence, warnings, blocks):
         return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 
+    assessment = assessment.model_copy(update={'citations': assessment.citations + drawing_citations(evidence)})
     return {"agent_result": {"schema": "S4", "output": assessment.model_dump(mode="json")},
             "evidence": evidence, "warnings": warnings}
 
@@ -263,7 +271,7 @@ def _threshold_loop(state, gateway, session, *, tag, sensor_tag, sop_ref, thresh
 
     hypothesis_refs = [item for hypothesis in interpretation.hypotheses
                        for item in (*hypothesis.supporting_evidence, *hypothesis.contradicting_evidence)]
-    bad_refs = unknown_reference_ids(hypothesis_refs, evidence)
+    bad_refs = unknown_reference_ids(hypothesis_refs, [ref for ref in evidence if not is_ocr(ref)])
     if bad_refs:
         refusal = refuse(status="insufficient_evidence",
                          reason="The generated sensor interpretation referenced evidence not supplied for this turn.",
@@ -277,7 +285,7 @@ def _threshold_loop(state, gateway, session, *, tag, sensor_tag, sop_ref, thresh
     # are entirely Python-computed, per this sub-phase's safety property.
     hardened = interpretation.model_copy(update={
         "asset_tag": tag, "time_window": time_window, "observations": sensor_observations,
-        "anomaly_status": anomaly_status, "citations": citations,
+        "anomaly_status": anomaly_status, "citations": citations + drawing_citations(evidence),
     })
     return {"agent_result": {"schema": "S6", "output": hardened.model_dump(mode="json")},
             "evidence": evidence, "warnings": warnings}

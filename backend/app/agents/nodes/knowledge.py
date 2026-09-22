@@ -18,6 +18,7 @@ from app.agents.prompts.knowledge import (
     format_evidence_ref,
 )
 from app.agents.registry import invoke_tool
+from app.agents.pid_evidence import DRAWING_QUERY, drawing_tags, pid_evidence_lookup
 from app.core.config import settings
 from app.db.models.equipment import Equipment
 from app.schemas.agent_outputs import EquipmentTag, EquipmentTags, GroundedAnswer
@@ -68,7 +69,7 @@ def _equipment_tags_from_ocr(refs, session) -> EquipmentTags:
         # Status is computed here, deterministically, from the registry lookup and
         # the OCR pipeline's own status -- never from OCR confidence, however high.
         normalized = normalize_equipment_tag(ref.quote.strip()) if ref.quote else None
-        if normalized and _registry_confirms(session, normalized):
+        if ref.ocr_status != 'ambiguous' and normalized and _registry_confirms(session, normalized):
             status = "verified"
         else:
             status = ref.ocr_status or "unverified"
@@ -97,6 +98,12 @@ def knowledge_node(state, gateway=None, session=None) -> dict:
             "agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
             "evidence": refs, "warnings": warnings,
         }
+
+    if DRAWING_QUERY.search(state['query']):
+        refs, drawing_warnings = pid_evidence_lookup(state['query'], refs, session)
+        result = drawing_tags(state['query'], refs)
+        result['warnings'] += warnings + drawing_warnings
+        return result
 
     ocr_refs = [ref for ref in refs if getattr(ref, "kind", None) == "document_chunk" and ref.ocr_derived]
     if ocr_refs:

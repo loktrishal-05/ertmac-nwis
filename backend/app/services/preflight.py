@@ -32,6 +32,15 @@ gateway call:
 D-010 (`app.agents.safety_language`) is UNCHANGED and remains a supplemental
 signal applied to SPECIALIST OUTPUT only (docs/phase4-decisions.md D-010);
 none of this module's checks feed it, and it never gates this module.
+
+Phase 5F repairs (docs/phase5f-validation.md M2/M3): `_detect_unsafe_action`
+now anchors its informational exemption to a sentence's own OPENING
+question-word framing, not any mention of "SOP"/"procedure" anywhere in the
+sentence, so a trailing justification clause cannot hide a leading
+imperative ("Start P-204 using the SOP"). `classify_domain` now checks the
+out-of-domain marker list UNCONDITIONALLY FIRST, so a stuffed equipment
+noun or tag cannot out-rank an explicit unrelated intent ("Write a movie
+review about P-204.").
 """
 import re
 from dataclasses import dataclass, field
@@ -63,11 +72,17 @@ _INJECTION_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern in (
     r"you\s+are\s+now\s+in\s+(?:developer|admin|unrestricted)\s+mode",
 ))
 
-_INFORMATIONAL_MARKER = re.compile(
-    r"\b(?:what|which|when|who|why|describe|describes|describing|explain|explains|explained|"
-    r"summari[sz]e|tell\s+me\s+about|how\s+(?:do|does|would|should|can)\s+(?:i|we|one|you)|"
-    r"is\s+it\s+safe|steps?\s+(?:to|for)|procedure\s+(?:for|to)|\bsop\b|standard\s+operating\s+procedure|"
-    r"history\s+of|who\s+approved|documentation\s+(?:for|on)|says?\s+about)\b", re.IGNORECASE,
+_QUESTION_OPENER = re.compile(
+    # Phase 5F M2: matched only at the very START of a sentence (never
+    # anywhere inside it), and deliberately excludes "can/could/would/will"
+    # -- "Can you start P-204?" is a polite IMPERATIVE, not an informational
+    # question, and must still be caught by _UNSAFE_ACTION_PATTERNS below.
+    # A trailing mention of "SOP"/"procedure"/"manual" elsewhere in an
+    # otherwise-imperative sentence ("Start P-204 using the SOP") no longer
+    # exempts it -- only a sentence that is ITSELF grammatically framed as a
+    # question about something does.
+    r"^\s*(?:what|which|when|why|how|is\s+it\s+safe|are\s+there|does|do|did|who\s+approved|"
+    r"describe|describes|explain|explains|summari[sz]e|tell\s+me\s+about)\b", re.IGNORECASE,
 )
 _ACTION_VERB = r"(?:start|stop|restart|shut\s*down|open|close|isolate|bypass|override|suppress|defeat|energize|de-energize)"
 _UNSAFE_ACTION_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern in (
@@ -138,7 +153,15 @@ def _detect_injection(query: str) -> list[str]:
 def _detect_unsafe_action(query: str) -> bool:
     scanned = strip_quoted_spans(query or "")
     for sentence in re.split(r"(?<=[.!?])\s+|[;\n]+", scanned):
-        if not sentence.strip() or _INFORMATIONAL_MARKER.search(sentence):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        # Phase 5F M2: check the question-opener FIRST and only on the
+        # sentence's own start -- a sentence that IS a command ("Start P-204
+        # using the SOP") is checked for the action pattern regardless of a
+        # trailing SOP/procedure reference; only a sentence that itself
+        # OPENS as a genuine question is exempted.
+        if _QUESTION_OPENER.search(sentence):
             continue
         if any(pattern.search(sentence) for pattern in _UNSAFE_ACTION_PATTERNS):
             return True
@@ -147,11 +170,19 @@ def _detect_unsafe_action(query: str) -> bool:
 
 def classify_domain(query: str) -> tuple[str, list[str]]:
     """Deterministic composition, never naive single-keyword matching: a tag
-    hit, a known operational phrase, or an equipment noun is a strong signal;
-    an out-of-domain marker only wins when no strong signal is also present
-    (so a company/brand mention next to an unrelated request cannot bypass
-    the gate -- see test_company_name_does_not_bypass_domain_gate)."""
+    hit, a known operational phrase, or an equipment noun is a strong signal
+    for IN_SCOPE -- but an explicit out-of-domain marker is checked FIRST and
+    unconditionally (Phase 5F M3): a generic equipment noun (or even a
+    specific tag) stuffed into an otherwise clearly unrelated request
+    ("Write a movie review about P-204.", "At Northbridge Refining Co pump
+    division, recommend a movie for tonight.") must not out-rank an explicit
+    non-industrial intent -- see test_company_equipment_keyword_cannot_allow_unrelated_query.
+    None of this workbench's genuine industrial vocabulary collides with the
+    bounded out-of-domain marker list below, so checking it first never
+    misclassifies a real industrial query."""
     text = query or ""
+    if _OUT_OF_DOMAIN_MARKER.search(text):
+        return "OUT_OF_SCOPE", ["out_of_domain_marker"]
     tags = extract_tags(text)
     has_tag = any(tags.values())
     strong = has_tag or bool(_SOP_REFERENCE.search(text)) or bool(_EQUIPMENT_NOUNS.search(text)) or any(
@@ -166,8 +197,6 @@ def classify_domain(query: str) -> tuple[str, list[str]]:
         signals.append("equipment_noun")
     if strong:
         return "IN_SCOPE", signals or ["known_intent_phrase"]
-    if _OUT_OF_DOMAIN_MARKER.search(text):
-        return "OUT_OF_SCOPE", ["out_of_domain_marker"]
     if _WEAK_INDUSTRIAL_NOUNS.search(text):
         return "UNCERTAIN", ["weak_industrial_noun"]
     return "UNCERTAIN", []

@@ -12,7 +12,8 @@ otherwise collide on a locator like "page 3"."""
 import hashlib
 from typing import Literal, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.pid import OCRDetection
 
 
 def make_evidence_id(kind: str, source_sha256: str, stable_key: str) -> str:
@@ -59,6 +60,9 @@ class PIDRegionEvidence(_EvidenceBase):
     combined_text: str
     source_image_uri: str | None = None
     revision: str | None = None
+    ocr_derived: Literal[True] = True
+    text_items: list[OCRDetection] = Field(default_factory=list)
+    ocr_region_hash: str | None = None
 
 
 class CSVRowEvidence(_EvidenceBase):
@@ -92,14 +96,16 @@ def document_chunk_evidence(*, chunk_id, document_id, document_version_id, sourc
 
 def pid_region_evidence(*, region_id, document_id, document_version_id, source_filename, source_sha256,
                          page, bbox, confidence, ocr_status, combined_text, source_image_uri=None, revision=None,
-                         source_uri=None) -> PIDRegionEvidence:
-    locator = f"region {region_id} page {page}"
+                         source_uri=None, text_items=None, ocr_region_hash=None) -> PIDRegionEvidence:
+    locator = f"drawing {document_id} ({source_filename}), revision {revision or 'unknown'}, region {region_id} page {page}"
+    key = f"{document_version_id}:{region_id}:{ocr_region_hash}" if ocr_region_hash else str(region_id)
     return PIDRegionEvidence(
-        evidence_id=make_evidence_id("pid_region", source_sha256, str(region_id)),
+        evidence_id=make_evidence_id("pid_region", source_sha256, key),
         source_filename=source_filename, source_sha256=source_sha256, locator=locator, source_uri=source_uri,
         document_id=str(document_id), document_version_id=str(document_version_id), region_id=str(region_id),
         page=page, bbox=bbox, confidence=confidence, ocr_status=ocr_status, combined_text=combined_text,
         source_image_uri=source_image_uri, revision=revision,
+        text_items=text_items or [], ocr_region_hash=ocr_region_hash,
     )
 
 

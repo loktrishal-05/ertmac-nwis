@@ -5,6 +5,7 @@ retrieved/queried content is always presented as a delimited, labelled,
 explicitly-quoted block, never inlined as free text -- see
 prompts/knowledge.py's own docstring for the prompt-injection rationale."""
 from html import escape
+import json
 
 
 def format_evidence_block(evidence_id: str, locator: str, text: str) -> str:
@@ -20,4 +21,7 @@ def format_evidence_ref(ref) -> str:
     if getattr(ref, "ocr_derived", False):
         metadata.insert(0, "THIS IS OCR-DERIVED EVIDENCE; do not infer topology, connectivity, flow direction, valve state, or isolation")
     text = getattr(ref, "quote", None) or getattr(ref, "combined_text", None) or ""
+    if getattr(ref, 'text_items', None):
+        text += '\nRaw OCR and separate normalized candidates: ' + json.dumps(
+            [item.model_dump(mode='json') for item in ref.text_items], ensure_ascii=False)
     return format_evidence_block(ref.evidence_id, ref.locator, "[" + "; ".join(metadata) + "]\n" + text)

@@ -224,6 +224,46 @@ def assert_release_allowed(session, revision_id: UUID) -> None:
     )
 
 
+def assert_still_approved_under_lock(session, revision_id: UUID) -> None:
+    """Phase 5F H2: closes the release/revoke race. `assert_release_allowed`
+    above validates state, hash bindings, AND evidence integrity -- the last
+    of which calls out to `verify_manifest`, real work that takes real time
+    and holds no lock -- so a concurrent `apply_decision` REVOKE on this
+    exact revision could commit strictly between that validation finishing
+    and the caller's own release-success commit, without this being
+    detected. This function is the caller's LAST gate, called immediately
+    before writing ADVISORY_RELEASE_SUCCESS and committing: it takes the
+    same `SELECT ... FOR UPDATE` row lock `apply_decision`'s
+    `_load_binding_and_revision` already takes for every decision on this
+    revision, then re-reads the CURRENT ledger state under that lock.
+
+    This is deliberately NOT merged into `assert_release_allowed` itself
+    (which runs first and may still be mid-validation, including the
+    evidence-integrity check): taking the lock that early -- before
+    `verify_manifest` -- would hold it across that unrelated, potentially
+    slow work for no benefit, and does not close the race (a REVOKE could
+    still land after that early lock is released for something else). Taking
+    it here, as the final step, means a concurrent `apply_decision` on this
+    revision can now only ever land strictly BEFORE this check (and is then
+    correctly observed here, denying release) or strictly AFTER this
+    transaction commits (`apply_decision`'s own row lock blocks until then)
+    -- never silently in between. The caller must hold this lock through its
+    own commit (do no other lock-releasing work, such as a nested
+    transaction, between calling this and committing).
+    """
+    locked = session.execute(
+        select(ActionRevision.id).where(ActionRevision.id == revision_id).with_for_update()
+    ).scalar_one_or_none()
+    if locked is None:
+        raise ReleaseNotAllowed("No recognized governed revision")
+    state = get_governance_state(session, revision_id)
+    if state != "APPROVED":
+        raise ReleaseNotAllowed(
+            f"{state} cannot be released: this revision's approval was revoked (or otherwise changed) "
+            "after validation completed but before release was committed -- release denied"
+        )
+
+
 def create_revision(session, request: QueryRequest, state: dict, *, replay: bool = False,
                     requester_user_id: UUID | None = None) -> ActionRevision:
     """Atomically persist a governed draft; never accept a caller's status/policy/hash.

@@ -230,9 +230,16 @@ class PostgreSQLEvidenceIntegrityTests(unittest.TestCase):
         # bug). audit_events is itself immutable (DELETE is trigger-blocked,
         # same as UPDATE) -- TRUNCATE bypasses row-level triggers in
         # PostgreSQL, so it's the only way to clear it here. This test
-        # proves the migration's DDL mechanics, not audit content.
+        # proves the migration's DDL mechanics, not audit content. Phase 5F
+        # additionally added a BEFORE TRUNCATE trigger (migration 0010) that
+        # blocks this exact statement for a real adversary; this is
+        # legitimate test housekeeping, not an attack, so it explicitly
+        # disables that one trigger for this single statement and
+        # re-enables it immediately after.
         with self.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE audit_events DISABLE TRIGGER USER"))
             connection.execute(text("TRUNCATE TABLE audit_events"))
+            connection.execute(text("ALTER TABLE audit_events ENABLE TRIGGER USER"))
         with patch.object(settings, "database_url", self.url):
             command.downgrade(self.config, "0007_phase5c_audit_chain")
             command.upgrade(self.config, "head")

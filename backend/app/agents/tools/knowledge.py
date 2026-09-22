@@ -1,16 +1,12 @@
 """retrieve_documents (hybrid retrieval, 3A/3B2) and get_pid_regions
 (P&ID OCR region read, 3B1/3B2). Both wrap an existing READ function only."""
-import json
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agents.evidence import document_chunk_evidence, pid_region_evidence
+from app.agents.evidence import document_chunk_evidence
 from app.agents.registry import register
-from app.core.config import settings
-from app.db.models.document_version import DocumentVersion
 from app.schemas.knowledge import RetrieveRequest
-from app.schemas.pid import OCRRegion, PIDManifest
 from app.services.model_gateway.types import ToolSpec
 from app.services.retrieval import retrieve
 
@@ -60,31 +56,13 @@ class GetPIDRegionsArguments(BaseModel):
 
 
 def get_pid_regions(session, arguments: GetPIDRegionsArguments):
-    version = session.get(DocumentVersion, arguments.document_version_id)
-    if version is None or version.ingestion_metadata.get("kind") != "pid":
-        return {"regions": [], "warnings": ["No processed P&ID found for this document_version_id."]}, []
-    root = (settings.data_root / "processed/pids").resolve()
-    manifest_path = (settings.data_root / "processed/pids/manifests" / f"{version.id}.json").resolve()
-    if not manifest_path.is_relative_to(root) or not manifest_path.is_file():
-        return {"regions": [], "warnings": ["P&ID manifest artifact is missing."]}, []
-    manifest = PIDManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
-    region_path = (settings.data_root / manifest.region_json_uri).resolve()
-    if not region_path.is_relative_to(root) or not region_path.is_file():
-        return {"regions": [], "warnings": ["P&ID region artifact is missing."]}, []
-    raw = json.loads(region_path.read_text(encoding="utf-8"))
-    regions = [OCRRegion.model_validate(item) for item in raw["regions"]]
-    refs = []
-    for region in regions:
-        confidence = min((item.confidence for item in region.text_items), default=0.0)
-        refs.append(pid_region_evidence(
-            region_id=region.region_id, document_id=manifest.document_id, document_version_id=manifest.document_version_id,
-            source_filename=manifest.source_filename, source_sha256=manifest.source_sha256,
-            page=region.page, bbox=region.bbox, confidence=confidence,
-            ocr_status="ambiguous" if confidence < 0.6 else "unverified", combined_text=region.combined_text,
-            source_uri=manifest.source_filename, revision=getattr(manifest, "revision", None),
-        ))
-    payload = {"region_count": len(refs), "evidence_ids": [ref.evidence_id for ref in refs]}
-    return payload, refs
+    # pid_evidence_lookup in the design maps to this existing registered tool.
+    from app.services.pid_evidence import load_pid_evidence
+    try:
+        refs = load_pid_evidence(session, arguments.document_version_id)
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        return {"regions": [], "warnings": [str(error)]}, []
+    return {"region_count": len(refs), "evidence_ids": [ref.evidence_id for ref in refs]}, refs
 
 
 register(

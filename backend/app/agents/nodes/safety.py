@@ -17,6 +17,7 @@ import json
 from app.agents.enforcement import EnforcementFailure, enforce_citations_and_authorization_language, operational_action_text, refuse, unknown_reference_ids
 from app.agents.prompts.safety import SAFETY_SYSTEM_PROMPT, build_safety_user_message, format_evidence_block, format_evidence_ref
 from app.agents.registry import invoke_tool
+from app.agents.pid_evidence import is_ocr, pid_evidence_lookup, drawing_refusal, drawing_citations
 from app.schemas.agent_outputs import ActionRecommendation
 from app.services.model_gateway import ChatMessage, StructuredOutputError, get_model_gateway
 from app.services.sparse import identifiers as extract_identifiers
@@ -43,8 +44,10 @@ def _gather_evidence(state, session):
     query = state["query"]
     payload, refs = invoke_tool("retrieve_documents", session, {"query": query})
     warnings = list(payload.get("warnings", []))
+    refs, drawing_warnings = pid_evidence_lookup(query, refs, session)
+    warnings += drawing_warnings
     evidence = list(refs)
-    blocks = [format_evidence_ref(ref) for ref in refs]
+    blocks = [format_evidence_ref(ref) for ref in refs if not is_ocr(ref)]
 
     if state.get("route") == "combined_safety_maintenance":
         tags = extract_identifiers(query).get("equipment_tags", [])[:_MAX_COMBINED_TAGS]
@@ -102,6 +105,11 @@ def safety_node(state, gateway=None, session=None) -> dict:
     gateway = gateway or get_model_gateway()
     evidence, blocks, warnings = _gather_evidence(state, session)
 
+    # Drawing labels cannot supply a procedure or an action's evidence basis.
+    authoritative = [ref for ref in evidence if not is_ocr(ref)]
+    if evidence and not any(ref.kind == 'document_chunk' for ref in authoritative):
+        return drawing_refusal(state['query'], evidence)
+
     if not evidence:
         refusal = refuse(
             status="insufficient_evidence",
@@ -138,14 +146,14 @@ def safety_node(state, gateway=None, session=None) -> dict:
     try:
         recommendation = enforce_citations_and_authorization_language(
             generate=_generate, extract_citations=lambda value: value.citations,
-            extract_language_text=_language_text, available=evidence, require_citations=True,
+            extract_language_text=_language_text, available=authoritative, require_citations=True,
         )
     except EnforcementFailure as failure:
         return {"agent_result": {"schema": "S5", "output": failure.refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 
     recommendation = _harden_action_recommendation(recommendation)
-    bad_refs = unknown_reference_ids(recommendation.evidence_basis, evidence)
+    bad_refs = unknown_reference_ids(recommendation.evidence_basis, authoritative)
     if bad_refs:
         refusal = refuse(status="insufficient_evidence",
                          reason="The generated safety recommendation referenced evidence not supplied for this turn.",
@@ -153,6 +161,7 @@ def safety_node(state, gateway=None, session=None) -> dict:
                          safe_next_step="Retry using only the evidence supplied for this request.")
         return {"agent_result": {"schema": "S5", "output": refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
+    recommendation = recommendation.model_copy(update={'citations': recommendation.citations + drawing_citations(evidence)})
     return {
         "agent_result": {"schema": "S7", "output": recommendation.model_dump(mode="json")},
         "evidence": evidence, "warnings": warnings,

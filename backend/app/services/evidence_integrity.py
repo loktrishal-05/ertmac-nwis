@@ -66,6 +66,9 @@ def _pid_region_content(ref: dict) -> tuple[str, dict, str]:
         "region_id": ref.get("region_id"), "page": ref.get("page"), "bbox": list(ref.get("bbox") or []),
         "confidence": ref.get("confidence"), "ocr_status": ref.get("ocr_status"),
     }
+    if ref.get('ocr_region_hash'):
+        provenance.update(ocr_region_hash=ref['ocr_region_hash'], revision=ref.get('revision'),
+                          text_items=ref.get('text_items', []), source_image_uri=ref.get('source_image_uri'))
     source_identifier = f"document:{ref.get('document_id')}:region:{ref.get('region_id')}"
     return content_hash, provenance, source_identifier
 
@@ -367,6 +370,18 @@ def _reverify_against_source(session, item: EvidenceManifestItem) -> tuple[bool,
             return False, "document_version_unresolved"
         if not item.source_hash or version.source_sha256 != item.source_hash:
             return False, "document_source_hash_mismatch"
+        if item.evidence_type == 'pid_region' and provenance.get('ocr_region_hash'):
+            from app.services.pid_evidence import load_pid_evidence
+            try:
+                refs = load_pid_evidence(session, version_uuid)
+                fresh = next((r for r in refs if r.region_id == provenance.get('region_id')), None)
+                if fresh is None:
+                    return False, 'source_missing'
+                content_hash, fresh_provenance, _ = _pid_region_content(fresh.model_dump(mode='json'))
+                if content_hash != item.content_hash or canonical_hash(fresh_provenance) != canonical_hash(provenance):
+                    return False, 'source_content_changed'
+            except (ValueError, OSError, KeyError, TypeError):
+                return False, 'source_content_changed'
         return True, None
 
     if item.evidence_type == "csv_row":

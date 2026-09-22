@@ -1,0 +1,38 @@
+INFO:     Started server process [11568]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:53398 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53408 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54906 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54908 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54909 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54906 - "POST /query HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54906 - "POST /query HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54906 - "POST /query HTTP/1.1" 200 OK
+
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]
+Loading weights:  15%|#5        | 30/199 [00:00<00:00, 243.61it/s]
+Loading weights:  28%|##7       | 55/199 [00:00<00:00, 180.97it/s]
+Loading weights:  37%|###7      | 74/199 [00:00<00:00, 176.07it/s]
+Loading weights:  62%|######1   | 123/199 [00:00<00:00, 260.14it/s]
+Loading weights:  75%|#######5  | 150/199 [00:00<00:00, 215.76it/s]
+Loading weights:  87%|########6 | 173/199 [00:00<00:00, 181.09it/s]
+Loading weights: 100%|##########| 199/199 [00:00<00:00, 224.22it/s]
+
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]
+Loading weights:  15%|#5        | 31/201 [00:00<00:00, 262.46it/s]
+Loading weights:  29%|##8       | 58/201 [00:00<00:00, 264.03it/s]
+Loading weights:  42%|####2     | 85/201 [00:00<00:00, 219.34it/s]
+Loading weights:  55%|#####5    | 111/201 [00:00<00:00, 210.64it/s]
+Loading weights:  66%|######6   | 133/201 [00:00<00:00, 184.19it/s]
+Loading weights:  82%|########1 | 164/201 [00:00<00:00, 200.52it/s]
+Loading weights:  92%|#########2| 185/201 [00:00<00:00, 196.25it/s]
+Loading weights: 100%|##########| 201/201 [00:00<00:00, 222.19it/s]
+INFO:     127.0.0.1:54906 - "POST /query HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55715 - "POST /query HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55715 - "POST /approvals/a176c99b-cfe6-57d5-8c5a-5f16de47a369/decision HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:57062 - "POST /approvals/a176c99b-cfe6-57d5-8c5a-5f16de47a369/decision HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:57062 - "GET /approvals/4d1d33d7-c098-4fb9-b6fe-a4724f955236/release HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:57062 - "POST /approvals/a176c99b-cfe6-57d5-8c5a-5f16de47a369/decision HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57062 - "GET /approvals/a176c99b-cfe6-57d5-8c5a-5f16de47a369/release HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57062 - "GET /approvals/a176c99b-cfe6-57d5-8c5a-5f16de47a369/release HTTP/1.1" 403 Forbidden

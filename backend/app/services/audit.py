@@ -158,7 +158,8 @@ def verify_chain(session, *, chain_id: str = CHAIN_ID) -> dict:
     inconsistency (docs/phase5c.md, "Verification service", for the full
     contract and error_type vocabulary: sequence_gap, sequence_out_of_order,
     duplicate_sequence_number, wrong_chain_id, previous_hash_mismatch,
-    payload_hash_mismatch, event_hash_mismatch)."""
+    payload_hash_mismatch, event_hash_mismatch -- plus Phase 5F's
+    chain_truncated, below)."""
     events = session.execute(
         select(AuditEvent).where(AuditEvent.chain_id == chain_id).order_by(AuditEvent.sequence_number)
     ).scalars().all()
@@ -169,6 +170,25 @@ def verify_chain(session, *, chain_id: str = CHAIN_ID) -> dict:
         "last_sequence": None, "head_hash": _genesis_previous_hash(chain_id),
         "first_error_sequence": None, "error_type": None,
     }
+
+    if not events:
+        # Phase 5F H3: a raw TRUNCATE of audit_events (bypassing the
+        # row-level immutability triggers, which do not fire on TRUNCATE)
+        # empties this table without touching the separate, mutable
+        # audit_chain_heads cursor row -- so an event-only scan sees "no
+        # events" and cannot by itself distinguish that from a chain that
+        # genuinely never had any. audit_chain_heads is retained,
+        # independent metadata proving events previously existed: if it
+        # claims this chain already advanced past sequence 1, an empty
+        # audit_events table for that same chain is truncation, not an
+        # empty chain, and must never verify as valid.
+        head = session.execute(
+            select(AuditChainHead).where(AuditChainHead.chain_id == chain_id)
+        ).scalar_one_or_none()
+        if head is not None and head.next_sequence_number > 1:
+            result["valid"] = False
+            result["error_type"] = "chain_truncated"
+        return result
     expected_previous = _genesis_previous_hash(chain_id)
     expected_sequence = 1
     seen_sequences = set()

@@ -19,7 +19,8 @@ from app.db.models import ActionRevision, ApprovalDecision, EvidenceManifest, Ev
 from app.services.audit import append_event
 from app.services.evidence_integrity import get_evidence_integrity_status
 from app.services.governance import POLICY_VERSION as REVISION_POLICY_VERSION
-from app.services.governance import ReleaseNotAllowed, _ledger_state, _without_authority, assert_release_allowed
+from app.services.governance import (ReleaseNotAllowed, _ledger_state, _without_authority, assert_release_allowed,
+                                     assert_still_approved_under_lock)
 
 APPROVAL_POLICY_VERSION = "governance-5b-v1"
 
@@ -138,10 +139,25 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
     # the HTTP layer's require_role dependency. A caller-supplied `reviewer`
     # object's .id/.role are never trusted as-is (an in-memory object can be
     # freely mutated, or belong to a caller who skipped the API layer
-    # entirely); the service reloads the authoritative row by id and re-checks
-    # its role fresh from the database before anything else happens.
-    reviewer = session.get(User, getattr(reviewer, "id", None))
-    if reviewer is None or reviewer.role not in ("reviewer", "admin"):
+    # entirely). Phase 5F H1: `session.get(User, id)` is NOT a fresh read --
+    # if a `User` with this id is already attached to `session`'s identity
+    # map (the caller's own object, or one loaded earlier in this same
+    # session), SQLAlchemy returns that SAME cached Python object without
+    # re-querying the database, so a caller-mutated `.role` (or a role that
+    # was demoted in the database by someone else after that object was
+    # loaded) is silently trusted. A plain column-only SELECT is never
+    # served from the identity map -- it always issues a real query and
+    # returns a bare scalar, never an ORM instance -- so this is a genuine
+    # fresh read of the CURRENT database value every single call.
+    # `no_autoflush` additionally guarantees that a caller's dirty, mutated
+    # `User.role` attribute is never flushed to the database as a side
+    # effect of merely checking authorization here.
+    reviewer_id = getattr(reviewer, "id", None)
+    with session.no_autoflush:
+        authoritative_role = session.execute(
+            select(User.role).where(User.id == reviewer_id)
+        ).scalar_one_or_none()
+    if reviewer_id is None or authoritative_role not in ("reviewer", "admin"):
         raise DecisionNotAllowed("Only an authorized reviewer or admin may decide a governed revision")
 
     if expected_revision_id is not None and expected_revision_id != revision_id:
@@ -164,7 +180,7 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
                 select(ApprovalDecision).where(ApprovalDecision.action_revision_id == revision_id,
                                                ApprovalDecision.decision.in_(("APPROVE", "REJECT")))
             ).scalar_one()
-            if existing.approver_id == reviewer.id and existing.decision == decision_upper:
+            if existing.approver_id == reviewer_id and existing.decision == decision_upper:
                 return existing
             raise DecisionConflict(f"Revision already has a terminal decision (currently {current_state})")
         if binding.requester_user_id is None:
@@ -177,7 +193,7 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
                 "This revision's requester identity is unverified (created by an unauthenticated "
                 "/query call); it cannot be reviewed until resubmitted by an authenticated requester"
             )
-        if binding.requester_user_id == reviewer.id:
+        if binding.requester_user_id == reviewer_id:
             raise DecisionNotAllowed("Self-approval is prohibited: the requester cannot review their own request")
     else:  # REVOKE
         if current_state != "APPROVED":
@@ -193,10 +209,10 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
             "request_id": revision.request_id, "action_id": revision.action_id, "action_revision_id": revision_id,
             "canonical_request_hash": revision.canonical_request_hash,
             "canonical_proposal_hash": revision.canonical_proposal_hash,
-            "approver_id": reviewer.id, "decision": "REVOKE", "decided_at": now,
+            "approver_id": reviewer_id, "decision": "REVOKE", "decided_at": now,
             "approval_purpose": revision.approval_purpose, "policy_version": APPROVAL_POLICY_VERSION,
             "reviewer_comment": reviewer_comment, "expires_at": None,
-            "revoked_decision_id": approve_row.id, "revoked_at": now, "revoked_by": reviewer.id,
+            "revoked_decision_id": approve_row.id, "revoked_at": now, "revoked_by": reviewer_id,
         }
     else:
         expires_at = now + timedelta(seconds=settings.approval_validity_seconds) if decision_upper == "APPROVE" else None
@@ -204,7 +220,7 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
             "request_id": revision.request_id, "action_id": revision.action_id, "action_revision_id": revision_id,
             "canonical_request_hash": revision.canonical_request_hash,
             "canonical_proposal_hash": revision.canonical_proposal_hash,
-            "approver_id": reviewer.id, "decision": decision_upper, "decided_at": now,
+            "approver_id": reviewer_id, "decision": decision_upper, "decided_at": now,
             "approval_purpose": revision.approval_purpose, "policy_version": APPROVAL_POLICY_VERSION,
             "reviewer_comment": reviewer_comment, "expires_at": expires_at,
             "revoked_decision_id": None, "revoked_at": None, "revoked_by": None,
@@ -219,7 +235,7 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
         select(ApprovalDecision).where(ApprovalDecision.action_revision_id == revision_id, filter_clause)
     ).scalar_one()
 
-    if winner.approver_id != reviewer.id or winner.decision != decision_upper:
+    if winner.approver_id != reviewer_id or winner.decision != decision_upper:
         raise DecisionConflict(
             f"This revision was already decided ({winner.decision} by a different reviewer at "
             f"{winner.decided_at.isoformat()}); this decision was not recorded"
@@ -235,7 +251,7 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
     event_type = {"APPROVE": "APPROVAL_DECISION_APPROVE", "REJECT": "APPROVAL_DECISION_REJECT",
                  "REVOKE": "APPROVAL_DECISION_REVOKE"}[decision_upper]
     append_event(
-        session, event_type=event_type, actor_id=reviewer.id, actor_kind="user",
+        session, event_type=event_type, actor_id=reviewer_id, actor_kind="user",
         request_id=revision.request_id, action_revision_id=revision.id, decision_id=winner.id,
         payload={"decision": decision_upper, "requester_user_id": binding.requester_user_id,
                 "policy_version": winner.policy_version},
@@ -255,6 +271,15 @@ def release_advisory(session, revision_id: UUID, *, actor: User) -> dict:
     after the audit append succeeds; if it fails, the exception propagates
     and no release is reported to have happened."""
     assert_release_allowed(session, revision_id)
+    # Phase 5F H2: assert_release_allowed's own validation (including the
+    # evidence-integrity check) holds no lock and takes real time; a
+    # concurrent revoke could commit strictly between it finishing and this
+    # function's own commit below. This re-verifies APPROVED one last time
+    # under a row lock held through the rest of this function, so a
+    # concurrent decision on this exact revision can now only land strictly
+    # before this check or strictly after this function's commit -- never
+    # silently in between (docs/phase5f-validation.md H2).
+    assert_still_approved_under_lock(session, revision_id)
     detail = revision_detail(session, revision_id)
     detail["governance_status"] = "RELEASED"
     detail["released_at"] = datetime.now(timezone.utc)

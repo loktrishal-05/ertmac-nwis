@@ -68,10 +68,17 @@ def _audit_preflight_denial(session: Session, request: QueryRequest, preflight: 
 @router.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest, session: Session = Depends(get_db),
          current_user: User | None = Depends(get_optional_current_user)) -> QueryResponse:
+    # Phase 5F M1: replay_request runs first ONLY to detect a genuine
+    # request_id/content conflict (409) -- unaffected by preflight timing.
+    # The cached draft it may return is deliberately NOT returned yet: a
+    # stored governed draft (created before this repair, before Phase 5E
+    # existed, or before a guardrail was tightened) must not let a replay
+    # skip the CURRENT preflight boundary. run_preflight is evaluated fresh
+    # on every request, cached or not, and only once it ALLOWS does a cached
+    # draft get returned -- otherwise the deterministic refusal/clarification
+    # wins even for a request_id with an existing stored draft.
     try:
         replayed = replay_request(session, request)
-        if replayed is not None:
-            return replayed
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -79,6 +86,9 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
     if preflight.decision != "ALLOW":
         _audit_preflight_denial(session, request, preflight, current_user)
         return _preflight_response(request, preflight)
+
+    if replayed is not None:
+        return replayed
 
     try:
         state = run_graph(request.query, session=session, access_scope=request.access_scope)
