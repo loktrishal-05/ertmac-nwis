@@ -740,3 +740,32 @@ footer>span:first-child {
     flex-wrap:wrap;
   }
 }
+
+/* Phase 8: existing palette/layout with functional forms and evidence views. */
+.auth-panel { margin-bottom: 22px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+form { margin: 16px 0; }
+label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: 13px; }
+input, textarea, select { font: inherit; color: #203346; background: #fff; border: 1px solid #b7c5ce; border-radius: 6px; padding: 10px; min-width: 0; }
+textarea { width: 100%; resize: vertical; }
+.panel button { font: inherit; color: #e5eef9; background: #1c3551; border: 1px solid #466580; border-radius: 6px; padding: 9px 13px; cursor: pointer; }
+.panel button:hover { background: #294864; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid #66d8b7; outline-offset: 3px; }
+.api-error { color: #a52929; border-left: 3px solid #df6969; padding: 10px; overflow-wrap: anywhere; }
+.review-notice { color: #725018; background: #fff3d7; padding: 12px; border-radius: 6px; }
+.result-status { color: #17785f; }
+.muted { color: #536a7b; }
+.result { margin-top: 24px; }
+.data-fields { margin: 12px 0; }
+.data-fields > div { display: grid; grid-template-columns: minmax(120px, 190px) minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid #dce4e9; }
+.data-fields dt { color: #536a7b; text-transform: capitalize; }
+.data-fields dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.data-list { padding-left: 22px; }
+.data-list li { margin-bottom: 12px; }
+details { margin: 14px 0; padding: 10px; border: 1px solid #cedae1; border-radius: 6px; }
+summary { cursor: pointer; overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.metric-value { overflow-wrap: anywhere; font-size: 25px; }
+.panel h3 { margin-top: 18px; }
+@media(max-width:760px) { .data-fields > div { grid-template-columns: 1fr; gap: 4px; } .toolbar label { width: 100%; } }

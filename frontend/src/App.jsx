@@ -1,18 +1,12 @@
 import { useState } from 'react'
 import { useBackendHealth } from './hooks/useBackendHealth.js'
+import { useResource } from './hooks/useApi.js'
+import { Auth, Dashboard, QueryConsole, Agents, Approvals, Knowledge, Audit, Sovereignty } from './WorkspacePages.jsx'
 
 const navigation = [
   ['Dashboard', 'grid'], ['Query Console', 'terminal'], ['Agents', 'nodes'],
   ['Approvals', 'check'], ['Knowledge Base', 'book'], ['Audit Logs', 'list'],
   ['Sovereignty', 'shield'],
-]
-
-const agents = [
-  { name: 'Orchestrator Agent', icon: 'nodes', role: 'Workflow coordination', description: 'Coordinate domain tasks across the workbench.' },
-  { name: 'Knowledge Agent', icon: 'book', role: 'Operational knowledge', description: 'Surface context from internal reference material.' },
-  { name: 'Safety Agent', icon: 'shield', role: 'Process safety', description: 'Support review of operational safety considerations.' },
-  { name: 'Maintenance Agent', icon: 'tool', role: 'Asset reliability', description: 'Support equipment and maintenance workflows.' },
-  { name: 'Guardrail Agent', icon: 'check', role: 'Policy review', description: 'Review proposed outputs before human approval.' },
 ]
 
 function Icon({ name, ...props }) {
@@ -32,7 +26,18 @@ function Icon({ name, ...props }) {
 export default function App() {
   const [page, setPage] = useState('Dashboard')
   const { status, checkedAt } = useBackendHealth()
-
+  const auth = useResource('/auth/me')
+  const proof = useResource('/sovereignty/proof')
+  const user = auth.data
+  const pages = {
+    Dashboard: <Dashboard proof={proof} health={status} user={user} />,
+    'Query Console': <QueryConsole user={user} />,
+    Agents: <Agents />,
+    Approvals: <Approvals user={user} />,
+    'Knowledge Base': <Knowledge />,
+    'Audit Logs': <Audit />,
+    Sovereignty: <Sovereignty proof={proof} />,
+  }
   return (
     <div className="workbench">
       <a className="skip-link" href="#main">Skip to content</a>
@@ -42,34 +47,18 @@ export default function App() {
         <nav aria-label="Main navigation">
           {navigation.map(([name, icon]) => <button key={name} className={`nav-item ${page === name ? 'selected' : ''}`} aria-current={page === name ? 'page' : undefined} onClick={() => setPage(name)}><Icon name={icon} />{name}{page === name && <span className="nav-dot" />}</button>)}
         </nav>
-        <div className="sidebar-note"><Icon name="shield" /><strong>On-premise by design</strong><p>Local infrastructure.<br />Your operational boundary.</p><span className="sidebar-tag">SIH 2026 · PHASE 01</span></div>
+        <div className="sidebar-note"><Icon name="shield" /><strong>On-premise by design</strong><p>Local infrastructure.<br />Advisory recommendations only.</p><span className="sidebar-tag">SIH 2026</span></div>
       </aside>
-
       <div className="workspace">
         <header className="topbar">
           <div className="product-name">Sovereign Agentic AI Workbench<span>INDUSTRIAL OPERATIONS</span></div>
-          <div className="header-status"><span className={`connection ${status.toLowerCase()}`} role="status"><span className="status-dot" />Backend: {status}</span><span className="external-count">External AI Calls: <strong>0</strong></span></div>
+          <div className="header-status"><span className={`connection ${status.toLowerCase()}`} role="status"><span className="status-dot" />Backend: {status}</span><span className="external-count">External AI Calls: <strong>{proof.data?.external_ai_calls ?? 'Unavailable'}</strong></span></div>
         </header>
-
         <main id="main" tabIndex="-1">
-          <div className="page-heading"><div><div className="eyebrow">WORKSPACE / {page.toUpperCase()}</div><h1>{page === 'Dashboard' ? 'Operations overview' : page}</h1><p>{page === 'Dashboard' ? 'A unified view of your local agentic workspace.' : 'A reserved workspace for a future phase.'}</p></div><span className="phase-badge">Dashboard foundation</span></div>
-
-          {page === 'Dashboard' ? <>
-            <section className="metrics" aria-label="Workspace metrics">
-              {[['Active Agents', 'nodes', 'No agents running'], ['Pending Approvals', 'check', 'No approval workflow'], ['Indexed Documents', 'book', 'No documents ingested'], ['External AI Calls', 'shield', 'Local-only foundation']].map(([label, icon, caption]) => <article className="metric" key={label}><div className="metric-label">{label}<Icon name={icon} /></div><div className="metric-value">0</div><p>{caption}</p></article>)}
-            </section>
-
-            <section className="agent-section" aria-labelledby="agents-title"><div className="section-heading"><div><h2 id="agents-title">Agent workspace</h2><p>Planned capabilities, ready for future implementation.</p></div><span className="count-label">05 AGENTS</span></div><div className="agent-grid">
-              {agents.map((agent, index) => <article className="agent-card" key={agent.name}><div className="agent-top"><span className="agent-icon"><Icon name={agent.icon} /></span><span className="agent-number">0{index + 1}</span></div><h3>{agent.name}</h3><div className="agent-role">{agent.role}</div><p>{agent.description}</p><div className="agent-footer"><span className="not-started"><span className="status-dot" />Not Started</span><span>Planned</span></div></article>)}
-            </div></section>
-
-            <div className="lower-grid">
-              <section className="panel" aria-labelledby="activity-title"><div className="section-heading"><h2 id="activity-title">Recent Activity</h2><span className="subtle-badge">PLACEHOLDERS</span></div><p className="panel-description">Preview entries only. No live audit events are recorded.</p><ul className="activity-list">{[['nodes', 'Agent execution', 'Future agent runs will appear here.'], ['check', 'Human review', 'Future approval requests will appear here.'], ['book', 'Knowledge updates', 'Future indexing activity will appear here.']].map(([icon, title, description]) => <li key={title}><span className="activity-icon"><Icon name={icon} /></span><div><strong>{title}</strong><p>{description}</p></div><span className="activity-placeholder">Pending setup</span></li>)}</ul></section>
-              <section className="panel boundary-panel" aria-labelledby="boundary-title"><span className="boundary-icon"><Icon name="shield" width="26" height="26" /></span><h2 id="boundary-title">Sovereign foundation</h2><p>Built for an on-premise operational environment with local, open-weight models in future phases.</p><div className="boundary-row"><span>Hosted model integrations</span><strong>None</strong></div><div className="boundary-row"><span>Model inference</span><strong>Not configured</strong></div><div className="boundary-note">Foundation metrics are initial values, not live telemetry.</div></section>
-            </div>
-          </> : <section className="panel empty-state"><Icon name={navigation.find(([name]) => name === page)[1]} width="36" height="36" /><h2>{page} is not configured</h2><p>This section is reserved for a later phase. Only the dashboard foundation and backend health connection are available.</p><button className="back-button" onClick={() => setPage('Dashboard')}>Return to Dashboard</button></section>}
-
-          <footer><span><span className="footer-dot" />PHASE 01 · FRONTEND FOUNDATION</span><span>Health checked: {checkedAt ? checkedAt.toLocaleTimeString() : 'Checking…'} · Refreshes every 15s</span></footer>
+          <div className="page-heading"><div><h1>{page === 'Dashboard' ? 'Operations overview' : page}</h1><p>Your local agentic workspace, connected to the backend.</p></div><span className="phase-badge">Advisory workspace</span></div>
+          <Auth auth={auth} />
+          <div key={`${page}:${user?.id || 'anonymous'}:${user?.role || ''}`}>{pages[page]}</div>
+          <footer><span><span className="footer-dot" />LOCAL OPERATIONS WORKBENCH</span><span>Health checked: {checkedAt ? checkedAt.toLocaleTimeString() : 'Checking...'} - Every 15s</span></footer>
         </main>
       </div>
     </div>
