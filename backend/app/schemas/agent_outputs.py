@@ -14,6 +14,7 @@ undocumented field past its own schema. `citations`/tag/observation
 evidence_id fields are validated for EXISTENCE against gathered evidence by
 app.agents.enforcement, never by the schema itself (a schema cannot know at
 class-definition time what evidence a future turn will gather)."""
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -73,6 +74,10 @@ class MaintenanceHypothesis(BaseModel):
                 "a hypothesis must carry supporting_evidence or contradicting_evidence; "
                 "a hypothesis with neither is rejected structurally, not merely warned about"
             )
+        # Supplemental language guard, not semantic proof of a diagnosis.
+        if (re.search(r"\b(?:is|are|was|were)\s+(?:causing|the cause of|responsible for)\b", self.text, re.I)
+                and not re.search(r"\b(?:may|might|could|possible|possibly|likely|unlikely|unconfirmed)\b", self.text, re.I)):
+            raise ValueError("A hypothesis must not assert a cause as established; state causal interpretations tentatively.")
         return self
 
 
@@ -133,9 +138,26 @@ class ProposedAction(BaseModel):
 class ActionRecommendation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     summary: str
+    observations: list[str] = Field(default_factory=list)
+    hypotheses: list[MaintenanceHypothesis] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
     evidence_basis: list[str] = Field(default_factory=list)
     proposed_actions: list[ProposedAction] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
     warnings: list[str] = Field(default_factory=list)
     human_approval_required: bool = False
+
+
+class GroundedActionRecommendation(ActionRecommendation):
+    """Generation contract: optional legacy fields must be emitted explicitly.
+
+    Empty hypotheses are allowed when no causal explanation is supported.
+    Citation identities and locators still undergo independent enforcement.
+    """
+    observations: list[str]
+    hypotheses: list[MaintenanceHypothesis]
+    limitations: list[str]
+    evidence_basis: list[str]
+    proposed_actions: list[ProposedAction]
+    citations: list[Citation] = Field(min_length=1)

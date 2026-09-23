@@ -122,7 +122,7 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
     warnings += hist_payload.get("warnings", [])
     evidence += hist_refs
     history_blocks = [
-        _row_block(ref.evidence_id, f"maintenance history for {tag}", row)
+        _row_block(ref.evidence_id, ref.locator, row)
         for row, ref in zip(hist_payload.get("records", []), hist_refs)
     ]
 
@@ -147,7 +147,7 @@ def maintenance_node(state, gateway=None, session=None) -> dict:
     if sop_ref is None:
         warnings.append("threshold unavailable / insufficient authoritative limit evidence")
     latest_blocks = [
-        _row_block(ref.evidence_id, f"latest reading for {tag}", row)
+        _row_block(ref.evidence_id, ref.locator, row)
         for row, ref in zip(latest_readings, latest_refs)
     ]
     return _general_assessment(

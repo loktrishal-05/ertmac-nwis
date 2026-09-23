@@ -13,12 +13,14 @@ model proposed -- this system never self-approves an action, regardless of
 what the model says, and every non-informational action always carries
 `human_approval_required=True` on the record."""
 import json
+from datetime import datetime, timedelta
 
 from app.agents.enforcement import EnforcementFailure, enforce_citations_and_authorization_language, operational_action_text, refuse, unknown_reference_ids
 from app.agents.prompts.safety import SAFETY_SYSTEM_PROMPT, build_safety_user_message, format_evidence_block, format_evidence_ref
 from app.agents.registry import invoke_tool
+from app.agents.nodes.maintenance import _extract_threshold
 from app.agents.pid_evidence import is_ocr, pid_evidence_lookup, drawing_refusal, drawing_citations
-from app.schemas.agent_outputs import ActionRecommendation
+from app.schemas.agent_outputs import ActionRecommendation, GroundedActionRecommendation
 from app.services.model_gateway import ChatMessage, StructuredOutputError, get_model_gateway
 from app.services.sparse import identifiers as extract_identifiers
 
@@ -56,12 +58,37 @@ def _gather_evidence(state, session):
             evidence += m_refs
             warnings += m_payload.get("warnings", [])
             for row, ref in zip(m_payload.get("records", []), m_refs):
-                blocks.append(_row_block(ref.evidence_id, f"maintenance history for {tag}", row))
+                blocks.append(_row_block(ref.evidence_id, ref.locator, row))
 
             s_payload, s_refs = invoke_tool("get_latest_reading", session, {"equipment_tag": tag})
             evidence += s_refs
             for row, ref in zip(s_payload.get("readings", []), s_refs):
-                blocks.append(_row_block(ref.evidence_id, f"latest sensor reading for {tag}", row))
+                blocks.append(_row_block(ref.evidence_id, ref.locator, row))
+
+            # Analyze the recorded window, not a fabricated current-time sample.
+            # ponytail: three channels per asset; extend selection if wider telemetry is required.
+            for row in s_payload.get("readings", [])[:3]:
+                if not row.get("timestamp") or not row.get("sensor_tag"):
+                    continue
+                end = datetime.fromisoformat(row["timestamp"].replace("Z", "+00:00"))
+                sop, threshold = _extract_threshold(
+                    [ref for ref in refs if not is_ocr(ref)], equipment_tag=tag,
+                    measurement=row.get("measurement"), unit=row.get("unit"),
+                )
+                arguments = {"equipment_tag": tag, "sensor_tag": row["sensor_tag"],
+                             "start": (end - timedelta(days=1)).isoformat(), "end": end.isoformat()}
+                if sop is not None:
+                    arguments["thresholds"] = {"maximum": threshold}
+                features, feature_refs = invoke_tool("compute_sensor_features", session, arguments)
+                evidence += feature_refs
+                warnings += features.get("warnings", [])
+                for ref in feature_refs:
+                    blocks.append(format_evidence_block(ref.evidence_id, ref.locator, json.dumps({
+                        "window_start": features.get("window_start"), "window_end": features.get("window_end"),
+                        "features": features.get("features"), "observations": features.get("observations"),
+                        "threshold_source": sop.evidence_id if sop else None,
+                    }, default=str)))
+                warnings.append(f"{tag}/{row['sensor_tag']}: recorded window ends {end.isoformat()}; not live plant telemetry.")
 
     return evidence, blocks, warnings
 
@@ -129,7 +156,7 @@ def safety_node(state, gateway=None, session=None) -> dict:
         if retry_note:
             messages.append(ChatMessage(role="user", content=retry_note))
         try:
-            result = gateway.generate_structured(messages=messages, schema=ActionRecommendation, think=False)
+            result = gateway.generate_structured(messages=messages, schema=GroundedActionRecommendation, think=False)
         except StructuredOutputError as error:
             raise EnforcementFailure(refuse(
                 status="refused",
@@ -140,6 +167,8 @@ def safety_node(state, gateway=None, session=None) -> dict:
 
     def _language_text(recommendation: ActionRecommendation) -> str:
         return " ".join([recommendation.summary, *recommendation.evidence_basis, *recommendation.warnings,
+                          *recommendation.observations, *recommendation.limitations,
+                          *(hypothesis.text for hypothesis in recommendation.hypotheses),
                           *(citation.claim for citation in recommendation.citations),
                           *(action.action for action in recommendation.proposed_actions)])
 
@@ -147,13 +176,17 @@ def safety_node(state, gateway=None, session=None) -> dict:
         recommendation = enforce_citations_and_authorization_language(
             generate=_generate, extract_citations=lambda value: value.citations,
             extract_language_text=_language_text, available=authoritative, require_citations=True,
+            extract_observation_text=lambda value: " ".join(value.observations),
+            required_citation_ids=[ref.evidence_id for ref in authoritative if ref.kind == 'sensor_window'],
         )
     except EnforcementFailure as failure:
         return {"agent_result": {"schema": "S5", "output": failure.refusal.model_dump(mode="json")},
                 "evidence": evidence, "warnings": warnings}
 
     recommendation = _harden_action_recommendation(recommendation)
-    bad_refs = unknown_reference_ids(recommendation.evidence_basis, authoritative)
+    hypothesis_refs = [item for hypothesis in recommendation.hypotheses
+                       for item in (*hypothesis.supporting_evidence, *hypothesis.contradicting_evidence)]
+    bad_refs = unknown_reference_ids(recommendation.evidence_basis + hypothesis_refs, authoritative)
     if bad_refs:
         refusal = refuse(status="insufficient_evidence",
                          reason="The generated safety recommendation referenced evidence not supplied for this turn.",

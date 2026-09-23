@@ -21,7 +21,7 @@ class CitationValidationResult(BaseModel):
 
 
 def validate_citations(*, emitted: Sequence[str], available: Sequence[EvidenceRef], citations=None,
-                       require_citations: bool = False) -> CitationValidationResult:
+                       require_citations: bool = False, required_ids: Sequence[str] = ()) -> CitationValidationResult:
     available_ids = {ref.evidence_id for ref in available}
     emitted_set = set(emitted)
     unknown_ids = sorted(emitted_set - available_ids)
@@ -32,6 +32,7 @@ def validate_citations(*, emitted: Sequence[str], available: Sequence[EvidenceRe
             unknown_ids.append(f"{citation.evidence_id}:locator")
     if require_citations and not emitted_set:
         unknown_ids.append("(citation required)")
+    unknown_ids.extend(f"{evidence_id}:required citation missing" for evidence_id in sorted(set(required_ids) - emitted_set))
     uncited_ids = sorted(available_ids - emitted_set)
     return CitationValidationResult(
         valid=not unknown_ids,

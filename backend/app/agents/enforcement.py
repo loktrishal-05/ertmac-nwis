@@ -26,6 +26,7 @@ name a failure mode (app.agents.observation_language's word ban) while
 `hypotheses` remain free to. Only used on the S4 (general assessment) path --
 4E's S6 (threshold-loop) path never lets the model author `observations` at
 all, so there is nothing there for this function to check."""
+import logging
 import re
 from typing import Callable, Sequence, TypeVar
 
@@ -120,6 +121,8 @@ def enforce_citations_and_authorization_language(
     *, generate: Callable[[str | None], T], extract_citations: Callable[[T], Sequence[Citation]],
     extract_language_text: Callable[[T], str], available: Sequence[EvidenceRef], max_attempts: int = 2,
     require_citations: bool = False,
+    extract_observation_text: Callable[[T], str] | None = None,
+    required_citation_ids: Sequence[str] = (),
 ) -> T:
     """Used by 4D (safety & incident) and 4F (process optimization): the same
     bounded reject-or-regenerate shape as enforce_citations(), but a single
@@ -129,29 +132,40 @@ def enforce_citations_and_authorization_language(
     retry_note = None
     last_unknown_ids: list[str] = []
     last_violations: list[str] = []
+    last_observation_violations: list[str] = []
     for _ in range(max_attempts):
         result = generate(retry_note)
         citations = list(extract_citations(result))
         emitted = [c.evidence_id for c in citations]
         citation_check = validate_citations(emitted=emitted, available=available, citations=citations,
-                                            require_citations=require_citations)
+                                            require_citations=require_citations, required_ids=required_citation_ids)
         # Direct action wording is retained as an advisory signal for policy
         # classification, but only explicit clearance/approval language blocks
         # an output here. The heuristic is never the approval authority.
         violations = [item for item in find_authorization_language(extract_language_text(result))
                       if not item.startswith("direct operational action") and item != "direct operational action language"]
-        if citation_check.valid and not violations:
+        observation_violations = (find_observation_language_violations(extract_observation_text(result))
+                                  if extract_observation_text is not None else [])
+        if citation_check.valid and not violations and not observation_violations:
             return result
+        logging.getLogger(__name__).warning(
+            "Recommendation validation failed: citation_errors=%d authorization_matches=%d observation_matches=%d",
+            len(citation_check.unknown_ids), len(violations), len(observation_violations),
+        )
         last_unknown_ids, last_violations = citation_check.unknown_ids, violations
+        last_observation_violations = observation_violations
         notes = []
         if not citation_check.valid:
-            notes.append(f"cited evidence_id value(s) not gathered this turn: {citation_check.unknown_ids}")
+            notes.append(f"invalid or missing required citations: {citation_check.unknown_ids}; copy the supplied evidence ID and locator exactly")
         if violations:
             notes.append(
                 "used language that reads as granting authorisation or clearance to act "
                 f"(matched: {violations}); restate any procedure reference as a citation to what the "
                 "procedure says, never as permission granted by you"
             )
+        if observation_violations:
+            notes.append(f"invalid factual observations: {observation_violations}; keep only measured values "
+                         "or recorded events in observations, and move diagnostic interpretations into tentative hypotheses")
         retry_note = "The previous response is invalid: " + "; and ".join(notes) + ". Respond again with only the corrected JSON object."
     # The refusal's own `reason` is user-facing (returned in agent_result), so it
     # never repeats the model's rejected wording -- only that a rejection happened
@@ -161,6 +175,8 @@ def enforce_citations_and_authorization_language(
         reason_parts.append(f"cited {len(last_unknown_ids)} unknown evidence_id value(s)")
     if last_violations:
         reason_parts.append(f"used authorisation-implying language ({len(last_violations)} pattern match(es))")
+    if last_observation_violations:
+        reason_parts.append(f"used invalid factual-observation language ({len(last_observation_violations)} pattern match(es))")
     raise EnforcementFailure(refuse(
         status="refused" if last_violations else "insufficient_evidence",
         reason="The generated recommendation " + " and ".join(reason_parts) + ", even after one bounded regeneration attempt.",

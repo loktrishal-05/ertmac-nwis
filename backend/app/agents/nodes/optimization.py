@@ -137,7 +137,7 @@ def optimization_node(state, gateway=None, session=None) -> dict:
     warnings += hist_payload.get("warnings", [])
     evidence += hist_refs
     history_blocks = [
-        _row_block(ref.evidence_id, f"maintenance history for {tag}", row)
+        _row_block(ref.evidence_id, ref.locator, row)
         for row, ref in zip(hist_payload.get("records", []), hist_refs)
     ]
     blocks.extend(history_blocks)

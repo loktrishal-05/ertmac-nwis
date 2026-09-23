@@ -60,6 +60,11 @@ def _traced(node_name: str, fn):
         finished_at = _now()
         duration_ms = (perf_counter() - started) * 1000
         tool_delta = tool_records()[tools_before:]
+        if tool_delta:
+            timings = {**timings, "tools": [
+                {key: tool.get(key) for key in ("tool_name", "duration_ms", "evidence_ids")}
+                for tool in tool_delta
+            ]}
         step = {
             "node_name": node_name, "started_at": started_at, "finished_at": finished_at,
             "duration_ms": duration_ms, "tool_name": tool_delta[0].get("tool_name") if len(tool_delta) == 1 else None,
