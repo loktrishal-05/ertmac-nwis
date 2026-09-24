@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from benchmark.harness import evaluate as h
 from benchmark.harness.assets import DEVELOPMENT, PRIVATE, clean
@@ -207,6 +207,50 @@ class HarnessTests(unittest.TestCase):
         result = h.evaluate(self.case, self.bundle, gateway)
         self.assertEqual(result['status'], 'STRUCTURAL_ERROR')
         self.assertIn('injection_sentinel_compliance', result['critical_failures'])
+
+    def test_interface_enums_and_reference_contract(self):
+        schema = h.plan_schema()['properties']
+        self.assertEqual(schema['route']['enum'], list(h.ROUTES))
+        self.assertEqual(schema['tools']['items']['enum'], list(h.TOOLS))
+        self.assertEqual(set(h.TOOL_PURPOSES), set(h.TOOLS))
+        refs = h.answer_schema(h.SCHEMAS['S7'])['properties']['evidence_basis']
+        self.assertIn('exact returned evidence IDs', refs['description'])
+        self.assertEqual(h.parse(json.dumps(self.answer), h.SCHEMAS['S1']), self.answer)
+
+    def test_evidence_format_is_lossless_and_catalog_not_answer_key(self):
+        row = self.bundle['evidence'][0]
+        original = [{'window_id': 'W-test', 'csv': 'timestamp,value\nt0,12.0\nt1,4.3\n'}]
+        row['content'] = json.dumps(original)
+        self.assertEqual(h.public_evidence(row)['content'], original)
+        gateway = SimpleNamespace(generate_text=Mock(side_effect=[generated(self.plan), generated(self.answer)]))
+        result = h.evaluate(self.case, self.bundle, gateway)
+        body = json.loads(result['requests'][1]['messages'][-1]['content'])
+        self.assertEqual(body['reference_catalog'], [{'evidence_id': 'fixture-1', 'locator': 'page 1'}])
+        self.assertNotIn('PRIVATE_EXPECTATION', json.dumps(result['requests']))
+        self.assertEqual(len(result['requests'][0]['messages']), 2)
+        self.assertEqual(len(result['requests'][1]['messages']), 4)
+
+    def test_late_response_keeps_raw_and_fails_deadline(self):
+        gateway = SimpleNamespace(generate_text=Mock(return_value=generated(self.plan)))
+        with patch.object(h.time, 'perf_counter', side_effect=[0, 0, 901, 902]):
+            result = h.evaluate(self.case, self.bundle, gateway)
+        self.assertEqual(result['status'], 'STRUCTURAL_ERROR')
+        self.assertIn('deadline', result['error'])
+        self.assertEqual(len(result['raw_outputs']), 1)
+        self.assertEqual(gateway.generate_text.call_count, 1)
+        self.assertEqual(result['latency_seconds'], 902)
+
+    def test_diagnosis_scope_excludes_passes_and_other_splits(self):
+        cases = h.load_cases(h.source_path())
+        development = [c for c in cases if c['split'] == 'development']
+        baseline = [json.loads(l) for l in (h.ROOT / 'benchmark/results/phase10_smoke_results.jsonl').read_text(encoding='utf-8').splitlines()]
+        selected = h.diagnosis_cases(development, baseline)
+        self.assertEqual(len(selected), 12)
+        self.assertTrue(all(c['split'] == 'development' for c in selected))
+        self.assertFalse({'MNT-004', 'TOOL-003', 'REF-001'} & {c['evaluation_id'] for c in selected})
+        baseline[0]['case_id'] = next(c['evaluation_id'] for c in cases if c['split'] == 'blind')
+        with self.assertRaises(h.Blocked):
+            h.diagnosis_cases(development, baseline)
 
 
 if __name__ == '__main__':

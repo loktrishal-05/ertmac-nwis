@@ -1,0 +1,155 @@
+{
+  "server_log_size_before_rerun": 801828,
+  "server_log_sha256_before_rerun": "d65c38d1f71382656ddd3711f1485da1170b08fb29745fc8940d19ab02d1925d",
+  "baseline_runtime_excerpts": [
+    {
+      "line": 8034,
+      "text": "[GIN] 2026/09/24 - 07:19:10 | 200 |    14.394187s |       127.0.0.1 | POST     \"/api/chat\""
+    },
+    {
+      "line": 8035,
+      "text": "srv  server_strea: conv_id= (empty=1)"
+    },
+    {
+      "line": 8036,
+      "text": "slot get_availabl: id  0 | task -1 |  - checking sim = 0.462 (319/691) > 0.100"
+    },
+    {
+      "line": 8037,
+      "text": "slot get_availabl: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.462 (> 0.100 thold), f_keep = 0.914"
+    },
+    {
+      "line": 8038,
+      "text": "slot launch_slot_: id  0 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist "
+    },
+    {
+      "line": 8039,
+      "text": "slot launch_slot_: id  0 | task -1 | sampler params: "
+    },
+    {
+      "line": 8040,
+      "text": "\trepeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 1.500"
+    },
+    {
+      "line": 8041,
+      "text": "\tdry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64"
+    },
+    {
+      "line": 8042,
+      "text": "\ttop_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000"
+    },
+    {
+      "line": 8043,
+      "text": "\tmirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900"
+    },
+    {
+      "line": 8044,
+      "text": "slot launch_slot_: id  0 | task 2661 | processing task, is_child = 0"
+    },
+    {
+      "line": 8045,
+      "text": "slot   operator(): id  0 | task 2661 | new prompt, n_ctx_slot = 8192, n_keep = 4, task.n_tokens = 691"
+    },
+    {
+      "line": 8046,
+      "text": "slot   operator(): id  0 | task 2661 | checking checkpoint with [318, 318] against 319..."
+    },
+    {
+      "line": 8047,
+      "text": "slot   operator(): id  0 | task 2661 | restored context checkpoint (pos_min = 318, pos_max = 318, n_tokens = 319, n_past = 319, size = 50.251 MiB)"
+    },
+    {
+      "line": 8048,
+      "text": "slot   operator(): id  0 | task 2661 | cached n_tokens = 319, memory_seq_rm [319, end)"
+    },
+    {
+      "line": 8049,
+      "text": "slot create_check: id  0 | task 2661 | superseding context checkpoint at n_tokens = 319"
+    },
+    {
+      "line": 8050,
+      "text": "slot create_check: id  0 | task 2661 | created context checkpoint 1 of 32 (pos_min = 318, pos_max = 318, n_tokens = 319, size = 50.251 MiB)"
+    },
+    {
+      "line": 8051,
+      "text": "slot   operator(): id  0 | task 2661 | cached n_tokens = 687, memory_seq_rm [687, end)"
+    },
+    {
+      "line": 8052,
+      "text": "slot init_sampler: id  0 | task 2661 | init sampler, took 0.34 ms, tokens: text = 691, total = 691"
+    },
+    {
+      "line": 8053,
+      "text": "slot create_check: id  0 | task 2661 | created context checkpoint 2 of 32 (pos_min = 686, pos_max = 686, n_tokens = 687, size = 50.251 MiB)"
+    },
+    {
+      "line": 8054,
+      "text": "slot print_timing: id  0 | task 2661 | n_gen =    100, tg =   0.02 t/s, tg_3s =   0.02 t/s"
+    },
+    {
+      "line": 8055,
+      "text": "slot print_timing: id  0 | task 2661 | n_gen =    107, tg =   0.02 t/s, tg_3s =   2.19 t/s"
+    },
+    {
+      "line": 8056,
+      "text": "slot print_timing: id  0 | task 2661 | n_gen =    116, tg =   0.02 t/s, tg_3s =   2.75 t/s"
+    },
+    {
+      "line": 8057,
+      "text": "slot print_timing: id  0 | task 2661 | n_gen =    124, tg =   0.02 t/s, tg_3s =   2.43 t/s"
+    },
+    {
+      "line": 8058,
+      "text": "slot print_timing: id  0 | task 2661 | n_gen =    132, tg =   0.03 t/s, tg_3s =   2.59 t/s"
+    },
+    {
+      "line": 8059,
+      "text": "slot print_timing: id  0 | task 2661 | prompt eval time =    3516.40 ms /   372 tokens (    9.45 ms per token,   105.79 tokens per second)"
+    },
+    {
+      "line": 8060,
+      "text": "slot print_timing: id  0 | task 2661 |        eval time = 5026233.76 ms /   142 tokens (35647.05 ms per token,     0.03 tokens per second)"
+    },
+    {
+      "line": 8061,
+      "text": "slot print_timing: id  0 | task 2661 |       total time = 5029750.16 ms /   514 tokens"
+    },
+    {
+      "line": 8062,
+      "text": "slot print_timing: id  0 | task 2661 |    graphs reused =       2684"
+    },
+    {
+      "line": 8063,
+      "text": "slot      release: id  0 | task 2661 | stop processing: n_tokens = 832, truncated = 0"
+    },
+    {
+      "line": 8064,
+      "text": "srv  update_slots: all slots are idle"
+    },
+    {
+      "line": 8065,
+      "text": "[GIN] 2026/09/24 - 08:43:00 | 200 |      1h23m49s |       127.0.0.1 | POST     \"/api/chat\""
+    },
+    {
+      "line": 8123,
+      "text": "time=2026-09-24T08:43:26.537+05:30 level=WARN source=llama_server.go:318 msg=\"truncating input prompt\" limit=4098 prompt=9128 keep=4 new=4098"
+    },
+    {
+      "line": 8165,
+      "text": "slot   operator(): id  0 | task 2857 | new prompt, n_ctx_slot = 8192, n_keep = 4, task.n_tokens = 4098"
+    }
+  ],
+  "ollama_version": {
+    "version": "0.34.2"
+  },
+  "model_info": {
+    "parameters": "presence_penalty               1.5\ntemperature                    1\ntop_k                          20\ntop_p                          0.95",
+    "template": "{{ .Prompt }}",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ]
+  }
+}

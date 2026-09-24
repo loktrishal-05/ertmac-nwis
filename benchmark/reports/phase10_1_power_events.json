@@ -1,0 +1,26 @@
+﻿[
+    {
+        "time_utc":  "2026-09-24T03:12:09.7776676Z",
+        "ProviderName":  "Microsoft-Windows-Power-Troubleshooter",
+        "Id":  1,
+        "Message":  "The system has returned from a low power state.\r\n\r\nSleep Time: ‎2026‎-‎09‎-‎24T01:49:19.705427200Z\r\nWake Time: ‎2026‎-‎09‎-‎24T03:12:08.703005200Z\r\n\r\nWake Source: Power Button"
+    },
+    {
+        "time_utc":  "2026-09-24T03:11:38.5005792Z",
+        "ProviderName":  "Microsoft-Windows-Kernel-General",
+        "Id":  1,
+        "Message":  "The system time has changed to ‎2026‎-‎09‎-‎24T03:11:38.500000000Z from ‎2026‎-‎09‎-‎24T01:49:27.511756500Z.\r\nTime Delta: 4930988 ms\r\n\r\nChange Reason: System time synchronized with the hardware clock.\r\nProcess: \u0027\u0027 (PID 4).\r\n\r\nRTC time: ‎2026‎-‎09‎-‎24T08:41:38.500000000Z\r\nCurrent time zone bias: -330\r\nRTC time is in UTC: false\r\nSystem time was based on RTC time: false"
+    },
+    {
+        "time_utc":  "2026-09-24T01:49:27.5120928Z",
+        "ProviderName":  "Microsoft-Windows-Kernel-Power",
+        "Id":  107,
+        "Message":  "The system has resumed from sleep."
+    },
+    {
+        "time_utc":  "2026-09-24T01:49:22.2333432Z",
+        "ProviderName":  "Microsoft-Windows-Kernel-Power",
+        "Id":  42,
+        "Message":  "The system is entering sleep.\r\n\r\nSleep Reason: Button or Lid"
+    }
+]
