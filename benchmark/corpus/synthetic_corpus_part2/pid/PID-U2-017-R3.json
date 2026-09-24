@@ -1,0 +1,223 @@
+{
+  "evidence_id": "PID-U2-017 R3",
+  "artifact_type": "pid_ocr_evidence",
+  "drawing_number": "PID-U2-017",
+  "revision": "R3",
+  "revision_status": "APPROVED_CURRENT",
+  "title": "P&ID — Unit 2 Transfer Pumps P-204A / P-204B (synthetic)",
+  "pages": 1,
+  "ocr_derived": true,
+  "data_class": "synthetic",
+  "synthetic_notice": "SYNTHETIC EVALUATION ARTIFACT. Not a real drawing, procedure or record. Not derived from any real facility. Authorizes no operational action.",
+  "coordinate_system": {
+    "origin": "top-left",
+    "units": "pixels at 300 dpi",
+    "page_width": 3508,
+    "page_height": 2480,
+    "flow_convention": "x increases in the direction of process flow along the P-204 line. Upstream/downstream relationships are established by the connectivity edges below, which are derived from the drawing geometry, not from tag naming conventions."
+  },
+  "coverage": {
+    "mode": "SELECTED_REGIONS_ONLY",
+    "regions_captured": 6,
+    "complete_drawing_coverage": false,
+    "statement": "OCR was run over selected regions of this drawing only. The captured regions below are not a complete inventory of the tags, valves, lines or instruments present on the drawing. Regions outside the captured set were not processed and their contents are unknown. No completeness claim can be made from this artifact, and any list derived from it is a list of what OCR captured, not a list of what exists on the drawing.",
+    "uncaptured_area_note": "Utility connections, instrument loops, the P-204B branch detail and the drawing border and title block were not captured."
+  },
+  "regions": [
+    {
+      "region_id": "R3-001",
+      "page": 1,
+      "bbox": [
+        742,
+        1188,
+        918,
+        1252
+      ],
+      "raw_ocr_text": "P-204A",
+      "confidence": 0.96,
+      "confidence_band": "high",
+      "element_type": "equipment_tag",
+      "line_association": "P-204 duty pump",
+      "normalization_candidates": [
+        {
+          "candidate": "P-204A",
+          "basis": "verbatim match to a verified registry record"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R3-002",
+      "page": 1,
+      "bbox": [
+        742,
+        1604,
+        918,
+        1668
+      ],
+      "raw_ocr_text": "P-204B",
+      "confidence": 0.94,
+      "confidence_band": "high",
+      "element_type": "equipment_tag",
+      "line_association": "P-204 standby pump",
+      "normalization_candidates": [
+        {
+          "candidate": "P-204B",
+          "basis": "verbatim match to a verified registry record"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R3-003",
+      "page": 1,
+      "bbox": [
+        402,
+        1152,
+        566,
+        1214
+      ],
+      "raw_ocr_text": "XV-204S",
+      "confidence": 0.93,
+      "confidence_band": "high",
+      "element_type": "valve_tag",
+      "line_association": "P-204 suction line, upstream of the pump suction nozzle",
+      "normalization_candidates": [
+        {
+          "candidate": "XV-204S",
+          "basis": "verbatim match to a verified registry record"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R3-004",
+      "page": 1,
+      "bbox": [
+        1128,
+        1146,
+        1298,
+        1208
+      ],
+      "raw_ocr_text": "XV-2040",
+      "confidence": 0.54,
+      "confidence_band": "low",
+      "element_type": "valve_tag",
+      "line_association": "P-204A discharge line, between the pump discharge nozzle and NRV-204",
+      "normalization_candidates": [
+        {
+          "candidate": "XV-204D",
+          "candidate_status": "unverified_candidate",
+          "basis": "Registry lookup of the raw text returns NOT_FOUND and offers XV-204D as a possible normalization (REG-U2-001). The region sits on the discharge line, which is the service recorded for XV-204D, and SOP-P204-001 §5.1 refers to a discharge isolation valve at this position.",
+          "does_not_imply": "The raw text remains XV-2040 as read. The candidate does not verify the raw text and does not establish the identity of the valve. Identity requires independent field tag verification."
+        }
+      ],
+      "raw_text_preserved": true,
+      "status": "ambiguous",
+      "note": "Low-confidence reading retained exactly as OCR produced it. This region is NOT rewritten to the candidate."
+    },
+    {
+      "region_id": "R3-005",
+      "page": 1,
+      "bbox": [
+        1402,
+        1150,
+        1572,
+        1212
+      ],
+      "raw_ocr_text": "NRV-204",
+      "confidence": 0.91,
+      "confidence_band": "high",
+      "element_type": "valve_tag",
+      "line_association": "P-204A discharge line, downstream of the discharge isolation valve position",
+      "normalization_candidates": [
+        {
+          "candidate": "NRV-204",
+          "basis": "verbatim match to a verified registry record"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R3-006",
+      "page": 1,
+      "bbox": [
+        1012,
+        1048,
+        1122,
+        1098
+      ],
+      "raw_ocr_text": "⟨unreadable⟩",
+      "confidence": 0.11,
+      "confidence_band": "unreadable",
+      "element_type": "line_size_annotation",
+      "line_association": "P-204 discharge line, line-size annotation",
+      "normalization_candidates": [],
+      "legibility": "unreadable",
+      "line_size_established": false,
+      "status": "unreadable",
+      "note": "A line-size annotation is present at this position on the drawing but the characters could not be resolved. No digits, no unit and no partial reading were recovered. This region establishes no line size, and no line size for the P-204 discharge may be derived from this artifact. A higher-resolution copy of the drawing, or a field measurement, would be required."
+    }
+  ],
+  "connectivity": [
+    {
+      "from": "suction header",
+      "to": "R3-003",
+      "relation": "flows_to"
+    },
+    {
+      "from": "R3-003",
+      "to": "R3-001",
+      "relation": "flows_to",
+      "note": "The valve captured at R3-003 is upstream of the pump captured at R3-001."
+    },
+    {
+      "from": "R3-001",
+      "to": "R3-004",
+      "relation": "flows_to",
+      "note": "The valve captured at R3-004 is downstream of the pump captured at R3-001."
+    },
+    {
+      "from": "R3-004",
+      "to": "R3-005",
+      "relation": "flows_to",
+      "note": "The non-return valve captured at R3-005 is downstream of the valve captured at R3-004, and therefore downstream of the pump."
+    },
+    {
+      "from": "R3-005",
+      "to": "discharge header",
+      "relation": "flows_to"
+    },
+    {
+      "from": "suction header",
+      "to": "R3-002",
+      "relation": "flows_to",
+      "note": "P-204B is drawn in parallel with P-204A on the same suction and discharge headers."
+    }
+  ],
+  "does_not_establish": [
+    "isolation authorization — this drawing authorizes nothing",
+    "the current position or state of any valve — the drawing shows arrangement, not state",
+    "that any equipment is or can be physically isolated",
+    "permit status of any kind",
+    "any authority for a reader or automated system to operate, isolate or bypass equipment",
+    "the identity of the valve at region R3-004 — the raw reading is low confidence and unverified",
+    "the line size of the P-204 discharge — region R3-006 is unreadable",
+    "a complete list of valves or tags on the drawing — coverage is selected regions only"
+  ],
+  "referenced_by": [
+    "TAG-002",
+    "TAG-005",
+    "TOOL-004",
+    "JSON-003",
+    "CIT-004",
+    "INJ-005",
+    "OBS-005",
+    "SYN-004",
+    "PID-001",
+    "PID-002",
+    "PID-003",
+    "PID-004",
+    "PID-005"
+  ]
+}

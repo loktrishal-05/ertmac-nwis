@@ -1,0 +1,60 @@
+{
+  "evidence_id": "MH-E101",
+  "artifact_type": "maintenance_history",
+  "asset_tags": [
+    "E-101"
+  ],
+  "data_class": "synthetic",
+  "rows": [
+    {
+      "record_id": "MH-E101-001",
+      "asset_tag": "E-101",
+      "event_date": "2025-10-08",
+      "event_type": "preventive",
+      "description": "Tube-side inspection carried out at the scheduled interval. No action raised.",
+      "work_order": "WO-7201",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-E101-002",
+      "asset_tag": "E-101",
+      "event_date": "2026-01-15",
+      "event_type": "corrective",
+      "description": "Shell side and tube side cleaned. Differential pressure measured lower after cleaning than before cleaning. Exchanger returned to service.",
+      "work_order": "WO-7402",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-E101-003",
+      "asset_tag": "E-101",
+      "event_date": "2026-04-02",
+      "event_type": "preventive",
+      "description": "Routine inspection. Differential pressure stable against the value recorded after the January cleaning.",
+      "work_order": "WO-7524",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-E101-004",
+      "asset_tag": "E-101",
+      "event_date": "2026-06-09",
+      "event_type": "observation",
+      "description": "Gradual rise in differential pressure first noted by the console. Monitoring continued. No inspection carried out and no cause established.",
+      "work_order": "",
+      "outcome": "monitoring",
+      "permit_status": "n/a"
+    },
+    {
+      "record_id": "MH-E101-005",
+      "asset_tag": "E-101",
+      "event_date": "2026-08-21",
+      "event_type": "observation",
+      "description": "Differential-pressure rise continuing against the trend since June. No cleaning scheduled at this time. No inspection carried out and no cause established.",
+      "work_order": "",
+      "outcome": "monitoring",
+      "permit_status": "n/a"
+    }
+  ]
+}

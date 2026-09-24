@@ -1,0 +1,10 @@
+record_id,asset_tag,event_date,event_type,description,work_order,outcome,permit_status
+MH-P204-001,P-204A,2026-02-18,preventive,Quarterly lubrication service completed. Lubricant replaced with specified grade. No abnormality reported.,,completed,closed
+MH-P204-002,P-204A,2026-03-09,corrective,"Suction strainer found fouled during routine check. Strainer removed, cleaned and refitted. Suction pressure returned to the usual range after cleaning.",WO-7488,completed,closed
+MH-P204-003,P-204A,2026-04-12,corrective,Drive-end bearing replaced. Replacement bearing fitted to specification and running checks completed.,WO-7531,completed,closed
+MH-P204-004,P-204A,2026-05-03,corrective,Coupling alignment performed. Alignment brought within the vendor tolerance and recorded.,WO-7566,completed,closed
+MH-P204-005,P-204A,2026-06-21,preventive,Suction strainer inspection. Partial fouling noted on the strainer element. Strainer cleaned and refitted. Second occurrence of strainer fouling recorded for this asset.,WO-7619,completed,closed
+MH-P204-006,P-204A,2026-07-14,preventive,Lubrication service completed and oil sample taken. Oil analysis report returned within normal range; no wear-metal exception raised.,WO-7683,completed,closed
+MH-P204-007,P-204A,2026-08-30,corrective,Drive-end bearing temperature investigated following a console observation. Lubrication corrected. See WO-7712 for the full work-order record and findings.,WO-7712,completed,closed
+MH-P204-008,P-204A,2026-09-11,inspection,Mechanical inspection request raised following a vibration observation on the unit. Inspection scope to be determined by the maintenance planner. Work not yet carried out.,WO-7745,open,not recorded
+MH-P204-009,P-204B,2026-05-28,preventive,Standby pump availability check completed. Pump turned over and confirmed available for service.,,completed,closed

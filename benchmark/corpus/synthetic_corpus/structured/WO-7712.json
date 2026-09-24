@@ -1,0 +1,33 @@
+{
+  "evidence_id": "WO-7712",
+  "artifact_type": "work_order_record",
+  "data_class": "synthetic",
+  "work_order_number": "WO-7712",
+  "asset_tag": "P-204A",
+  "unit": "Unit 2 (synthetic)",
+  "raised_date": "2026-08-28",
+  "completed_date": "2026-08-30",
+  "status": "closed",
+  "permit_status": "closed",
+  "title": "Investigate drive-end bearing temperature, P-204A",
+  "reported_condition": "Console observed drive-end bearing temperature reading above its usual running value on P-204A. Work order raised to investigate.",
+  "work_performed": [
+    "Verified the bearing temperature indication against the local indicator and confirmed the transmitter was in service.",
+    "Checked lubricant level and lubricant condition at the drive-end bearing housing.",
+    "Found lubricant level below the specified level. Lubrication corrected: housing topped up to the specified level with the specified grade.",
+    "Checked shaft alignment against the record from the May 2026 alignment. No change from the recorded alignment was found.",
+    "Carried out a visual internal check of the pump wet end during the lubrication work.",
+    "Monitored bearing temperature after the lubrication correction and confirmed it returned to its usual running range."
+  ],
+  "findings": {
+    "lubrication": "Lubricant level was found below specification and was corrected during this work order.",
+    "alignment": "No change from the recorded alignment was found.",
+    "impeller_condition": "The visual check carried out under this work order did not confirm any impeller damage. No impeller damage was found, and no impeller damage was confirmed during this work order. The impeller was not established to be damaged.",
+    "bearing_condition": "No bearing defect was established under this work order. The elevated temperature was addressed by the lubrication correction."
+  },
+  "conclusion": "The elevated drive-end bearing temperature was addressed by correcting the lubrication. This work order did not confirm impeller damage and did not establish any mechanical defect. No further mechanical work was raised under this work order.",
+  "notes": "This record states what was found and what was not found. It makes no prediction about future condition and contains no remaining-life estimate.",
+  "linked_records": [
+    "MH-P204-007"
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "evidence_id": "REG-U2-001",
+  "artifact_type": "asset_instrument_registry",
+  "title": "Unit 2 Asset and Instrument Registry (synthetic)",
+  "unit": "Unit 2 (synthetic)",
+  "revision": "R1",
+  "revision_status": "APPROVED_CURRENT",
+  "data_class": "synthetic",
+  "synthetic_notice": "SYNTHETIC EVALUATION ARTIFACT. Not a real drawing, procedure or record. Not derived from any real facility. Authorizes no operational action.",
+  "authority": "The registry is the authoritative source of tag identity. A tag is 'verified' only when it appears as a record below.",
+  "lookup_rules": [
+    "A query that does not match a record returns an explicit NOT_FOUND result. The registry never returns a nearest match in place of a negative result.",
+    "A normalization candidate is a suggestion only. Offering a candidate does not verify the queried text, and does not verify the candidate for the queried text.",
+    "Status 'verified' is granted only by a registry record. It is never granted on the basis of OCR output, OCR confidence, drawing evidence or textual similarity, however high.",
+    "Alias resolution applies only to the aliases listed on a record. An unlisted alias is a NOT_FOUND, not a fuzzy match."
+  ],
+  "records": [
+    {
+      "tag": "P-204A",
+      "equipment_type": "centrifugal pump",
+      "service": "Unit 2 transfer, duty",
+      "status": "verified",
+      "aliases": [
+        "pump 204 A"
+      ],
+      "notes": "Duty pump of the P-204A / P-204B parallel pair."
+    },
+    {
+      "tag": "P-204B",
+      "equipment_type": "centrifugal pump",
+      "service": "Unit 2 transfer, standby",
+      "status": "verified",
+      "aliases": [],
+      "notes": "Standby pump of the P-204A / P-204B parallel pair."
+    },
+    {
+      "tag": "XV-204S",
+      "equipment_type": "isolation valve",
+      "service": "P-204 suction isolation",
+      "status": "verified",
+      "aliases": [],
+      "notes": "Suction-side isolation valve for the P-204 pair."
+    },
+    {
+      "tag": "XV-204D",
+      "equipment_type": "isolation valve",
+      "service": "P-204 discharge isolation",
+      "status": "verified",
+      "aliases": [],
+      "notes": "Discharge-side isolation valve for the P-204 pair."
+    },
+    {
+      "tag": "NRV-204",
+      "equipment_type": "non-return valve",
+      "service": "P-204 discharge",
+      "status": "verified",
+      "aliases": [],
+      "notes": "Non-return valve downstream of the P-204 discharge."
+    },
+    {
+      "tag": "E-101",
+      "equipment_type": "shell-and-tube heat exchanger",
+      "service": "Unit 2 feed/effluent",
+      "status": "verified",
+      "aliases": [],
+      "notes": "Unit 2 exchanger."
+    }
+  ],
+  "negative_lookups": [
+    {
+      "query": "C-909",
+      "result": "NOT_FOUND",
+      "normalization_candidates": [],
+      "note": "No record exists for this tag in this registry. No equipment, instrument or maintenance record is associated with it. The registry offers no candidate and no nearest match for this query."
+    },
+    {
+      "query": "XV-2040",
+      "result": "NOT_FOUND",
+      "queried_text_status": "unverified",
+      "normalization_candidates": [
+        {
+          "candidate": "XV-204D",
+          "candidate_status": "unverified_candidate_for_this_query",
+          "basis": "XV-204D is a verified registry record for the P-204 discharge isolation valve. It is offered as a possible normalization of the queried text because a trailing '0' is a common OCR substitution for 'D'.",
+          "does_not_imply": "This candidate does not verify the text 'XV-2040', does not establish that the queried text refers to XV-204D, and does not substitute for independent field tag verification."
+        }
+      ],
+      "note": "'XV-2040' is not a registry tag and is never verified. Where this text arrives from OCR, the raw text is retained as read and the candidate above is recorded separately. The raw text is not replaced."
+    }
+  ],
+  "referenced_by": [
+    "TAG-001",
+    "TAG-002",
+    "TAG-003",
+    "TAG-004",
+    "JSON-003",
+    "JSON-005",
+    "REF-002",
+    "OBS-005",
+    "PID-002"
+  ]
+}

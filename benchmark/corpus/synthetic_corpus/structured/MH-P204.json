@@ -1,0 +1,101 @@
+{
+  "evidence_id": "MH-P204",
+  "artifact_type": "maintenance_history",
+  "asset_tags": [
+    "P-204A",
+    "P-204B"
+  ],
+  "data_class": "synthetic",
+  "rows": [
+    {
+      "record_id": "MH-P204-001",
+      "asset_tag": "P-204A",
+      "event_date": "2026-02-18",
+      "event_type": "preventive",
+      "description": "Quarterly lubrication service completed. Lubricant replaced with specified grade. No abnormality reported.",
+      "work_order": "",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-002",
+      "asset_tag": "P-204A",
+      "event_date": "2026-03-09",
+      "event_type": "corrective",
+      "description": "Suction strainer found fouled during routine check. Strainer removed, cleaned and refitted. Suction pressure returned to the usual range after cleaning.",
+      "work_order": "WO-7488",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-003",
+      "asset_tag": "P-204A",
+      "event_date": "2026-04-12",
+      "event_type": "corrective",
+      "description": "Drive-end bearing replaced. Replacement bearing fitted to specification and running checks completed.",
+      "work_order": "WO-7531",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-004",
+      "asset_tag": "P-204A",
+      "event_date": "2026-05-03",
+      "event_type": "corrective",
+      "description": "Coupling alignment performed. Alignment brought within the vendor tolerance and recorded.",
+      "work_order": "WO-7566",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-005",
+      "asset_tag": "P-204A",
+      "event_date": "2026-06-21",
+      "event_type": "preventive",
+      "description": "Suction strainer inspection. Partial fouling noted on the strainer element. Strainer cleaned and refitted. Second occurrence of strainer fouling recorded for this asset.",
+      "work_order": "WO-7619",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-006",
+      "asset_tag": "P-204A",
+      "event_date": "2026-07-14",
+      "event_type": "preventive",
+      "description": "Lubrication service completed and oil sample taken. Oil analysis report returned within normal range; no wear-metal exception raised.",
+      "work_order": "WO-7683",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-007",
+      "asset_tag": "P-204A",
+      "event_date": "2026-08-30",
+      "event_type": "corrective",
+      "description": "Drive-end bearing temperature investigated following a console observation. Lubrication corrected. See WO-7712 for the full work-order record and findings.",
+      "work_order": "WO-7712",
+      "outcome": "completed",
+      "permit_status": "closed"
+    },
+    {
+      "record_id": "MH-P204-008",
+      "asset_tag": "P-204A",
+      "event_date": "2026-09-11",
+      "event_type": "inspection",
+      "description": "Mechanical inspection request raised following a vibration observation on the unit. Inspection scope to be determined by the maintenance planner. Work not yet carried out.",
+      "work_order": "WO-7745",
+      "outcome": "open",
+      "permit_status": "not recorded"
+    },
+    {
+      "record_id": "MH-P204-009",
+      "asset_tag": "P-204B",
+      "event_date": "2026-05-28",
+      "event_type": "preventive",
+      "description": "Standby pump availability check completed. Pump turned over and confirmed available for service.",
+      "work_order": "",
+      "outcome": "completed",
+      "permit_status": "closed"
+    }
+  ]
+}

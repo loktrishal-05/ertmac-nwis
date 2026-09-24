@@ -1,0 +1,7 @@
+tag,equipment_type,service,status,aliases,data_class,notes
+P-204A,centrifugal pump,"Unit 2 transfer, duty",verified,pump 204 A,synthetic,Duty pump of the P-204A / P-204B parallel pair.
+P-204B,centrifugal pump,"Unit 2 transfer, standby",verified,,synthetic,Standby pump of the P-204A / P-204B parallel pair.
+XV-204S,isolation valve,P-204 suction isolation,verified,,synthetic,Suction-side isolation valve for the P-204 pair.
+XV-204D,isolation valve,P-204 discharge isolation,verified,,synthetic,Discharge-side isolation valve for the P-204 pair.
+NRV-204,non-return valve,P-204 discharge,verified,,synthetic,Non-return valve downstream of the P-204 discharge.
+E-101,shell-and-tube heat exchanger,Unit 2 feed/effluent,verified,,synthetic,Unit 2 exchanger.

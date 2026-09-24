@@ -1,0 +1,5 @@
+# Preserve the exact bytes used by corpus manifests and evaluation provenance.
+* -text whitespace=cr-at-eol
+# Imported source reports retain their original formatting for hash provenance.
+corpus/**/corpus_validation_report*.md whitespace=-blank-at-eof
+reports/source_inputs/** whitespace=-blank-at-eof,-blank-at-eol,cr-at-eol

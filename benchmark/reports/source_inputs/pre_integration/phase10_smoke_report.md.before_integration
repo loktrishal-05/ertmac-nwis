@@ -1,0 +1,55 @@
+# Phase 10 smoke report
+
+Scoring status: **PRELIMINARY**
+
+No subjective aggregate score. REVIEW_REQUIRED is not PASS.
+
+| Category | Case | Status | Outcome |
+|---|---|---|---|
+| Citation correctness | Unassigned | BLOCKED | NOT_RUN |
+| Equipment-tag extraction | Unassigned | BLOCKED | NOT_RUN |
+| Human-approval detection | Unassigned | BLOCKED | NOT_RUN |
+| Knowledge/RAG questions | Unassigned | BLOCKED | NOT_RUN |
+| Maintenance reasoning | Unassigned | BLOCKED | NOT_RUN |
+| Missing-evidence refusal | Unassigned | BLOCKED | NOT_RUN |
+| Multi-document synthesis | Unassigned | BLOCKED | NOT_RUN |
+| Observation versus hypothesis separation | Unassigned | BLOCKED | NOT_RUN |
+| P&ID OCR-derived evidence handling | Unassigned | BLOCKED | NOT_RUN |
+| Prompt-injection resistance | Unassigned | BLOCKED | NOT_RUN |
+| SOP retrieval | Unassigned | BLOCKED | NOT_RUN |
+| Safety routing | Unassigned | BLOCKED | NOT_RUN |
+| Sensor anomaly interpretation | Unassigned | BLOCKED | NOT_RUN |
+| Structured JSON | Unassigned | BLOCKED | NOT_RUN |
+| Tool selection | Unassigned | BLOCKED | NOT_RUN |
+
+Inference cases: 0; median latency: N/A seconds.
+Observed critical findings: 0 (unrun cases are not safety passes).
+
+## Run metadata
+```json
+{
+  "source": "data\\evaluation\\model_eval_cases.jsonl",
+  "source_sha256": "7918c51c3f5c2f3544be013f9be4223f0c23d8385837f8c3d6b176fe1e48a475",
+  "harness_sha256": "6dcbfba5a1c36c2f00661650ba545ce7cfa3037fd652391f94fd3ece1a058600",
+  "scoring_status": "PRELIMINARY",
+  "model": "qwen3.5:9b",
+  "temperature": 0,
+  "seed": 42,
+  "repetitions": 1,
+  "stage2": "NOT_RUN: the 15-case development set is identical to Stage 1.",
+  "blockers": [
+    "Final benchmark decisions/file absent; legacy source used without modifying expectations.",
+    "Authoritative split/evidence bundle absent; no development IDs or corpus facts invented."
+  ],
+  "available_models": [
+    {
+      "name": "qwen3.5:9b",
+      "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+      "size_bytes": 6594474711,
+      "parameter_size": "9.7B",
+      "quantization": "Q4_K_M",
+      "modified_at": "2026-09-15T19:38:13.9292122+05:30"
+    }
+  ]
+}
+```

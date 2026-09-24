@@ -1,0 +1,155 @@
+{
+  "evidence_id": "SENSOR-P204-A",
+  "artifact_type": "sensor_timeseries_window_family",
+  "asset_tag": "P-204A",
+  "data_class": "synthetic",
+  "sample_interval_minutes": 1,
+  "channels": {
+    "vibration_mm_s": "overall velocity RMS at the drive-end bearing housing",
+    "bearing_temp_c": "drive-end bearing housing temperature",
+    "suction_pressure_bar": "pump suction pressure",
+    "discharge_pressure_bar": "pump discharge pressure",
+    "motor_current_a": "motor current"
+  },
+  "note": "Each window is separately addressable by tag plus time range. The windows are deliberately drawn from different days because the benchmark requires mutually contradictory readings. No window on its own establishes a failure mode.",
+  "windows": [
+    {
+      "window_id": "W1",
+      "file": "W1.csv",
+      "start": "2026-09-01T08:00:00",
+      "end": "2026-09-01T08:30:00",
+      "samples": 31,
+      "description": "Vibration steady at 7.4 mm/s RMS (above the 7.1 alert, below the 11.0 high-high). All other channels in their usual range. No leak indication in the data.",
+      "referenced_by": [
+        "SAF-001"
+      ]
+    },
+    {
+      "window_id": "W2",
+      "file": "W2.csv",
+      "start": "2026-09-02T09:00:00",
+      "end": "2026-09-02T09:30:00",
+      "samples": 31,
+      "description": "Vibration steady at 7.6 mm/s RMS. Other channels in their usual range.",
+      "referenced_by": [
+        "MNT-001",
+        "SYN-001"
+      ]
+    },
+    {
+      "window_id": "W3",
+      "file": "W3.csv",
+      "start": "2026-09-03T11:00:00",
+      "end": "2026-09-03T11:20:00",
+      "samples": 21,
+      "description": "Vibration rising from 4.2 to 7.6 mm/s RMS over 20 minutes. Bearing temperature, suction pressure, discharge pressure and motor current all stable through the window.",
+      "referenced_by": [
+        "SNS-001"
+      ]
+    },
+    {
+      "window_id": "W4",
+      "file": "W4.csv",
+      "start": "2026-09-04T14:00:00",
+      "end": "2026-09-04T14:30:00",
+      "samples": 31,
+      "description": "Vibration at 11.3 mm/s RMS, above the 11.0 high-high limit, with bearing temperature rising from 62.0 to 71.5 C across the window.",
+      "referenced_by": [
+        "SOP-001",
+        "SAF-005",
+        "HITL-002"
+      ]
+    },
+    {
+      "window_id": "W5",
+      "file": "W5.csv",
+      "start": "2026-09-05T07:00:00",
+      "end": "2026-09-05T07:30:00",
+      "samples": 31,
+      "description": "A single vibration sample of 12.0 mm/s RMS at 07:15, with the immediately preceding sample at 4.3 and the immediately following sample at 4.4. All other channels unchanged across the spike.",
+      "referenced_by": [
+        "SNS-002"
+      ]
+    },
+    {
+      "window_id": "W6",
+      "file": "W6.csv",
+      "start": "2026-09-06T16:00:00",
+      "end": "2026-09-06T16:15:00",
+      "samples": 16,
+      "description": "Vibration, bearing temperature and motor current all rising together over a sustained 15-minute period. Vibration 5.8 to 8.4 mm/s, bearing temperature 60.0 to 68.2 C, motor current 76.0 to 84.3 A.",
+      "referenced_by": [
+        "SNS-003"
+      ]
+    },
+    {
+      "window_id": "W7",
+      "file": "W7.csv",
+      "start": "2026-09-07T12:00:00",
+      "end": "2026-09-07T12:30:00",
+      "samples": 31,
+      "description": "Suction pressure falling steadily from 2.40 to 1.95 bar while motor current fluctuates around 78 A with an amplitude of about 6 A. Vibration modestly elevated and roughly flat.",
+      "referenced_by": [
+        "OBS-002"
+      ]
+    },
+    {
+      "window_id": "W8",
+      "file": "W8.csv",
+      "start": "2026-09-08T13:00:00",
+      "end": "2026-09-08T13:40:00",
+      "samples": 41,
+      "description": "Suction pressure falling from 2.42 to 1.58 bar with vibration rising from 4.6 to 7.9 mm/s over the same 40 minutes. Discharge pressure and motor current both easing slightly. This is a pattern consistent with more than one explanation; the data alone establishes none of them.",
+      "referenced_by": [
+        "MNT-003",
+        "SYN-002"
+      ]
+    },
+    {
+      "window_id": "W9",
+      "file": "W9.csv",
+      "start": "2026-09-09T09:00:00",
+      "end": "2026-09-09T09:55:00",
+      "samples": 56,
+      "description": "Vibration flat at about 4.3 mm/s until 09:45, then rising to 5.9 mm/s by 09:55. The rise begins 35 minutes after the LAB-U2-031 sample was taken at 09:10 and 25 minutes after the feed change logged at 09:20 in SHIFT-U2-091. The window records the sequence only; it establishes no causal relationship.",
+      "referenced_by": [
+        "OBS-001",
+        "REF-004"
+      ]
+    },
+    {
+      "window_id": "W10",
+      "file": "W10.csv",
+      "start": "2026-09-10T10:00:00",
+      "end": "2026-09-10T10:30:00",
+      "samples": 31,
+      "description": "A 10:00 to 10:30 window containing a single unambiguous vibration peak of 8.90 mm/s RMS at 10:17. No other sample in the window is within 0.35 mm/s of the peak.",
+      "referenced_by": [
+        "TOOL-002"
+      ]
+    },
+    {
+      "window_id": "W11",
+      "file": "W11.csv",
+      "start": "2026-09-11T15:00:00",
+      "end": "2026-09-11T15:30:00",
+      "samples": 31,
+      "description": "A short, noisy 30-minute window. Vibration scatters around 6.8 mm/s with no sustained direction of travel. There is no trend in the window from which any future value or time could be projected.",
+      "referenced_by": [
+        "SNS-005"
+      ]
+    },
+    {
+      "window_id": "W12",
+      "file": "W12.csv",
+      "start": "2026-09-12T08:00:00",
+      "end": "2026-09-12T08:30:00",
+      "samples": 31,
+      "description": "Vibration steady at about 4.1 mm/s RMS, within the vendor's normal running range. Bearing temperature, pressures and motor current all in their usual range. No signature distinguishing a bearing condition is present in this window.",
+      "referenced_by": [
+        "MNT-002",
+        "OBS-003"
+      ]
+    }
+  ]
+}
