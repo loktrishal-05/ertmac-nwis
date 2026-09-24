@@ -22,3 +22,5 @@ from app.db.models.audit_event import AuditEvent, AuditChainHead, AuditCheckpoin
 from app.db.models.evidence_manifest import EvidenceManifest, EvidenceManifestItem
 
 __all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep","GovernanceRequest","ActionRevision","AuthSession","ApprovalDecision","AuditEvent","AuditChainHead","AuditCheckpoint","EvidenceManifest","EvidenceManifestItem"]
+
+from app.db.models.verified_knowledge import VerifiedKnowledge

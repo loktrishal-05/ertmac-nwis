@@ -41,3 +41,5 @@ class QueryResponse(BaseModel):
     canonical_proposal_hash: str | None = None
     evidence_binding_status: Literal["PENDING_INTEGRITY", "VERIFIED", "FAILED", "LEGACY_UNVERIFIED"] | None = None
     policy_version: str | None = None
+
+    knowledge_lookup: dict | None = None

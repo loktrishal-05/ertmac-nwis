@@ -5,6 +5,8 @@ handling (an already-governed request_id must keep replaying its original
 committed draft unchanged) but strictly BEFORE run_graph -- a REFUSE/CLARIFY
 decision returns without ever invoking the LangGraph router or the model
 gateway (docs/phase5e.md, "Zero-model-call behavior")."""
+import logging
+import time
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +23,7 @@ from app.services.audit import append_event
 from app.services.model_gateway import ModelRuntimeError, ModelTimeoutError, ModelUnavailableError
 from app.services.governance import GovernanceConflict, govern_response, replay_request
 from app.services.preflight import PreflightResult, run_preflight
+from app.services.verified_knowledge import lookup as lookup_verified_knowledge
 
 router = APIRouter(tags=["query"])
 
@@ -90,6 +93,21 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
     if replayed is not None:
         return replayed
 
+    # Existing authentication dependency and all preflight gates have already run.
+    lookup_started = time.perf_counter()
+    try:
+        verified_state, knowledge_meta = lookup_verified_knowledge(session, request, current_user)
+    except Exception:
+        # Registry/source outages never grant trust; the existing path remains available.
+        session.rollback()
+        verified_state, knowledge_meta = None, {"path": "EXISTING_AGENTIC_PATH", "fallback_reason": "registry_unavailable"}
+    knowledge_meta.setdefault("latency_ms", (time.perf_counter() - lookup_started) * 1000)
+    logging.getLogger(__name__).info("Knowledge path: %s", knowledge_meta)
+    if verified_state is not None:
+        response = govern_response(session, request, verified_state,
+                                   requester_user_id=current_user.id)
+        return response.model_copy(update={"knowledge_lookup": knowledge_meta}) if response.presentation == "INFORMATIONAL" else response
+
     try:
         state = run_graph(request.query, session=session, access_scope=request.access_scope)
     except GovernanceConflict as error:
@@ -119,7 +137,8 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
         raise HTTPException(status_code=502, detail="Model runtime returned an error.") from error
 
     try:
-        return govern_response(session, request, state,
-                              requester_user_id=current_user.id if current_user else None)
+        response = govern_response(session, request, state,
+                                   requester_user_id=current_user.id if current_user else None)
+        return response.model_copy(update={"knowledge_lookup": knowledge_meta}) if response.presentation == "INFORMATIONAL" else response
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
