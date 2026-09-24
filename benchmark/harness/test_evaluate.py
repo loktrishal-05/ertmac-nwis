@@ -157,8 +157,13 @@ class HarnessTests(unittest.TestCase):
         messages = gateway.generate_text.call_args.kwargs['messages']
         for private in ('PRIVATE_EXPECTATION', 'PRIVATE_SCORE', 'expected_route', 'expected_tools'):
             self.assertNotIn(private, str(messages))
-        self.assertLess(next(i for i,m in enumerate(messages) if m.role == 'assistant'),
-                        next(i for i,m in enumerate(messages) if 'untrusted_tool_results' in m.content))
+        self.assertEqual([m.role for m in messages], ['system', 'user'])
+        body = json.loads(messages[1].content)
+        self.assertEqual(set(body), {'request', 'context', 'untrusted_tool_results', 'reference_catalog', 'response_schema', 'task'})
+        self.assertEqual(result['planner_raw_response'], json.dumps(self.plan))
+        self.assertEqual(result['answer_raw_response'], json.dumps(self.answer))
+        self.assertEqual(body['untrusted_tool_results'], result['tool_results'])
+        self.assertEqual(body['response_schema'], h.answer_schema(h.SCHEMAS['S1']))
 
     def test_bad_plan_stops_before_evidence_answer(self):
         gateway = SimpleNamespace(generate_text=Mock(return_value=generated({'route': 'safety', 'tools': ['disable_alarm']})))
@@ -228,7 +233,24 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(body['reference_catalog'], [{'evidence_id': 'fixture-1', 'locator': 'page 1'}])
         self.assertNotIn('PRIVATE_EXPECTATION', json.dumps(result['requests']))
         self.assertEqual(len(result['requests'][0]['messages']), 2)
-        self.assertEqual(len(result['requests'][1]['messages']), 4)
+        self.assertEqual(len(result['requests'][1]['messages']), 2)
+
+    def test_valid_answer_does_not_erase_wrong_planning(self):
+        plan = {'route': 'safety', 'tools': ['qdrant_document_search', 'asset_registry_lookup']}
+        self.bundle['evidence'].append({'evidence_id': 'unreturned', 'tool': 'pid_evidence_lookup',
+                                       'locator': 'other', 'content': 'Not selected'})
+        self.bundle['cases']['TEST-0']['evidence_ids'].append('unreturned')
+        gateway = SimpleNamespace(generate_text=Mock(side_effect=[generated(plan), generated(self.answer)]))
+        result = h.evaluate(self.case, self.bundle, gateway)
+        self.assertTrue(result['schema_valid'])
+        self.assertFalse(result['checks']['route'])
+        self.assertFalse(result['checks']['tools'])
+        self.assertEqual(result['deterministic_result'], 'FAIL')
+        self.assertEqual(result['route'], plan['route'])
+        self.assertEqual(result['tools'], plan['tools'])
+        body = json.loads(result['requests'][1]['messages'][1]['content'])
+        self.assertEqual(body['reference_catalog'], [{'evidence_id': 'fixture-1', 'locator': 'page 1'}])
+        self.assertNotIn('unreturned', json.dumps(body))
 
     def test_late_response_keeps_raw_and_fails_deadline(self):
         gateway = SimpleNamespace(generate_text=Mock(return_value=generated(self.plan)))
