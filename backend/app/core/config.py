@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     model_max_output_tokens: int = Field(default=1024, ge=1, validation_alias="MODEL_MAX_OUTPUT_TOKENS")
     model_keep_alive: str = Field(default="30m", validation_alias="MODEL_KEEP_ALIVE")
     model_structured_repair_attempts: int = Field(default=1, ge=0, le=3, validation_alias="MODEL_STRUCTURED_REPAIR_ATTEMPTS")
+    system1_enabled: bool = Field(default=False, validation_alias="SYSTEM1_ENABLED")
+    system1_model: str = Field(default="qwen3.5:4b", validation_alias="SYSTEM1_MODEL")
+    system1_timeout_seconds: float = Field(default=15, gt=0, le=120, validation_alias="SYSTEM1_TIMEOUT_SECONDS")
     model_log_prompts: bool = Field(default=False, validation_alias="MODEL_LOG_PROMPTS")
 
     # No configured default anomaly threshold, equipment tag, or route: every

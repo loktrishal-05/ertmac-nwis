@@ -9,3 +9,6 @@ for route_module in (health, query, agents, approvals, auth, documents, audit, s
 
 from app.api.routes import verified_knowledge
 api_router.include_router(verified_knowledge.router)
+
+from app.api.routes import knowledge_packs
+api_router.include_router(knowledge_packs.router)

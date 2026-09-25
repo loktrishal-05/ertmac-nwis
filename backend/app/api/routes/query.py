@@ -24,6 +24,7 @@ from app.services.model_gateway import ModelRuntimeError, ModelTimeoutError, Mod
 from app.services.governance import GovernanceConflict, govern_response, replay_request
 from app.services.preflight import PreflightResult, run_preflight
 from app.services.verified_knowledge import lookup as lookup_verified_knowledge
+from app.services.adaptive_execution import choose as choose_execution
 
 router = APIRouter(tags=["query"])
 
@@ -104,12 +105,31 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
     knowledge_meta.setdefault("latency_ms", (time.perf_counter() - lookup_started) * 1000)
     logging.getLogger(__name__).info("Knowledge path: %s", knowledge_meta)
     if verified_state is not None:
+        knowledge_meta.update(selected_path="VERIFIED_FAST_PATH", selection_source="deterministic",
+                              reason_code="verified_exact_match", model_call_count=0)
         response = govern_response(session, request, verified_state,
                                    requester_user_id=current_user.id)
         return response.model_copy(update={"knowledge_lookup": knowledge_meta}) if response.presentation == "INFORMATIONAL" else response
 
     try:
-        state = run_graph(request.query, session=session, access_scope=request.access_scope)
+        adaptive_state, execution_meta = choose_execution(session, request, current_user)
+        knowledge_meta.update(execution_meta)
+        knowledge_meta["path"] = execution_meta["selected_path"]
+        if adaptive_state is not None:
+            state = adaptive_state
+        elif execution_meta["selected_path"] == "HYBRID_RAG_PATH":
+            try:
+                state = run_graph(request.query, session=session, access_scope=request.access_scope, knowledge_only=True)
+            except (GraphExecutionError, ModelRuntimeError, ModelTimeoutError, ModelUnavailableError):
+                session.rollback()
+                knowledge_meta.update(path="EXISTING_AGENTIC_PATH", selected_path="EXISTING_AGENTIC_PATH",
+                    selection_source="fallback", fallback_reason="hybrid_execution_failed")
+                state = run_graph(request.query, session=session, access_scope=request.access_scope)
+        else:
+            state = run_graph(request.query, session=session, access_scope=request.access_scope)
+        knowledge_meta["latency_ms"] = (time.perf_counter() - lookup_started) * 1000
+        knowledge_meta["execution_model_call_count"] = None  # Existing graph does not expose a complete call counter.
+        logging.getLogger(__name__).info("Adaptive execution: %s", knowledge_meta)
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except GraphExecutionError as wrapped:
