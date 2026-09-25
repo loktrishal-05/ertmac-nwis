@@ -15,6 +15,7 @@ asks a reasoning-capable model to show or suppress its reasoning trace. Its
 wire-level meaning is entirely runtime-defined — see ollama_runtime.py for
 the only runtime that currently interprets it."""
 import json
+from app.services.execution_observability import measure_model
 from functools import lru_cache
 from threading import Lock
 from typing import Literal, Sequence
@@ -60,6 +61,7 @@ class ModelGateway:
             pass
         return selected
 
+    @measure_model
     def _chat(self, *, messages, temperature=None, max_output_tokens=None, stop=None,
               json_schema=None, tools=None, think=None, timeout_seconds=None) -> GenerationResult:
         result = self._runtime().chat(

@@ -79,6 +79,11 @@ def record_run(
             )
         )
 
+    if state.get("execution"):
+        session.add(AgentRunStep(run_id=run.id, step_index=len(state.get("step_records", [])),
+            node_name="execution_metadata", usage={"execution": state["execution"]},
+            timings={}, evidence_ids=[], warnings=[]))
+
     if commit:
         session.commit()
         session.refresh(run)

@@ -19,6 +19,20 @@ function Evidence({ items = [] }) {
   return <section><h3>Citations / source evidence</h3>{!items.length && <p>No source evidence returned.</p>}{items.map((item, index) => <details key={item.evidence_id || index}><summary>{item.source_filename || item.evidence_id || `Source ${index + 1}`} — {item.locator || 'Locator in details'}</summary><DataView value={item} /></details>)}</section>
 }
 
+export function ExecutionPanel({ execution }) {
+  if (!execution) return null
+  const paths = { VERIFIED_FAST_PATH: 'Verified', CAG_PATH: 'CAG', HYBRID_RAG_PATH: 'Hybrid RAG', MGS_PATH: 'MGS', EXISTING_AGENTIC_PATH: 'Agentic' }
+  const coverage = execution.evidence_sufficiency || {}
+  return <aside className="review-notice" aria-label="Execution and evidence">
+    <strong>Execution: {paths[execution.execution_path] || 'Unavailable'}</strong>
+    <p>Evidence: {coverage.state || 'Unavailable'} ? Sources: {execution.retrieved_sources ?? 'Unavailable'} ? Model: {execution.model_used?.join(', ') || 'No inference recorded'} ? Latency: {Number.isFinite(execution.total_latency_ms) ? `${(execution.total_latency_ms / 1000).toFixed(2)} s` : 'Unavailable'}</p>
+    {!!coverage.missing_categories?.length && <p>Missing evidence: {coverage.missing_categories.join(', ')}</p>}
+    {!!coverage.issues?.length && <p>Coverage limits: {coverage.issues.join(', ')}</p>}
+    {execution.fallback_used && <p>Safe fallback used.</p>}
+    <p>Evidence coverage is not permission to operate equipment.</p>
+  </aside>
+}
+
 export function Result({ data }) {
   if (!data) return null
   const review = data.human_approval_required || data.human_review_required || data.presentation === 'DRAFT' || data.governance_status === 'PENDING_REVIEW'
@@ -29,6 +43,7 @@ export function Result({ data }) {
     <DataView value={{ route: data.route, revision: data.action_revision_id, evidence_status: data.evidence_binding_status }} />
     <h3>Agent result</h3><DataView value={data.agent_result} />
     {!!data.warnings?.length && <><h3>Warnings</h3><DataView value={data.warnings} /></>}
+    <ExecutionPanel execution={data.execution} />
     <Evidence items={data.evidence} />
     <details><summary>Complete response / revision hashes</summary><pre>{JSON.stringify(data, null, 2)}</pre></details>
   </div>

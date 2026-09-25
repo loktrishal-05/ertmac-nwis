@@ -43,3 +43,4 @@ class QueryResponse(BaseModel):
     policy_version: str | None = None
 
     knowledge_lookup: dict | None = None
+    execution: dict | None = None

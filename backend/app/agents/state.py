@@ -74,3 +74,6 @@ class WorkbenchState(TypedDict):
     finished_at: str | None
     step_records: Annotated[list[dict], operator.add]
     gateway_repair_attempts: int
+
+    mgs_group_count: int
+    execution_fallback: str

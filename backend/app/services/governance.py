@@ -336,6 +336,7 @@ def _draft_response(session, revision) -> QueryResponse:
     # as a live computation over the Phase 5B decision ledger (see
     # get_governance_state) -- a replay after approval must not show stale
     # PENDING_REVIEW.
+    from app.services.execution_observability import stored_execution
     proposal = json.loads(revision.canonical_proposal)["payload"]
     status = _ledger_state(session, revision.id) or "PENDING_REVIEW"
     pending = status == "PENDING_REVIEW"
@@ -348,6 +349,7 @@ def _draft_response(session, revision) -> QueryResponse:
         canonicalization_version=revision.canonicalization_version,
         canonical_request_hash=revision.canonical_request_hash, canonical_proposal_hash=revision.canonical_proposal_hash,
         evidence_binding_status=get_evidence_integrity_status(session, revision.id), policy_version=revision.policy_version,
+        execution=stored_execution(session, revision.originating_run_id),
     )
 
 
@@ -415,4 +417,5 @@ def govern_response(session, request: QueryRequest, state: dict, *,
                  "steps": [{"node_name": step.get("node_name"), "duration_ms": step.get("duration_ms")}
                            for step in state.get("step_records", [])]},
         governance_status="INFORMATIONAL", human_review_required=False, presentation="INFORMATIONAL",
+        execution=state.get("execution"),
     )

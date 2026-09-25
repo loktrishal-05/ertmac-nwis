@@ -81,9 +81,9 @@ def _equipment_tags_from_ocr(refs, session) -> EquipmentTags:
     return EquipmentTags(tags=tags, warnings=warnings)
 
 
-def knowledge_node(state, gateway=None, session=None) -> dict:
+def knowledge_node(state, gateway=None, session=None, mgs=False) -> dict:
     gateway = gateway or get_model_gateway()
-    payload, refs = invoke_tool("retrieve_documents", session, {"query": state["query"]})
+    payload, refs = invoke_tool("retrieve_documents", session, {"query": state["query"], **({"top_k": 18} if mgs else {})})
     warnings = list(payload.get("warnings", []))
 
     sufficient, insufficiency_reason = _assess_evidence(payload)
@@ -108,10 +108,19 @@ def knowledge_node(state, gateway=None, session=None) -> dict:
     ocr_refs = [ref for ref in refs if getattr(ref, "kind", None) == "document_chunk" and ref.ocr_derived]
     if ocr_refs:
         tags = _equipment_tags_from_ocr(ocr_refs, session)
+        if mgs:
+            warnings.append("OCR remains as drawn only; it cannot establish isolation, valve state, permits or readiness.")
         return {
+            **({"execution_fallback": "mgs_ocr_preserved_existing_knowledge"} if mgs else {}),
             "agent_result": {"schema": "S3", "output": tags.model_dump(mode="json")},
             "evidence": refs, "warnings": warnings,
         }
+
+    if mgs:
+        from app.agents.nodes.mgs import synthesize
+        result = synthesize(state, refs, gateway, session)
+        result["warnings"] += warnings
+        return result
 
     blocks = [format_evidence_ref(ref) for ref in refs]
 

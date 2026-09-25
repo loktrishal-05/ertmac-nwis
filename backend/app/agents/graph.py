@@ -48,7 +48,9 @@ def _traced(node_name: str, fn):
         started = perf_counter()
         started_at = _now()
         tools_before = len(tool_records())
-        update = dict(fn(state))
+        from app.services.execution_observability import stage
+        with stage(node_name):
+            update = dict(fn(state))
         # Nested specialist outputs are advisory, but a true requirement is
         # still a requirement.  Mirror it at graph state for every route.
         result = update.get("agent_result") or {}
@@ -92,7 +94,7 @@ class GraphExecutionError(RuntimeError):
         self.state = state
 
 
-def build_graph(session=None, *, knowledge_only=False):
+def build_graph(session=None, *, knowledge_only=False, mgs=False):
     """session=None preserves 4B's exact behaviour (every route a stub; no DB
     access). Phase 4C/4D's real nodes need a per-request SQLAlchemy session
     for their read-only tool calls, which a process-wide cached singleton
@@ -103,8 +105,8 @@ def build_graph(session=None, *, knowledge_only=False):
     docs/phase4-decisions.md D-008 for the alternatives considered."""
     gateway = get_model_gateway()
     builder = StateGraph(WorkbenchState)
-    if knowledge_only:
-        builder.add_node("knowledge", _traced("knowledge", lambda state: knowledge_node(state, gateway=gateway, session=session)))
+    if knowledge_only or mgs:
+        builder.add_node("knowledge", _traced("knowledge", lambda state: knowledge_node(state, gateway=gateway, session=session, mgs=mgs)))
         builder.add_edge(START, "knowledge")
         builder.add_edge("knowledge", END)
         return builder.compile()
@@ -132,14 +134,14 @@ def get_graph():
     return build_graph()
 
 
-def run_graph(query: str, *, session=None, access_scope: str = "internal", knowledge_only: bool = False) -> WorkbenchState:
+def run_graph(query: str, *, session=None, access_scope: str = "internal", knowledge_only: bool = False, mgs: bool = False) -> WorkbenchState:
     scope_token = set_access_scope(access_scope)
     deadline_token = set_deadline(settings.agent_run_timeout_seconds)
     records_token = set_tool_records([])
     repairs_token = set_gateway_repairs([0])
-    graph = build_graph(session=session, knowledge_only=True) if knowledge_only else (get_graph() if session is None else build_graph(session=session))
+    graph = build_graph(session=session, knowledge_only=True, mgs=mgs) if knowledge_only or mgs else (get_graph() if session is None else build_graph(session=session))
     initial_state: WorkbenchState = {
-        "run_id": str(uuid4()), "query": query, "access_scope": access_scope or "internal", "route": "knowledge" if knowledge_only else None, "route_confidence": None,
+        "run_id": str(uuid4()), "query": query, "access_scope": access_scope or "internal", "route": "knowledge" if knowledge_only or mgs else None, "route_confidence": None,
         "route_reasoning": None, "evidence": [], "tool_invocations": [], "agent_result": None,
         "warnings": [], "errors": [], "human_approval_required": False, "action_class": None,
         "started_at": _now(), "finished_at": None, "step_records": [],
