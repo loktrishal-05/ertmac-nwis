@@ -43,12 +43,14 @@ _PREFLIGHT_EVENT_TYPES = {
 
 
 def _preflight_response(request: QueryRequest, preflight: PreflightResult) -> QueryResponse:
+    from app.services.local_voice import language
     return QueryResponse(
         request_id=request.request_id or uuid4(), run_id=str(uuid4()), route=None,
         route_confidence=None, route_reasoning=None,
         agent_result={"schema": "S5", "output": preflight.refusal.model_dump(mode="json")},
         evidence=[], warnings=[], human_approval_required=False, action_class=None, timings={},
         governance_status="INFORMATIONAL", human_review_required=False, presentation="INFORMATIONAL",
+        execution={"input_language": request.input_language, "input_channel": request.input_channel, "language": language(request.input_language)},
     )
 
 
@@ -79,7 +81,7 @@ def _audit_preflight_denial(session: Session, request: QueryRequest, preflight: 
 def query(request: QueryRequest, session: Session = Depends(get_db),
          current_user: User | None = Depends(get_optional_current_user)) -> QueryResponse:
     operational = route_for(request.query)
-    if operational:
+    if operational or request.input_channel == "voice":
         if current_user is None:
             raise HTTPException(401, "Sign in for operational intelligence")
         try:

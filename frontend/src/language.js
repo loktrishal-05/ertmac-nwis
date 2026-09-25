@@ -1,0 +1,15 @@
+import { createContext, useContext } from 'react'
+
+export const languages = { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' }
+export const normalizeLanguage = value => Object.hasOwn(languages, value) ? value : 'en'
+export const LanguageContext = createContext({ language: 'en', setLanguage: () => {} })
+const labels = {
+  hi: { Dashboard: 'डैशबोर्ड', 'Query Console': 'प्रश्न कंसोल', Agents: 'एजेंट', Approvals: 'मानवीय समीक्षा', 'Knowledge Base': 'ज्ञान भंडार', 'Audit Logs': 'ऑडिट लॉग', Sovereignty: 'स्थानीय प्रणाली', 'Operational Intelligence': 'परिचालन जानकारी', 'Product Integration': 'उत्पाद एकीकरण', Language: 'भाषा', Question: 'प्रश्न', 'Submit query': 'प्रश्न भेजें', 'Ask the workbench': 'कार्यस्थल से पूछें', 'Local voice': 'स्थानीय आवाज़', Record: 'रिकॉर्ड करें', Stop: 'रिकॉर्डिंग रोकें', 'Read response': 'उत्तर सुनें', 'Voice unavailable; text mode remains available.': 'आवाज़ उपलब्ध नहीं है; पाठ मोड उपलब्ध है।', 'Review the transcript and technical identifiers before submitting.': 'भेजने से पहले लिप्यंतरण और तकनीकी पहचान की जाँच करें।', 'Operational BI': 'परिचालन आँकड़े', 'Automation status': 'स्वचालन स्थिति', Unavailable: 'उपलब्ध नहीं', 'Sign in to access integrations.': 'एकीकरण देखने के लिए साइन इन करें।', 'Shift Handover': 'शिफ्ट हस्तांतरण', 'Environmental Compliance': 'पर्यावरणीय अनुपालन', 'Operator Notes': 'ऑपरेटर नोट्स', 'Knowledge Gaps': 'जानकारी की कमी', 'Advisory only. No permission to operate equipment.': 'केवल सलाह। उपकरण चलाने की अनुमति नहीं।' },
+  ta: { Dashboard: 'முகப்புப்பலகை', 'Query Console': 'கேள்வி முனையம்', Agents: 'முகவர்கள்', Approvals: 'மனித மதிப்பாய்வு', 'Knowledge Base': 'அறிவுத் தளம்', 'Audit Logs': 'தணிக்கைப் பதிவுகள்', Sovereignty: 'உள்ளூர் அமைப்பு', 'Operational Intelligence': 'செயல்பாட்டுத் தகவல்', 'Product Integration': 'தயாரிப்பு ஒருங்கிணைப்பு', Language: 'மொழி', Question: 'கேள்வி', 'Submit query': 'கேள்வியை அனுப்பு', 'Ask the workbench': 'பணித்தளத்திடம் கேளுங்கள்', 'Local voice': 'உள்ளூர் குரல்', Record: 'பதிவு செய்', Stop: 'பதிவை நிறுத்து', 'Read response': 'பதிலைக் கேள்', 'Voice unavailable; text mode remains available.': 'குரல் வசதி இல்லை; உரை முறை கிடைக்கிறது.', 'Review the transcript and technical identifiers before submitting.': 'அனுப்பும் முன் உரையையும் தொழில்நுட்ப அடையாளங்களையும் சரிபார்க்கவும்.', 'Operational BI': 'செயல்பாட்டு புள்ளிவிவரங்கள்', 'Automation status': 'தானியக்க நிலை', Unavailable: 'கிடைக்கவில்லை', 'Sign in to access integrations.': 'ஒருங்கிணைப்புகளைக் காண உள்நுழையவும்.', 'Shift Handover': 'பணி மாற்ற ஒப்படைப்பு', 'Environmental Compliance': 'சுற்றுச்சூழல் இணக்கம்', 'Operator Notes': 'இயக்குநர் குறிப்புகள்', 'Knowledge Gaps': 'தகவல் இடைவெளிகள்', 'Advisory only. No permission to operate equipment.': 'ஆலோசனை மட்டுமே. உபகரணங்களை இயக்க அனுமதி இல்லை.' },
+}
+// Only curated UI keys are translated. Never pass evidence/identifiers here.
+export const translateLabel = (language, key) => labels[normalizeLanguage(language)]?.[key] || key
+export function useLanguage() {
+  const value = useContext(LanguageContext)
+  return { ...value, t: key => translateLabel(value.language, key) }
+}

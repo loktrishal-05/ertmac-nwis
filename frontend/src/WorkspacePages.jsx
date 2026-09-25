@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useLanguage } from './language.js'
+import { VoiceControls } from './ProductPages.jsx'
 import { useRequest, useResource } from './hooks/useApi.js'
 
 export function ApiState({ request, empty = 'No records returned.' }) {
@@ -87,14 +89,17 @@ export function Dashboard({ proof, health, user }) {
 }
 
 export function QueryConsole({ user }) {
+  const { language, t } = useLanguage()
+  const [channel, setChannel] = useState('text')
   const [query, setQuery] = useState('')
   const request = useRequest()
   async function submit(event) {
     event.preventDefault()
-    await request.run('/query', { method: 'POST', body: { query, request_id: crypto.randomUUID() }, timeout: 660000 })
+    await request.run('/query', { method: 'POST', body: { query, request_id: crypto.randomUUID(), input_language: language, input_channel: channel }, timeout: 660000 })
   }
-  return <section className="panel"><h2>Ask the workbench</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
-    <form onSubmit={submit}><label>Question<textarea value={query} onChange={e => setQuery(e.target.value)} required maxLength={10000} rows={4} /></label><button disabled={request.loading || !query.trim()}>Submit query</button></form>
+  return <section className="panel"><h2>{t('Ask the workbench')}</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
+    <VoiceControls key={request.data?.run_id || 'input'} user={user} onTranscript={text => { setQuery(text); setChannel('voice') }} result={request.data} />
+    <form onSubmit={submit}><label>{t('Question')}<textarea value={query} onChange={e => setQuery(e.target.value)} required maxLength={10000} rows={4} /></label><button disabled={request.loading || !query.trim()}>{t('Submit query')}</button></form>
     {request.loading && <p>Local inference may take several minutes. Keep this page open.</p>}<ApiState request={request} /><Result data={request.data} />
   </section>
 }

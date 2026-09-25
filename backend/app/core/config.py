@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # True requires HTTPS (browsers drop Secure cookies over plain http). Local
     # dev over http needs this False; set True behind TLS in any real deployment.
     session_cookie_secure: bool = Field(default=False, validation_alias="SESSION_COOKIE_SECURE")
+    stt_url: str = ""
+    tts_url: str = ""
+    speech_timeout_seconds: float = Field(default=30, gt=0, le=120)
+    automation_secret: str = Field(default="", repr=False)
+    automation_user_id: str = ""
     # Provisional operator-configurable default, not an MRPL-approved policy
     # (see docs/phase5b.md): how long an APPROVED decision stays valid for
     # release before it is treated as EXPIRED.

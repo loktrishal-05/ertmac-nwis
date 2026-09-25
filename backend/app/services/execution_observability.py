@@ -66,6 +66,7 @@ def attach(session, request, state, meta):
     def tokens(key):
         return sum(c[key] for c in calls) if all(c[key] is not None for c in calls) else None
     execution = {"execution_path": meta.get("selected_path", "EXISTING_AGENTIC_PATH"),
+        "input_language": request.input_language, "input_channel": request.input_channel,
         "selection_source": meta.get("selection_source", "deterministic"), "reason_code": meta.get("reason_code"),
         "fallback_reason": meta.get("fallback_reason"),
         "fallback_used": meta.get("selection_source") == "fallback",
@@ -83,6 +84,10 @@ def attach(session, request, state, meta):
         state.setdefault("warnings", []).append("Evidence coverage: " + sufficiency["state"] +
             "; missing: " + ", ".join(sufficiency["missing_categories"] + sufficiency["issues"]))
     state["execution"] = execution
+    from app.services.local_voice import language
+    execution["language"] = language(request.input_language)
+    if request.input_language != "en":
+        state.setdefault("warnings", []).append("Original-language input and evidence preserved. Local translation is unavailable; safety and retrieval coverage may be limited.")
     return execution
 
 

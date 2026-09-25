@@ -21,6 +21,7 @@ class SovereigntyProof(BaseModel):
     observed_since: datetime
     inference_mode: str
     status: Literal['sovereign', 'invalid']
+    speech_endpoints: dict[str, str] = {}
     proof_scope: str = 'application_configuration_and_current_process_gateway_dispatches'
     network_egress_enforced: bool = False
     limitations: str = ('No firewall or physical-network isolation attested. Counters cover this process only, '

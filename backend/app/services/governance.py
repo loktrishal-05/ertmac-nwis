@@ -93,8 +93,11 @@ def evaluate_governance(request: QueryRequest, state: dict) -> str:
 
 
 def _request_payload(request):
-    return {"query": request.query, "access_scope": request.access_scope,
-            "requester": {"claimed_reference": request.requester_reference, "identity_status": "UNVERIFIED"}}
+    value = {"query": request.query, "access_scope": request.access_scope,
+             "requester": {"claimed_reference": request.requester_reference, "identity_status": "UNVERIFIED"}}
+    if request.input_language != "en" or request.input_channel != "text":
+        value["input_metadata"] = {"language": request.input_language, "channel": request.input_channel}
+    return value
 
 
 def _proposal_payload(state):

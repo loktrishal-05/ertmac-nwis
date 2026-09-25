@@ -1,0 +1,105 @@
+{
+  "name": "WB-05 Advanced-C operational summary (optional)",
+  "active": false,
+  "settings": {
+    "timezone": "Asia/Kolkata",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none"
+  },
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sign",
+      "name": "Sign summary request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.WORKBENCH_AUTOMATION_SECRET;\nconst base = $env.WORKBENCH_BASE_URL;\nconst endpoint = new URL(base);\nconst host = endpoint.hostname;\nconst octets = host.split('.').map(Number);\nconst ipv4 = /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(host) && octets.every(x => x >= 0 && x <= 255);\nconst local = host === 'localhost' || host === '[::1]' || (ipv4 && (octets[0] === 127 || octets[0] === 10 || (octets[0] === 192 && octets[1] === 168) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31))) || /^[a-z][a-z0-9-]*$/.test(host) || /\\.(local|internal)$/.test(host);\nif (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || !local) throw new Error('Local/private workbench endpoint required');\nconst kind = $env.WORKBENCH_AUTOMATION_KIND || 'audit_summary';\nif (!secret || secret.length < 32 || !base) throw new Error('Configure local endpoint and signing secret');\nconst timestamp = Math.floor(Date.now() / 1000);\nconst nonce = crypto.randomUUID();\nconst signature = crypto.createHmac('sha256', secret).update(`${timestamp}.${nonce}.${kind}`).digest('hex');\nreturn [{json: {timestamp, nonce, kind, signature}}];"
+      }
+    },
+    {
+      "id": "summary",
+      "name": "Read advisory summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WORKBENCH_BASE_URL + '/automation/webhook' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Workbench-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({timestamp: $json.timestamp, nonce: $json.nonce, kind: $json.kind}) }}",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Sign summary request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign summary request": {
+      "main": [
+        [
+          {
+            "node": "Read advisory summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "description": "No automatic delivery or approval. Add an operator-reviewed local notification destination after the summary node."
+  }
+}

@@ -16,6 +16,9 @@ def get_sovereignty_proof() -> SovereigntyProof:
     except ValueError:
         inference = 'invalid'
     hosted = inference == 'invalid' or settings.model_runtime not in ('ollama', 'vllm')
+    speech = {name: classify_http_url(url) if url else 'disabled' for name, url in
+              (("stt", settings.stt_url), ("tts", settings.tts_url))}
+    hosted = hosted or 'invalid' in speech.values()
     qdrant = classify_http_url(settings.qdrant_url)
     postgres = classify_database(settings.database_url)
     files = 'local_filesystem' if local_filesystem(settings.data_root) and local_filesystem(settings.model_root) else 'invalid'
@@ -25,4 +28,4 @@ def get_sovereignty_proof() -> SovereigntyProof:
         local_model=settings.model_name, inference_endpoint_classification=inference,
         qdrant_classification=qdrant, postgresql_classification=postgres, data_path_classification=files,
         hosted_ai_configured=hosted, cloud_ai_enabled=hosted, inference_mode='local_only' if not hosted else 'invalid',
-        status='sovereign' if valid else 'invalid', **observations)
+        status='sovereign' if valid else 'invalid', speech_endpoints=speech, **observations)

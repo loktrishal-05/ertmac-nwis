@@ -17,6 +17,8 @@ class QueryRequest(BaseModel):
     access_scope: str = Field(default="internal", min_length=1, max_length=50)
     request_id: UUID | None = Field(default=None, description="Optional idempotency key for governed requests; not identity or authorization")
     requester_reference: str | None = Field(default=None, max_length=255, description="Claimed provenance only; never an authenticated principal")
+    input_language: str = Field(default="en", min_length=1, max_length=20, pattern=r"^[A-Za-z-]+$")
+    input_channel: Literal["text", "voice"] = "text"
 
 
 class QueryResponse(BaseModel):

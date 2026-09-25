@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { LanguageContext, normalizeLanguage, translateLabel } from './language.js'
+import { LanguageSelector, ProductWorkspace } from './ProductPages.jsx'
 import { OperationalWorkspace } from './OperationalPages.jsx'
 import { useBackendHealth } from './hooks/useBackendHealth.js'
 import { useResource } from './hooks/useApi.js'
@@ -7,7 +9,7 @@ import { Auth, Dashboard, QueryConsole, Agents, Approvals, Knowledge, Audit, Sov
 const navigation = [
   ['Dashboard', 'grid'], ['Query Console', 'terminal'], ['Agents', 'nodes'],
   ['Approvals', 'check'], ['Knowledge Base', 'book'], ['Audit Logs', 'list'],
-  ['Sovereignty', 'shield'], ['Operational Intelligence', 'tool'],
+  ['Sovereignty', 'shield'], ['Operational Intelligence', 'tool'], ['Product Integration', 'grid'],
 ]
 
 function Icon({ name, ...props }) {
@@ -25,12 +27,16 @@ function Icon({ name, ...props }) {
 }
 
 export default function App() {
+  const [language, updateLanguage] = useState(() => { try { return normalizeLanguage(localStorage.getItem('workbench-language')) } catch { return 'en' } })
+  const setLanguage = value => { const code = normalizeLanguage(value); updateLanguage(code); try { localStorage.setItem('workbench-language', code) } catch { /* Session-only preference when storage is unavailable. */ } }
+  const t = key => translateLabel(language, key)
   const [page, setPage] = useState('Dashboard')
   const { status, checkedAt } = useBackendHealth()
   const auth = useResource('/auth/me')
   const proof = useResource('/sovereignty/proof')
   const user = auth.data
   const pages = {
+    'Product Integration': <ProductWorkspace user={user} />,
     'Operational Intelligence': <OperationalWorkspace user={user} />,
     Dashboard: <Dashboard proof={proof} health={status} user={user} />,
     'Query Console': <QueryConsole user={user} />,
@@ -41,28 +47,29 @@ export default function App() {
     Sovereignty: <Sovereignty proof={proof} />,
   }
   return (
-    <div className="workbench">
+    <LanguageContext.Provider value={{ language, setLanguage }}><div className="workbench" lang={language}>
       <a className="skip-link" href="#main">Skip to content</a>
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark"><Icon name="shield" /></span><div>SOVEREIGN<span>OPERATIONS WORKBENCH</span></div></div>
         <div className="nav-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
-          {navigation.map(([name, icon]) => <button key={name} className={`nav-item ${page === name ? 'selected' : ''}`} aria-current={page === name ? 'page' : undefined} onClick={() => setPage(name)}><Icon name={icon} />{name}{page === name && <span className="nav-dot" />}</button>)}
+          {navigation.map(([name, icon]) => <button key={name} className={`nav-item ${page === name ? 'selected' : ''}`} aria-current={page === name ? 'page' : undefined} onClick={() => setPage(name)}><Icon name={icon} />{t(name)}{page === name && <span className="nav-dot" />}</button>)}
         </nav>
         <div className="sidebar-note"><Icon name="shield" /><strong>On-premise by design</strong><p>Local infrastructure.<br />Advisory recommendations only.</p><span className="sidebar-tag">SIH 2026</span></div>
       </aside>
       <div className="workspace">
         <header className="topbar">
+          <LanguageSelector />
           <div className="product-name">Sovereign Agentic AI Workbench<span>INDUSTRIAL OPERATIONS</span></div>
           <div className="header-status"><span className={`connection ${status.toLowerCase()}`} role="status"><span className="status-dot" />Backend: {status}</span><span className="external-count">External AI Calls: <strong>{proof.data?.external_ai_calls ?? 'Unavailable'}</strong></span></div>
         </header>
         <main id="main" tabIndex="-1">
-          <div className="page-heading"><div><h1>{page === 'Dashboard' ? 'Operations overview' : page}</h1><p>Your local agentic workspace, connected to the backend.</p></div><span className="phase-badge">Advisory workspace</span></div>
+          <div className="page-heading"><div><h1>{t(page)}</h1><p>Your local agentic workspace, connected to the backend.</p></div><span className="phase-badge">Advisory workspace</span></div>
           <Auth auth={auth} />
           <div key={`${page}:${user?.id || 'anonymous'}:${user?.role || ''}`}>{pages[page]}</div>
           <footer><span><span className="footer-dot" />LOCAL OPERATIONS WORKBENCH</span><span>Health checked: {checkedAt ? checkedAt.toLocaleTimeString() : 'Checking...'} - Every 15s</span></footer>
         </main>
       </div>
-    </div>
+    </div></LanguageContext.Provider>
   )
 }

@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useLanguage } from './language.js'
 import { useRequest, useResource } from './hooks/useApi.js'
 import { ApiState, DataView, Result } from './WorkspacePages.jsx'
 
 export function OperationalWorkspace({ user }) {
+  const { t } = useLanguage()
   const [view, setView] = useState('Shift Handover')
   const [equipment, setEquipment] = useState('')
   const [start, setStart] = useState('')
@@ -24,8 +26,8 @@ export function OperationalWorkspace({ user }) {
   return <section className="panel"><h2>Operational intelligence</h2>
     <p>Advisory only. Observed measurements, human-reported information, synthesis and missing evidence are kept distinct. Human review never authorizes equipment operation.</p>
     {!user ? <p>Sign in to use operational intelligence.</p> : <>
-      <nav aria-label="Operational capabilities">{['Shift Handover', 'Environmental Compliance', 'Operator Notes', 'Knowledge Gaps'].map(label => <button key={label} aria-pressed={view === label} onClick={() => { request.reset(); notes.reset(); setView(label) }}>{label}</button>)}</nav>
-      <h3>{view}</h3>
+      <nav aria-label="Operational capabilities">{['Shift Handover', 'Environmental Compliance', 'Operator Notes', 'Knowledge Gaps'].map(label => <button key={label} aria-pressed={view === label} onClick={() => { request.reset(); notes.reset(); setView(label) }}>{t(label)}</button>)}</nav>
+      <h3>{t(view)}</h3>
       {view !== 'Knowledge Gaps' && <form onSubmit={submit}>
         {view !== 'Environmental Compliance' && <label>Registered equipment tag<input required maxLength={100} value={equipment} onChange={e => setEquipment(e.target.value)} /></label>}
         {view === 'Shift Handover' && <><p>Choose an explicit period of up to 72 hours. Times use your browser timezone; historical records are not current plant conditions.</p><label>Shift start<input type="datetime-local" required value={start} onChange={e => setStart(e.target.value)} /></label><label>Shift end<input type="datetime-local" required value={end} onChange={e => setEnd(e.target.value)} /></label></>}
