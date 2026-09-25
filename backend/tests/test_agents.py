@@ -602,7 +602,7 @@ class AgentsStatusRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    def test_status_enumerates_seven_routes_and_all_tools_and_gateway_health(self):
+    def test_status_enumerates_routes_and_all_tools_and_gateway_health(self):
         from app.services.model_gateway.types import RuntimeHealth
         health = RuntimeHealth(runtime="ollama", reachable=False, configured_model="qwen-test",
                                 configured_model_present=False, detail="not reachable in this test")
@@ -611,7 +611,7 @@ class AgentsStatusRouteTests(unittest.TestCase):
             response = self.client.get("/agents/status")
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual({r["route"] for r in body["routes"]}, set(ROUTE_NAMES))
+        self.assertEqual({r["route"] for r in body["routes"]}, set(ROUTE_NAMES) | {"shift_handover", "environmental_compliance"})
         self.assertEqual({r["status"] for r in body["routes"]}, {"implemented", "guardrail"})
         self.assertEqual(len(body["tools"]), 7)
         self.assertTrue(all(t["read_only"] for t in body["tools"]))

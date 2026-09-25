@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { OperationalWorkspace } from './OperationalPages.jsx'
 import { useBackendHealth } from './hooks/useBackendHealth.js'
 import { useResource } from './hooks/useApi.js'
 import { Auth, Dashboard, QueryConsole, Agents, Approvals, Knowledge, Audit, Sovereignty } from './WorkspacePages.jsx'
@@ -6,7 +7,7 @@ import { Auth, Dashboard, QueryConsole, Agents, Approvals, Knowledge, Audit, Sov
 const navigation = [
   ['Dashboard', 'grid'], ['Query Console', 'terminal'], ['Agents', 'nodes'],
   ['Approvals', 'check'], ['Knowledge Base', 'book'], ['Audit Logs', 'list'],
-  ['Sovereignty', 'shield'],
+  ['Sovereignty', 'shield'], ['Operational Intelligence', 'tool'],
 ]
 
 function Icon({ name, ...props }) {
@@ -30,6 +31,7 @@ export default function App() {
   const proof = useResource('/sovereignty/proof')
   const user = auth.data
   const pages = {
+    'Operational Intelligence': <OperationalWorkspace user={user} />,
     Dashboard: <Dashboard proof={proof} health={status} user={user} />,
     'Query Console': <QueryConsole user={user} />,
     Agents: <Agents />,

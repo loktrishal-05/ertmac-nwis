@@ -26,3 +26,5 @@ __all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","
 from app.db.models.verified_knowledge import VerifiedKnowledge
 
 from app.db.models.knowledge_pack import KnowledgePack
+
+from app.db.models.operator_note import OperatorNote

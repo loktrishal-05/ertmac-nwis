@@ -53,6 +53,9 @@ def drawing_tags(query, refs):
             if item.category in {'equipment_tag', 'instrument_tag', 'valve_tag'}]
     if not tags:
         return drawing_refusal(query, refs)
+    from app.services.visual_intelligence import observations
+    visual = observations(refs)
     output = EquipmentTags(tags=tags, warnings=[OCR_LIMITATION])
-    return {'agent_result': {'schema': 'S3', 'output': output.model_dump(mode='json')},
+    return {'agent_result': {'schema': 'S3', 'output': output.model_dump(mode='json'), 'visual_evidence': visual},
+            'operational_events': ['VISUAL_INTERPRETATION_REQUESTED'],
             'evidence': refs, 'warnings': [OCR_LIMITATION]}

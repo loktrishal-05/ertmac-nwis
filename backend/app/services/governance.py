@@ -366,6 +366,13 @@ def replay_request(session, request: QueryRequest) -> QueryResponse | None:
     return _draft_response(session, revision)
 
 
+def _operational_events(session, state, actor_id):
+    for name in dict.fromkeys(state.get("operational_events", [])):
+        append_event(session, event_type=name, actor_id=actor_id, actor_kind="user" if actor_id else "system",
+            payload={"run_id": state["run_id"], "route": state.get("route"),
+                     "gap_ids": [g["gap_id"] for g in (state.get("execution") or {}).get("knowledge_gaps", [])]})
+
+
 def govern_response(session, request: QueryRequest, state: dict, *,
                     requester_user_id: UUID | None = None) -> QueryResponse:
     """Only public response assembler; commit before returning a pending draft."""
@@ -399,15 +406,18 @@ def govern_response(session, request: QueryRequest, state: dict, *,
                 payload={"manifest_id": manifest.id, "item_count": manifest.item_count,
                         "canonical_manifest_hash": manifest.canonical_manifest_hash},
             )
+            _operational_events(session, state, requester_user_id)
             response = _draft_response(session, revision)
             session.commit()
             return response
         except Exception:
             session.rollback()
             raise
+    _operational_events(session, state, requester_user_id)
     record_run(session, state, status="error" if state.get("errors") else "ok",
                model=settings.model_name, runtime=settings.model_runtime,
                error="; ".join(state.get("errors", [])) or None)
+    if state.get("operational_events"): session.commit()
     return QueryResponse(
         request_id=request.request_id or uuid4(), run_id=state["run_id"], route=state.get("route"),
         route_confidence=state.get("route_confidence"), route_reasoning=state.get("route_reasoning"),

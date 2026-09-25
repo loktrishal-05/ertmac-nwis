@@ -96,6 +96,7 @@ _UNSAFE_ACTION_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern i
 # Strong, bounded signals of an industrial/company-scoped task. Composed with
 # the Phase 3B1 tag regex below -- never keyword matching alone.
 _STRONG_INTENT_PHRASES = (
+    "shift handover", "environmental compliance", "environmental reading",
     "maintenance history", "work order", "incident report", "pending approval", "pending approvals",
     "vibration trend", "sensor reading", "sensor trend", "audit log", "governance status",
     "approval status", "evidence manifest", "p&id", "pid drawing", "process optimization",

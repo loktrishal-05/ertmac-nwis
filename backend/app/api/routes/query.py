@@ -27,6 +27,9 @@ from app.services.verified_knowledge import lookup as lookup_verified_knowledge
 from app.services.adaptive_execution import choose as choose_execution
 
 from app.services.execution_observability import observe_query, attach, stage
+from app.services.operational_intelligence import route_for
+from app.services.verified_knowledge import authorize
+from app.services.approval import DecisionNotAllowed
 
 router = APIRouter(tags=["query"])
 
@@ -75,6 +78,14 @@ def _audit_preflight_denial(session: Session, request: QueryRequest, preflight: 
 @observe_query
 def query(request: QueryRequest, session: Session = Depends(get_db),
          current_user: User | None = Depends(get_optional_current_user)) -> QueryResponse:
+    operational = route_for(request.query)
+    if operational:
+        if current_user is None:
+            raise HTTPException(401, "Sign in for operational intelligence")
+        try:
+            authorize(session, current_user)
+        except DecisionNotAllowed as error:
+            raise HTTPException(403, str(error)) from error
     # Phase 5F M1: replay_request runs first ONLY to detect a genuine
     # request_id/content conflict (409) -- unaffected by preflight timing.
     # The cached draft it may return is deliberately NOT returned yet: a
@@ -116,12 +127,17 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
         return response.model_copy(update={"knowledge_lookup": knowledge_meta}) if response.presentation == "INFORMATIONAL" else response
 
     try:
-        with stage("system1"):
-            adaptive_state, execution_meta = choose_execution(session, request, current_user)
+        if operational:
+            adaptive_state, execution_meta = None, {"selected_path": "EXISTING_AGENTIC_PATH", "selection_source": "deterministic", "reason_code": operational}
+        else:
+            with stage("system1"):
+                adaptive_state, execution_meta = choose_execution(session, request, current_user)
         knowledge_meta.update(execution_meta)
         knowledge_meta["path"] = execution_meta["selected_path"]
         if adaptive_state is not None:
             state = adaptive_state
+        elif operational:
+            state = run_graph(request.query, session=session, access_scope=request.access_scope, actor_id=str(current_user.id))
         elif execution_meta["selected_path"] == "MGS_PATH":
             try:
                 state = run_graph(request.query, session=session, access_scope=request.access_scope, mgs=True)

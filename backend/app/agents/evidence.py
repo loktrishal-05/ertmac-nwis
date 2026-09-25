@@ -76,7 +76,14 @@ class SensorWindowEvidence(_EvidenceBase):
     provenance: list[dict]
 
 
-EvidenceRef = Union[DocumentChunkEvidence, PIDRegionEvidence, CSVRowEvidence, SensorWindowEvidence]
+class OperationalRecordEvidence(_EvidenceBase):
+    kind: Literal["operational_record"] = "operational_record"
+    record_type: Literal["operator_note", "incident_report"]
+    record_id: str
+    trust_label: Literal["HUMAN_REPORTED"] = "HUMAN_REPORTED"
+
+
+EvidenceRef = Union[DocumentChunkEvidence, PIDRegionEvidence, CSVRowEvidence, SensorWindowEvidence, OperationalRecordEvidence]
 
 
 def document_chunk_evidence(*, chunk_id, document_id, document_version_id, source_filename, source_sha256,

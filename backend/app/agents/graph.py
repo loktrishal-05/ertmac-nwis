@@ -26,6 +26,8 @@ from app.agents.nodes.stubs import make_stub_node
 from app.agents.nodes.terminal import clarification_node, guardrail_refusal_node
 from app.agents.prompts.router import ROUTE_NAMES
 from app.agents.state import WorkbenchState
+from app.services.operational_intelligence import operational_node
+OPERATIONAL_ROUTES = ("shift_handover", "environmental_compliance")
 from app.core.config import settings
 from app.services.model_gateway import get_model_gateway
 from app.agents.context import (reset_access_scope, set_access_scope, reset_deadline, set_deadline,
@@ -83,7 +85,7 @@ def _traced(node_name: str, fn):
 
 def _route_selector(state) -> str:
     route = state.get("route")
-    return route if route in ROUTE_NAMES else "clarification"
+    return route if route in ROUTE_NAMES + OPERATIONAL_ROUTES else "clarification"
 
 
 class GraphExecutionError(RuntimeError):
@@ -112,6 +114,8 @@ def build_graph(session=None, *, knowledge_only=False, mgs=False):
         return builder.compile()
     builder.add_node("router", _traced("router", lambda state: router_node(state, gateway=gateway)))
     route_nodes = {
+        "shift_handover": lambda state: operational_node(state, session),
+        "environmental_compliance": lambda state: operational_node(state, session),
         "knowledge": lambda state: knowledge_node(state, gateway=gateway, session=session),
         "maintenance": lambda state: maintenance_node(state, gateway=gateway, session=session),
         "safety": lambda state: safety_node(state, gateway=gateway, session=session),
@@ -120,11 +124,11 @@ def build_graph(session=None, *, knowledge_only=False, mgs=False):
         "guardrail_refusal": guardrail_refusal_node,
         "clarification": clarification_node,
     }
-    for route in ROUTE_NAMES:
+    for route in ROUTE_NAMES + OPERATIONAL_ROUTES:
         builder.add_node(route, _traced(route, route_nodes.get(route, make_stub_node(route))))
     builder.add_edge(START, "router")
-    builder.add_conditional_edges("router", _route_selector, {route: route for route in ROUTE_NAMES})
-    for route in ROUTE_NAMES:
+    builder.add_conditional_edges("router", _route_selector, {route: route for route in ROUTE_NAMES + OPERATIONAL_ROUTES})
+    for route in ROUTE_NAMES + OPERATIONAL_ROUTES:
         builder.add_edge(route, END)
     return builder.compile()
 
@@ -134,14 +138,14 @@ def get_graph():
     return build_graph()
 
 
-def run_graph(query: str, *, session=None, access_scope: str = "internal", knowledge_only: bool = False, mgs: bool = False) -> WorkbenchState:
+def run_graph(query: str, *, session=None, access_scope: str = "internal", knowledge_only: bool = False, mgs: bool = False, actor_id: str | None = None) -> WorkbenchState:
     scope_token = set_access_scope(access_scope)
     deadline_token = set_deadline(settings.agent_run_timeout_seconds)
     records_token = set_tool_records([])
     repairs_token = set_gateway_repairs([0])
     graph = build_graph(session=session, knowledge_only=True, mgs=mgs) if knowledge_only or mgs else (get_graph() if session is None else build_graph(session=session))
     initial_state: WorkbenchState = {
-        "run_id": str(uuid4()), "query": query, "access_scope": access_scope or "internal", "route": "knowledge" if knowledge_only or mgs else None, "route_confidence": None,
+        "actor_id": actor_id, "run_id": str(uuid4()), "query": query, "access_scope": access_scope or "internal", "route": "knowledge" if knowledge_only or mgs else None, "route_confidence": None,
         "route_reasoning": None, "evidence": [], "tool_invocations": [], "agent_result": None,
         "warnings": [], "errors": [], "human_approval_required": False, "action_class": None,
         "started_at": _now(), "finished_at": None, "step_records": [],

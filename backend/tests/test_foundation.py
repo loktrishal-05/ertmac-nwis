@@ -100,7 +100,7 @@ class FoundationTests(unittest.TestCase):
     def test_agents(self):
         from app.agents.prompts.router import ROUTE_NAMES
         body = self.request("/agents/status")
-        self.assertEqual({route["route"] for route in body["routes"]}, set(ROUTE_NAMES))
+        self.assertEqual({route["route"] for route in body["routes"]}, set(ROUTE_NAMES) | {"shift_handover", "environmental_compliance"})
         self.assertEqual({route["status"] for route in body["routes"]}, {"implemented", "guardrail"})
         self.assertTrue(len(body["tools"]) >= 1)
         self.assertTrue(all(tool["read_only"] for tool in body["tools"]))
@@ -152,7 +152,7 @@ class FoundationTests(unittest.TestCase):
     def test_metadata_and_offline_migration(self):
         configure_mappers()
         self.assertEqual(len(models.__all__), 23)
-        self.assertEqual(len(Base.metadata.tables), 25)
+        self.assertEqual(len(Base.metadata.tables), 26)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])

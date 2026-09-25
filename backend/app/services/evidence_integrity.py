@@ -197,6 +197,13 @@ def _sensor_window_content(session, ref: dict) -> tuple[str, dict, str]:
 
 
 def _item_content(session, evidence_type: str, ref: dict) -> tuple[str, dict, str]:
+    if evidence_type == "operational_record":
+        from app.services.operator_notes import snapshot
+        value = snapshot(session, ref["record_type"], ref["record_id"])
+        digest = canonical_hash(value)
+        if digest != ref["source_sha256"]:
+            raise ValueError("Human report content changed")
+        return digest, {"record_type": ref["record_type"], "record_id": ref["record_id"]}, f"{ref['record_type']}:{ref['record_id']}"
     if evidence_type == "document_chunk":
         return _document_chunk_content(ref)
     if evidence_type == "pid_region":
@@ -349,6 +356,18 @@ def verify_manifest(session, revision_id: UUID) -> dict:
 
 def _reverify_against_source(session, item: EvidenceManifestItem) -> tuple[bool, str | None]:
     provenance = item.provenance or {}
+    if item.evidence_type == "operational_record":
+        from app.services.operator_notes import snapshot, review_state
+        from app.db.models import OperatorNote
+        try:
+            value = snapshot(session, provenance["record_type"], provenance["record_id"])
+            if provenance["record_type"] == "operator_note":
+                note = session.get(OperatorNote, UUID(provenance["record_id"]))
+                if review_state(session, note) in ("REVOKED", "REJECTED", "EXPIRED", "INVALID"):
+                    return False, "human_report_withdrawn"
+            return canonical_hash(value) == item.content_hash == item.source_hash, "human_report_binding"
+        except (ValueError, KeyError):
+            return False, "human_report_unavailable"
 
     if item.evidence_type in ("document_chunk", "pid_region"):
         # Astra finding 1 (HIGH): document_version_id is a REQUIRED field on

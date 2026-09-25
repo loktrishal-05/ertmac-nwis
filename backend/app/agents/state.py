@@ -77,3 +77,7 @@ class WorkbenchState(TypedDict):
 
     mgs_group_count: int
     execution_fallback: str
+
+    actor_id: str | None
+    gap_requests: list[dict]
+    operational_events: list[str]

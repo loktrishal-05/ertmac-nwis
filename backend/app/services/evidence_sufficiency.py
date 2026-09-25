@@ -64,7 +64,7 @@ def assess(query, refs, *, invalid_ids=(), tool_failed=False, citations=(), mult
     usable = [r for r in refs if r.evidence_id not in invalid_ids and r.locator and r.source_sha256]
     present = set()
     for r in usable:
-        present.add({"document_chunk": "document", "pid_region": "pid", "sensor_window": "sensor", "csv_row": "structured_record"}[r.kind])
+        present.add({"document_chunk": "document", "pid_region": "pid", "sensor_window": "sensor", "csv_row": "structured_record", "operational_record": "human_report"}[r.kind])
         present.update((categories or {}).get(r.evidence_id, []))
     missing = sorted(requirements(query) - present)
     if multi_document and len({getattr(r, "document_id", None) for r in usable if getattr(r, "document_id", None)}) < 2:

@@ -26,7 +26,7 @@ JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 MANIFEST_VERSION = "phase5d-evidence-v1"
 # One-to-one with app.agents.evidence.EvidenceRef's `kind` discriminator --
 # reused, not reinvented (docs/phase5d.md, "Reuse, not duplication").
-EVIDENCE_TYPES = ("document_chunk", "pid_region", "csv_row", "sensor_window")
+EVIDENCE_TYPES = ("document_chunk", "pid_region", "csv_row", "sensor_window", "operational_record")
 
 
 class EvidenceManifest(IdentityMixin, CreatedAtMixin, Base):

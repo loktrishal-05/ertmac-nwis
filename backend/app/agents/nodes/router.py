@@ -27,6 +27,11 @@ class RouteDecision(BaseModel):
 
 
 def router_node(state, gateway=None) -> dict:
+    from app.services.operational_intelligence import route_for
+    operational = route_for(state["query"])
+    if operational:
+        return {"route": operational if state.get("actor_id") else "clarification", "route_confidence": None,
+                "route_reasoning": "deterministic_operational_specialist"}
     gateway = gateway or get_model_gateway()
     messages = [
         ChatMessage(role="system", content=ROUTER_SYSTEM_PROMPT),

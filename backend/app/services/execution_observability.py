@@ -52,6 +52,16 @@ def attach(session, request, state, meta):
     if output.get("status") == "insufficient_evidence":
         sufficiency["state"] = "INSUFFICIENT"
         sufficiency["issues"].append("answer_evidence_insufficient")
+    from app.services.knowledge_gaps import detect
+    from app.services.canonicalization import canonical_hash
+    subject = output.get("equipment") or "query:" + canonical_hash(request.query)
+    gaps = detect(subject, sufficiency, state.get("gap_requests", []), refs)
+    if output.get("status") in ("refused", "clarification_required"):
+        gaps = []  # No evidentiary answer was attempted on these terminal paths.
+    if state.get("gap_requests") and sufficiency["state"] == "SUFFICIENT": sufficiency["state"] = "PARTIAL"
+    if output.get("status") == "INDETERMINATE": sufficiency["state"] = "INSUFFICIENT"
+    if gaps:
+        state["operational_events"] = list(dict.fromkeys(state.get("operational_events", []) + ["KNOWLEDGE_GAPS_IDENTIFIED"]))
     calls = current["calls"]
     def tokens(key):
         return sum(c[key] for c in calls) if all(c[key] is not None for c in calls) else None
@@ -63,7 +73,7 @@ def attach(session, request, state, meta):
         "retrieved_document_count": len({getattr(r, "document_id", None) for r in refs if getattr(r, "document_id", None)}),
         "retrieved_sources": len({r.source_sha256 for r in refs}), "evidence_count": len(refs),
         "mgs_group_count": state.get("mgs_group_count", 0),
-        "evidence_sufficiency": sufficiency, "model_used": sorted({c["model"] for c in calls}),
+        "knowledge_gaps": gaps, "evidence_sufficiency": sufficiency, "model_used": sorted({c["model"] for c in calls}),
         "model_call_count": len(calls), "model_stages": calls,
         "input_tokens": tokens("input_tokens"), "output_tokens": tokens("output_tokens"),
         "retrieval_latency_ms": sum(t["latency_ms"] for t in current["tools"]),

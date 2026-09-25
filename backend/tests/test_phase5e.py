@@ -269,13 +269,14 @@ class QueryPreflightIntegrationTests(unittest.TestCase):
             response = self.client.post("/query", json={"query": "Show maintenance history for P-204."})
         self.assertEqual(response.status_code, 200, response.text)
         graph.assert_called_once()
-        self.assertEqual(self._audit_rows(), [])
+        self.assertEqual([row.event_type for row in self._audit_rows()], ["KNOWLEDGE_GAPS_IDENTIFIED"])
 
-    def test_harmless_allowed_queries_do_not_flood_the_audit_chain(self):
+    def test_allowed_queries_audit_gaps_once_per_run_without_preflight_denials(self):
         with patch("app.api.routes.query.run_graph", side_effect=lambda query, **_: graph_state(query)):
             for index in range(3):
                 self.client.post("/query", json={"query": f"Show maintenance history for P-{204 + index}."})
-        self.assertEqual(self._audit_rows(), [])
+        self.assertEqual([row.event_type for row in self._audit_rows()], ["KNOWLEDGE_GAPS_IDENTIFIED"] * 3)
+        self.assertTrue(verify_chain(self.session)["valid"])
 
 
 # --- Regression: Phase 4/5A-5D behaviour unaffected ------------------------
