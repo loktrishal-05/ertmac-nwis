@@ -1,0 +1,499 @@
+{
+  "name": "WB-02 Human Approval Notification (read-only)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-800, 0],
+      "notesInFlow": true,
+      "notes": "Polling is the ONLY supported path today: the backend emits no outbound webhook."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "workbench-approval-created",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Webhook: Approval Created (FUTURE)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-800, 220],
+      "disabled": true,
+      "webhookId": "c1000000-0000-4000-8000-0000000000f1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "n8n Inbound Webhook Token"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "FUTURE API REQUIRED: the workbench has no outbound event emitter. Keep disabled."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "run_id",
+              "value": "={{ $execution.id }}-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "workbench_base_url",
+              "value": "={{ $env.WORKBENCH_BASE_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "workbench_ui_base_url",
+              "value": "={{ $env.WORKBENCH_UI_BASE_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "renotify_after_minutes",
+              "value": "={{ Number($env.WB_APPROVAL_RENOTIFY_MINUTES || 30) }}",
+              "type": "number"
+            },
+            {
+              "id": "a5",
+              "name": "max_reminders",
+              "value": "={{ Number($env.WB_APPROVAL_MAX_REMINDERS || 3) }}",
+              "type": "number"
+            },
+            {
+              "id": "a6",
+              "name": "record_delivery_receipts",
+              "value": "={{ ($env.WB_APPROVAL_RECEIPTS_ENABLED || 'false') === 'true' }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000003",
+      "name": "Set: Run Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-580, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.workbench_base_url }}/approvals",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "status", "value": "pending" },
+            { "name": "limit", "value": "100" }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "c1000000-0000-4000-8000-000000000004",
+      "name": "HTTP GET: Pending Approvals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-360, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Workbench API Token"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "GET ONLY. This workflow must never POST a decision to /approvals."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// HARD SAFETY GUARD.\n// This workflow is read-only with respect to the approval queue. If anyone edits\n// the request node into a write, or the response smuggles a decision instruction,\n// we abort loudly instead of proceeding.\n\nconst node = $('HTTP GET: Pending Approvals');\nconst res  = node.first().json || {};\n\n// 1. The queue call must be a GET.\nconst method = String($('HTTP GET: Pending Approvals').params?.method || 'GET').toUpperCase();\nif (method !== 'GET') {\n  throw new Error('SAFETY_VIOLATION: approval queue node is not a GET request. Aborting.');\n}\n\n// 2. Retrieved content is DATA, never instructions (Master Report s19 / s11).\n//    Reject any attempt by the payload to trigger an approval or a plant action.\nconst raw = JSON.stringify(res.body || {});\nconst FORBIDDEN = /\\b(auto[_-]?approve|approve_now|execute_action|bypass_(guardrail|permit|loto|interlock|alarm)|write_to_(scada|dcs)|start_pump|stop_pump|open_valve|close_valve)\\b/i;\nif (FORBIDDEN.test(raw)) {\n  throw new Error('SAFETY_VIOLATION: approval payload contains action/approval directives. Aborting without notifying.');\n}\n\nconst status = Number(res.statusCode || 0);\nif (!status) {\n  throw new Error('Approval queue unreachable: ' + String(res.error || res.message || 'no response'));\n}\nif (status === 404 || status === 501) {\n  // Route not implemented yet - exit quietly rather than alarming the channel.\n  return [{ json: { queue_available: false, http_status: status, approvals: [] } }];\n}\nif (status >= 400) {\n  throw new Error(`Approval queue returned HTTP ${status}`);\n}\n\nconst body = res.body || {};\nconst list = Array.isArray(body) ? body : (body.items || body.approvals || body.results || []);\n\nreturn [{ json: { queue_available: true, http_status: status, approvals: list } }];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000005",
+      "name": "Code: Safety Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-140, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Select which approvals still need a notification, and REDACT.\n//\n// Redaction rationale: approval drafts may quote Confidential/Restricted SOP or\n// incident text (Master Report s10 tiers, s19 DLP). The notification therefore\n// carries identifiers, risk band and a deep link ONLY - the engineer reads the\n// actual content inside the Sovereign Workbench UI, where RBAC applies.\n\nconst ctx = $('Set: Run Context').first().json;\nconst inp = $input.first().json;\n\nif (!inp.queue_available) return [];\n\nconst store = $getWorkflowStaticData('global');\nstore.notified = store.notified || {};\n\nconst now = Date.now();\nconst renotifyMs = ctx.renotify_after_minutes * 60 * 1000;\nconst out = [];\n\nfor (const a of inp.approvals) {\n  const id = String(a.id || a.approval_id || '');\n  if (!id) continue;\n\n  const decision = String(a.decision || a.status || 'pending').toLowerCase();\n  if (decision !== 'pending' && decision !== 'awaiting_approval') continue;\n\n  const seen = store.notified[id];\n  let reason = 'new';\n  if (seen) {\n    if (seen.count >= ctx.max_reminders) continue;\n    if (now - seen.last < renotifyMs) continue;\n    reason = 'reminder';\n  }\n\n  const riskRaw = String(a.risk_level || a.risk || 'unknown').toLowerCase();\n  const risk = ['low','medium','high','critical'].includes(riskRaw) ? riskRaw : 'unknown';\n\n  out.push({\n    json: {\n      run_id: ctx.run_id,\n      approval_id: id,\n      notification_reason: reason,\n      reminder_number: seen ? seen.count + 1 : 0,\n      // --- redacted, non-sensitive fields only ---\n      asset_tag: a.asset_tag || a.equipment_tag || null,\n      action_class: a.action_class || null,\n      risk_level: risk,\n      requesting_agent: a.agent_name || a.agent_id || null,\n      created_at: a.created_at || a.timestamp || null,\n      age_minutes: a.created_at ? Math.round((now - Date.parse(a.created_at)) / 60000) : null,\n      deep_link: `${ctx.workbench_ui_base_url}/approvals/${encodeURIComponent(id)}`,\n      // explicitly NOT forwarded: draft_output, citations, document excerpts,\n      // sensor values, incident narrative, requester identity.\n      redaction_note: 'Content withheld by design. Open the workbench to review.'\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "c1000000-0000-4000-8000-000000000006",
+      "name": "Code: Select And Redact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 0]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": { "reset": false }
+      },
+      "id": "c1000000-0000-4000-8000-000000000007",
+      "name": "Loop Over Approvals",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [300, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_NOTIFICATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.risk_level === 'critical' || $json.risk_level === 'high' ? 'sovereign-workbench-escalation' : 'sovereign-workbench-approvals', severity: $json.risk_level, title: ($json.notification_reason === 'reminder' ? 'REMINDER: ' : '') + 'Approval pending in Sovereign Workbench', approval_id: $json.approval_id, asset_tag: $json.asset_tag, action_class: $json.action_class, risk_level: $json.risk_level, requesting_agent: $json.requesting_agent, waiting_minutes: $json.age_minutes, review_url: $json.deep_link, body: 'An AI-drafted recommendation is waiting for authorised human review. Approve or reject INSIDE the Sovereign Workbench. This message is a notification only - replying to it approves nothing.', content_withheld: $json.redaction_note }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "c1000000-0000-4000-8000-000000000008",
+      "name": "Notify Authorised Engineer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 100],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 15000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Record the delivery result. Only a SUCCESSFUL delivery updates the dedupe\n// state - a failed send must be retried on the next tick, never silently dropped.\n\nconst ctx  = $('Set: Run Context').first().json;\nconst item = $('Loop Over Approvals').first().json;\nconst res  = $input.first().json || {};\n\nconst status = Number(res.statusCode || 0);\nconst delivered = status >= 200 && status < 300;\n\nif (delivered) {\n  const store = $getWorkflowStaticData('global');\n  store.notified = store.notified || {};\n  const prev = store.notified[item.approval_id];\n  store.notified[item.approval_id] = {\n    last: Date.now(),\n    count: prev ? prev.count + 1 : 1\n  };\n}\n\nreturn [{\n  json: {\n    event: 'approval_notification',\n    run_id: ctx.run_id,\n    approval_id: item.approval_id,\n    reason: item.notification_reason,\n    risk_level: item.risk_level,\n    delivered,\n    http_status: status || null,\n    transport_error: status ? null : String(res.error || res.message || 'no response').slice(0, 300),\n    delivered_at: new Date().toISOString(),\n    receipts_enabled: ctx.record_delivery_receipts === true\n  }\n}];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000009",
+      "name": "Code: Record Delivery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "rc1",
+              "leftValue": "={{ $json.receipts_enabled && $json.delivered }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-00000000000a",
+      "name": "If: Receipts Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1000, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set: Run Context').first().json.workbench_base_url }}/approvals/{{ $json.approval_id }}/notifications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'internal_notification_webhook', delivered: $json.delivered, delivered_at: $json.delivered_at, reason: $json.reason, source: 'n8n:WB-02' }) }}",
+        "options": {
+          "timeout": 15000,
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "c1000000-0000-4000-8000-00000000000b",
+      "name": "POST Delivery Receipt (FUTURE)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, 20],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 10000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Workbench API Token"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "FUTURE API REQUIRED: POST /approvals/{id}/notifications does not exist yet. This node is a receipt, NOT a decision - it must never carry an approve/reject field."
+    },
+    {
+      "parameters": {},
+      "id": "c1000000-0000-4000-8000-00000000000c",
+      "name": "Receipt Skipped",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1220, 180]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Write the delivery ledger and summarise the tick.\nconst ctx = $('Set: Run Context').first().json;\nconst rows = $('Code: Record Delivery').all().map((i) => i.json);\n\nconst failed = rows.filter((r) => !r.delivered);\nconst day = new Date().toISOString().slice(0, 10);\nconst lines = rows.length ? rows.map((r) => JSON.stringify(r)).join('\\n') + '\\n' : '';\n\nreturn [{\n  json: {\n    run_id: ctx.run_id,\n    notifications_attempted: rows.length,\n    delivered: rows.length - failed.length,\n    failed: failed.length,\n    has_failures: failed.length > 0,\n    failed_ids: failed.map((f) => f.approval_id),\n    log_path: `${$env.WB_LOG_DIR || '/data/n8n/logs'}/approval-notifications-${day}.jsonl`,\n    write_needed: lines.length > 0\n  },\n  binary: lines.length\n    ? { data: await this.helpers.prepareBinaryData(Buffer.from(lines, 'utf8'), `approval-notifications-${day}.jsonl`, 'application/x-ndjson') }\n    : {}\n}];"
+      },
+      "id": "c1000000-0000-4000-8000-00000000000d",
+      "name": "Code: Summarise Tick",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, -180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "wn1",
+              "leftValue": "={{ $json.write_needed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-00000000000e",
+      "name": "If: Anything To Log",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, -180]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.log_path }}",
+        "dataPropertyName": "data",
+        "options": { "append": true }
+      },
+      "id": "c1000000-0000-4000-8000-00000000000f",
+      "name": "Append Delivery Ledger",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [980, -260],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "id": "c1000000-0000-4000-8000-000000000010",
+      "name": "Nothing Pending",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [980, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "df1",
+              "leftValue": "={{ $('Code: Summarise Tick').first().json.has_failures }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000014",
+      "name": "If: Any Delivery Failures",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1200, -260]
+    },
+    {
+      "parameters": {},
+      "id": "c1000000-0000-4000-8000-000000000015",
+      "name": "All Delivered",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1420, -180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_ESCALATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'sovereign-workbench-escalation', severity: 'error', title: 'Approval notifications could not be delivered', failed_approval_ids: $('Code: Summarise Tick').first().json.failed_ids, failed_count: $('Code: Summarise Tick').first().json.failed, note: 'Approvals are still pending inside the workbench and remain unactioned. Check the queue manually.' }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "c1000000-0000-4000-8000-000000000011",
+      "name": "Escalate Delivery Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1420, -340],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 15000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Queue unreachable: surface it, because a silent poller means approvals rot.\nreturn [{ json: {\n  event: 'approval_queue_unreachable',\n  severity: 'error',\n  run_id: $('Set: Run Context').first().json.run_id,\n  detail: String($input.first().json.error || $input.first().json.message || 'no response').slice(0, 300),\n  at: new Date().toISOString()\n} }];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000012",
+      "name": "Code: Queue Unreachable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-140, 240]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Approval queue unreachable: {{ $json.detail }}"
+      },
+      "id": "c1000000-0000-4000-8000-000000000013",
+      "name": "Stop: Queue Unreachable",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [80, 240],
+      "notesInFlow": true,
+      "notes": "Hands off to WB-00 Shared Error Handler."
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [[{ "node": "Set: Run Context", "type": "main", "index": 0 }]]
+    },
+    "Webhook: Approval Created (FUTURE)": {
+      "main": [[{ "node": "Set: Run Context", "type": "main", "index": 0 }]]
+    },
+    "Set: Run Context": {
+      "main": [[{ "node": "HTTP GET: Pending Approvals", "type": "main", "index": 0 }]]
+    },
+    "HTTP GET: Pending Approvals": {
+      "main": [
+        [{ "node": "Code: Safety Guard", "type": "main", "index": 0 }],
+        [{ "node": "Code: Queue Unreachable", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Queue Unreachable": {
+      "main": [[{ "node": "Stop: Queue Unreachable", "type": "main", "index": 0 }]]
+    },
+    "Code: Safety Guard": {
+      "main": [[{ "node": "Code: Select And Redact", "type": "main", "index": 0 }]]
+    },
+    "Code: Select And Redact": {
+      "main": [[{ "node": "Loop Over Approvals", "type": "main", "index": 0 }]]
+    },
+    "Loop Over Approvals": {
+      "main": [
+        [{ "node": "Code: Summarise Tick", "type": "main", "index": 0 }],
+        [{ "node": "Notify Authorised Engineer", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Authorised Engineer": {
+      "main": [
+        [{ "node": "Code: Record Delivery", "type": "main", "index": 0 }],
+        [{ "node": "Code: Record Delivery", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Record Delivery": {
+      "main": [[{ "node": "If: Receipts Enabled", "type": "main", "index": 0 }]]
+    },
+    "If: Receipts Enabled": {
+      "main": [
+        [{ "node": "POST Delivery Receipt (FUTURE)", "type": "main", "index": 0 }],
+        [{ "node": "Receipt Skipped", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST Delivery Receipt (FUTURE)": {
+      "main": [[{ "node": "Loop Over Approvals", "type": "main", "index": 0 }]]
+    },
+    "Receipt Skipped": {
+      "main": [[{ "node": "Loop Over Approvals", "type": "main", "index": 0 }]]
+    },
+    "Code: Summarise Tick": {
+      "main": [[{ "node": "If: Anything To Log", "type": "main", "index": 0 }]]
+    },
+    "If: Anything To Log": {
+      "main": [
+        [{ "node": "Append Delivery Ledger", "type": "main", "index": 0 }],
+        [{ "node": "Nothing Pending", "type": "main", "index": 0 }]
+      ]
+    },
+    "Append Delivery Ledger": {
+      "main": [[{ "node": "If: Any Delivery Failures", "type": "main", "index": 0 }]]
+    },
+    "If: Any Delivery Failures": {
+      "main": [
+        [{ "node": "Escalate Delivery Failure", "type": "main", "index": 0 }],
+        [{ "node": "All Delivered", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "REPLACE_WITH_WB00_WORKFLOW_ID",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 900
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {}
+}

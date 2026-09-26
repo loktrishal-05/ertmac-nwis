@@ -26,6 +26,11 @@ test('backend result and availability states render without invented authority',
     assert.match(draft, /revision-a/)
     assert.match(draft, /page 2/)
     assert.ok(!draft.includes('<script>'))
+    const advisory = render(Result, { data: { governance_status: 'PENDING_REVIEW',
+      agent_result: { schema: 'S7', output: { observations: ['Recorded vibration increased'],
+        hypotheses: [{ text: 'Possible cause; unconfirmed' }], limitations: ['Historical synthetic data'] } },
+      evidence: [{ kind: 'pid_region', evidence_id: 'drawing', locator: 'R3 page 1' }] } })
+    for (const text of ['observations', 'hypotheses', 'limitations', 'as drawn only', 'Historical synthetic data']) assert.ok(advisory.includes(text))
     assert.ok(!render(Result, { data: { governance_status: 'REVOKED' } }).includes('Human approval required'))
     assert.match(render(ApiState, { request: { loading: true } }), /role="status"/)
     for (const data of [[], {}]) assert.match(render(ApiState, { request: { data } }), /No records returned/)

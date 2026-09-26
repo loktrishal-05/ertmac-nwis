@@ -1,0 +1,385 @@
+{
+  "name": "WB-04 Audit Export and Archive (append-only)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e1000000-0000-4000-8000-000000000001",
+      "name": "Daily 02:30 IST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-980, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Load the export cursor. The cursor only ever moves FORWARD.\n// If the backend later returns entries older than the cursor, that is a\n// regression signal, not something to quietly re-export.\n\nconst store = $getWorkflowStaticData('global');\nstore.export_state = store.export_state || {\n  last_cursor: null,\n  last_seq: 0,\n  last_hash: null,\n  last_run_at: null,\n  total_exported: 0\n};\n\nreturn [{\n  json: {\n    run_id: `${$execution.id}-${Date.now()}`,\n    started_at: new Date().toISOString(),\n    workbench_base_url: $env.WORKBENCH_BASE_URL,\n    export_dir: $env.WB_AUDIT_EXPORT_DIR || '/data/n8n/archive/audit',\n    page_size: Number($env.WB_AUDIT_PAGE_SIZE || 500),\n    max_pages: Number($env.WB_AUDIT_MAX_PAGES || 200),\n    cursor: store.export_state.last_cursor,\n    prev_seq: store.export_state.last_seq,\n    prev_hash: store.export_state.last_hash,\n    page_number: 0,\n    has_more: true,\n    collected: []\n  }\n}];"
+      },
+      "id": "e1000000-0000-4000-8000-000000000002",
+      "name": "Code: Load Cursor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-760, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.workbench_base_url }}/audit/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "cursor", "value": "={{ $json.cursor || '' }}" },
+            { "name": "limit", "value": "={{ $json.page_size }}" },
+            { "name": "order", "value": "asc" }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "e1000000-0000-4000-8000-000000000003",
+      "name": "HTTP GET: Audit Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-520, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 15000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "Workbench API Token" }
+      },
+      "notesInFlow": true,
+      "notes": "READ ONLY. GET /audit/log is declared in Master Report s17; cursor/limit/order params are FUTURE API REQUIRED."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Accumulate one page, verify the hash chain LOCALLY, and detect tampering.\n//\n// Chain model (Master Report s16 AuditLog): id, actor, action, prev_hash, hash,\n// timestamp - append-only, hash-chained. We re-link the chain ourselves rather\n// than trusting a backend 'chain_ok' flag, because the whole point of a chain is\n// that a reader can check it independently.\n\nconst state = $('Code: Load Cursor').first().json;\nconst prevPage = $input.first().json;\nconst res = prevPage.statusCode !== undefined ? prevPage : ($input.first().json || {});\n\nconst status = Number(res.statusCode || 0);\nif (status === 404 || status === 501) {\n  return [{ json: { ...state, has_more: false, unavailable: true, reason: 'audit_log_endpoint_not_implemented', collected: [] } }];\n}\nif (status < 200 || status >= 300) {\n  throw new Error(`Audit log page fetch failed with HTTP ${status || 'no response'}`);\n}\n\nconst body = res.body || {};\nconst entries = Array.isArray(body) ? body : (body.items || body.entries || body.results || []);\nconst nextCursor = body.next_cursor ?? body.cursor ?? null;\n\n// Carry forward whatever the loop has already gathered.\nconst carried = (prevPage.collected && Array.isArray(prevPage.collected)) ? prevPage.collected : (state.collected || []);\nconst pageNumber = Number(prevPage.page_number ?? state.page_number ?? 0) + 1;\n\nlet expectedPrev = (carried.length ? carried[carried.length - 1].hash : state.prev_hash) ?? null;\nconst breaks = [];\n\nfor (const e of entries) {\n  const hash = e.hash ?? null;\n  const prev = e.prev_hash ?? null;\n\n  if (expectedPrev !== null && prev !== null && prev !== expectedPrev) {\n    breaks.push({ entry_id: e.id ?? null, timestamp: e.timestamp ?? null, expected_prev_hash: expectedPrev, actual_prev_hash: prev });\n  }\n  expectedPrev = hash ?? expectedPrev;\n}\n\nconst all = carried.concat(entries);\nconst hasMore = Boolean(nextCursor) && entries.length > 0 && pageNumber < Number(state.max_pages);\n\nreturn [{\n  json: {\n    ...state,\n    page_number: pageNumber,\n    cursor: nextCursor,\n    has_more: hasMore,\n    hit_page_cap: Boolean(nextCursor) && pageNumber >= Number(state.max_pages),\n    unavailable: false,\n    chain_breaks: (prevPage.chain_breaks || []).concat(breaks),\n    collected: all\n  }\n}];"
+      },
+      "id": "e1000000-0000-4000-8000-000000000004",
+      "name": "Code: Accumulate And Verify Chain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "hm1",
+              "leftValue": "={{ $json.has_more }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "e1000000-0000-4000-8000-000000000005",
+      "name": "If: More Pages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-40, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cb1",
+              "leftValue": "={{ ($json.chain_breaks || []).length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "e1000000-0000-4000-8000-000000000006",
+      "name": "If: Chain Broken",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [200, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_ESCALATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'sovereign-workbench-escalation', severity: 'critical', title: 'AUDIT CHAIN BREAK detected during export', break_count: ($json.chain_breaks || []).length, first_break: ($json.chain_breaks || [])[0] || null, run_id: $json.run_id, note: 'Export ABORTED. Nothing was written and the cursor was NOT advanced. Existing archives are untouched. Investigate before re-running.' }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "e1000000-0000-4000-8000-000000000007",
+      "name": "Escalate Chain Break",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 240],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 10000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=AUDIT_CHAIN_BREAK: {{ ($json.chain_breaks || []).length }} discontinuity(ies) found in the exported audit range. Export aborted, cursor not advanced."
+      },
+      "id": "e1000000-0000-4000-8000-000000000008",
+      "name": "Stop: Audit Chain Break",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [680, 240],
+      "notesInFlow": true,
+      "notes": "Fail loudly. Never repair, never rewrite, never advance the cursor past a break."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build the append-only export blob + manifest.\n//\n// Immutability rules enforced here:\n//  1. Records are written verbatim. No field is edited, reordered or dropped.\n//  2. Files are opened in APPEND mode only - no node in this workflow overwrites.\n//  3. Each run writes into a month-partitioned file plus its own manifest;\n//     a manifest is never replaced, so history cannot be rewritten by a re-run.\n//  4. The cursor advances only after a clean chain verification.\n\nconst s = $input.first().json;\nconst entries = s.collected || [];\n\nif (s.unavailable) {\n  return [{ json: { run_id: s.run_id, exported: 0, unavailable: true, reason: s.reason, write_needed: false } }];\n}\n\nconst now = new Date();\nconst month = now.toISOString().slice(0, 7);\nconst stamp = now.toISOString().replace(/[:.]/g, '-');\n\nconst first = entries[0] || null;\nconst last  = entries[entries.length - 1] || null;\n\nconst manifest = {\n  manifest_version: '1.0',\n  export_run_id: s.run_id,\n  exported_at: now.toISOString(),\n  exported_by: 'n8n:WB-04',\n  source_endpoint: `${s.workbench_base_url}/audit/log`,\n  entry_count: entries.length,\n  pages_fetched: s.page_number,\n  hit_page_cap: s.hit_page_cap === true,\n  range: {\n    first_entry_id: first ? (first.id ?? null) : null,\n    first_timestamp: first ? (first.timestamp ?? null) : null,\n    first_prev_hash: first ? (first.prev_hash ?? null) : null,\n    last_entry_id: last ? (last.id ?? null) : null,\n    last_timestamp: last ? (last.timestamp ?? null) : null,\n    last_hash: last ? (last.hash ?? null) : null\n  },\n  chain_verification: {\n    method: 'local_prev_hash_relink',\n    continuous: true,\n    breaks: [],\n    note: 'Link continuity only. This does NOT recompute entry digests - that requires the backend hashing rule and is FUTURE work. Nor is this WORM storage; true immutability needs an append-only/WORM volume outside n8n.'\n  },\n  immutability: {\n    write_mode: 'append_only',\n    overwrites_performed: 0,\n    prior_records_modified: 0\n  }\n};\n\nconst ndjson = entries.length ? entries.map((e) => JSON.stringify(e)).join('\\n') + '\\n' : '';\n\nreturn [{\n  json: {\n    run_id: s.run_id,\n    exported: entries.length,\n    unavailable: false,\n    write_needed: entries.length > 0,\n    next_cursor: s.cursor,\n    last_hash: manifest.range.last_hash,\n    hit_page_cap: manifest.hit_page_cap,\n    archive_path:  `${s.export_dir}/audit-${month}.jsonl`,\n    manifest_path: `${s.export_dir}/manifests/manifest-${stamp}-${s.run_id}.json`,\n    manifest\n  },\n  binary: entries.length\n    ? {\n        archive:  await this.helpers.prepareBinaryData(Buffer.from(ndjson, 'utf8'), `audit-${month}.jsonl`, 'application/x-ndjson'),\n        manifest: await this.helpers.prepareBinaryData(Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'), `manifest-${stamp}.json`, 'application/json')\n      }\n    : {}\n}];"
+      },
+      "id": "e1000000-0000-4000-8000-000000000009",
+      "name": "Code: Build Export",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "wn1",
+              "leftValue": "={{ $json.write_needed }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "e1000000-0000-4000-8000-00000000000a",
+      "name": "If: Anything To Archive",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 0]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.archive_path }}",
+        "dataPropertyName": "archive",
+        "options": { "append": true }
+      },
+      "id": "e1000000-0000-4000-8000-00000000000b",
+      "name": "Append Audit Archive",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [920, -100],
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "append:true is mandatory. Setting append:false here would destroy archived history."
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $('Code: Build Export').first().json.manifest_path }}",
+        "dataPropertyName": "manifest",
+        "options": { "append": false }
+      },
+      "id": "e1000000-0000-4000-8000-00000000000c",
+      "name": "Write Run Manifest",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1160, -100],
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Unique per-run filename (timestamp + run_id), so this never overwrites an earlier manifest."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Advance the cursor ONLY after a clean write. This is the commit point.\nconst exp = $('Code: Build Export').first().json;\nconst store = $getWorkflowStaticData('global');\n\nstore.export_state = {\n  last_cursor: exp.next_cursor ?? store.export_state.last_cursor,\n  last_seq: (store.export_state.last_seq || 0) + exp.exported,\n  last_hash: exp.last_hash ?? store.export_state.last_hash,\n  last_run_at: new Date().toISOString(),\n  total_exported: (store.export_state.total_exported || 0) + exp.exported\n};\n\nreturn [{ json: {\n  event: 'audit_export_committed',\n  run_id: exp.run_id,\n  exported: exp.exported,\n  total_exported: store.export_state.total_exported,\n  archive_path: exp.archive_path,\n  manifest_path: exp.manifest_path,\n  hit_page_cap: exp.hit_page_cap,\n  committed_at: store.export_state.last_run_at\n} }];"
+      },
+      "id": "e1000000-0000-4000-8000-00000000000d",
+      "name": "Code: Commit Cursor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_NOTIFICATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'sovereign-workbench-ops', severity: $json.hit_page_cap ? 'warning' : 'info', title: 'Audit export completed', exported: $json.exported, total_exported: $json.total_exported, archive: $json.archive_path, manifest: $json.manifest_path, chain: 'continuous', truncated_by_page_cap: $json.hit_page_cap }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "id": "e1000000-0000-4000-8000-00000000000e",
+      "name": "Notify Export Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1640, -100],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 15000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "Audit archive write failed - cursor deliberately NOT advanced so the same range is retried next run."
+      },
+      "id": "e1000000-0000-4000-8000-00000000000f",
+      "name": "Stop: Archive Write Failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1160, 140]
+    },
+    {
+      "parameters": {},
+      "id": "e1000000-0000-4000-8000-000000000010",
+      "name": "Nothing New To Archive",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [920, 120]
+    },
+    {
+      "parameters": {},
+      "id": "e1000000-0000-4000-8000-000000000011",
+      "name": "Export Complete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1880, -100]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Audit log unreachable during export: {{ $json.error || $json.message }}"
+      },
+      "id": "e1000000-0000-4000-8000-000000000012",
+      "name": "Stop: Audit Log Unreachable",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [-280, 200]
+    }
+  ],
+  "connections": {
+    "Daily 02:30 IST": {
+      "main": [[{ "node": "Code: Load Cursor", "type": "main", "index": 0 }]]
+    },
+    "Code: Load Cursor": {
+      "main": [[{ "node": "HTTP GET: Audit Page", "type": "main", "index": 0 }]]
+    },
+    "HTTP GET: Audit Page": {
+      "main": [
+        [{ "node": "Code: Accumulate And Verify Chain", "type": "main", "index": 0 }],
+        [{ "node": "Stop: Audit Log Unreachable", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Accumulate And Verify Chain": {
+      "main": [[{ "node": "If: More Pages", "type": "main", "index": 0 }]]
+    },
+    "If: More Pages": {
+      "main": [
+        [{ "node": "HTTP GET: Audit Page", "type": "main", "index": 0 }],
+        [{ "node": "If: Chain Broken", "type": "main", "index": 0 }]
+      ]
+    },
+    "If: Chain Broken": {
+      "main": [
+        [{ "node": "Escalate Chain Break", "type": "main", "index": 0 }],
+        [{ "node": "Code: Build Export", "type": "main", "index": 0 }]
+      ]
+    },
+    "Escalate Chain Break": {
+      "main": [[{ "node": "Stop: Audit Chain Break", "type": "main", "index": 0 }]]
+    },
+    "Code: Build Export": {
+      "main": [[{ "node": "If: Anything To Archive", "type": "main", "index": 0 }]]
+    },
+    "If: Anything To Archive": {
+      "main": [
+        [{ "node": "Append Audit Archive", "type": "main", "index": 0 }],
+        [{ "node": "Nothing New To Archive", "type": "main", "index": 0 }]
+      ]
+    },
+    "Append Audit Archive": {
+      "main": [
+        [{ "node": "Write Run Manifest", "type": "main", "index": 0 }],
+        [{ "node": "Stop: Archive Write Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Write Run Manifest": {
+      "main": [
+        [{ "node": "Code: Commit Cursor", "type": "main", "index": 0 }],
+        [{ "node": "Stop: Archive Write Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Commit Cursor": {
+      "main": [[{ "node": "Notify Export Result", "type": "main", "index": 0 }]]
+    },
+    "Notify Export Result": {
+      "main": [[{ "node": "Export Complete", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "REPLACE_WITH_WB00_WORKFLOW_ID",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 1800
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {}
+}

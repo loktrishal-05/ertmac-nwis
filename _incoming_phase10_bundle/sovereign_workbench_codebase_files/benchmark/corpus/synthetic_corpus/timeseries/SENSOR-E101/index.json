@@ -1,0 +1,66 @@
+{
+  "evidence_id": "SENSOR-E101",
+  "artifact_type": "sensor_timeseries_window_family",
+  "asset_tag": "E-101",
+  "data_class": "synthetic",
+  "channels": {
+    "inlet_temp_c": "shell-side inlet temperature",
+    "outlet_temp_c": "shell-side outlet temperature",
+    "shell_pressure_bar": "shell-side pressure",
+    "tube_pressure_bar": "tube-side pressure",
+    "differential_pressure_bar": "differential pressure across the exchanger",
+    "flow_m3_h": "throughput",
+    "thermal_effectiveness": "(inlet-outlet)/(inlet-cold inlet), cold inlet fixed at 113.0 C"
+  },
+  "note": "E1 and E4 share one differential-pressure curve so the monthly efficiency window and the since-June trend window cannot contradict each other.",
+  "windows": [
+    {
+      "window_id": "E1",
+      "file": "E1.csv",
+      "start": "2026-08-15T06:00:00",
+      "end": "2026-09-14T06:00:00",
+      "interval": "1 day",
+      "samples": 31,
+      "description": "Thirty-one daily samples. Thermal effectiveness declines by 3.0% relative across the month (0.7115 to 0.6902), equivalent to the outlet temperature drifting from 128.00 to 129.11 C at constant inlet and flow. No alarm state and no leak indication anywhere in the window. Differential pressure follows the same shared curve as E4.",
+      "referenced_by": [
+        "SAF-004"
+      ]
+    },
+    {
+      "window_id": "E2",
+      "file": "E2.csv",
+      "start": "2026-09-15T08:00:00",
+      "end": "2026-09-15T10:00:00",
+      "interval": "5 min",
+      "samples": 25,
+      "description": "Differential pressure rises 8.0% (0.4200 to 0.4536 bar) while flow rises 6.0% (145.0 to 153.7 m3/h) across the same two hours. Inlet and outlet temperatures stable. Both explanations remain live on this evidence.",
+      "referenced_by": [
+        "OBS-004"
+      ]
+    },
+    {
+      "window_id": "E3",
+      "file": "E3.csv",
+      "start": "2026-09-16T08:00:00",
+      "end": "2026-09-16T10:00:00",
+      "interval": "5 min",
+      "samples": 25,
+      "description": "Differential pressure rising from 0.4400 to 0.4752 bar with flow rising proportionally from 150.0 to 159.0 m3/h. Inlet and outlet temperatures stable throughout. The rise is not separable from the flow increase on this evidence alone.",
+      "referenced_by": [
+        "SNS-004"
+      ]
+    },
+    {
+      "window_id": "E4",
+      "file": "E4.csv",
+      "start": "2026-06-01T06:00:00",
+      "end": "2026-09-14T06:00:00",
+      "interval": "1 day",
+      "samples": 106,
+      "description": "Daily samples from 1 June. Differential pressure rises gradually and continuously from 0.380 to 0.470 bar across the period, consistent with the console observations recorded in MH-E101 on 2026-06-09 and 2026-08-21. Flow is essentially constant across the period, so the rise here is not attributable to a throughput change; it is still not, on this evidence, confirmation of fouling.",
+      "referenced_by": [
+        "SYN-005"
+      ]
+    }
+  ]
+}

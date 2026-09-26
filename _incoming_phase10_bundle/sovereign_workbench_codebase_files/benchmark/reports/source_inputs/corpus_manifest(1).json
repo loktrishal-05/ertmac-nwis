@@ -1,0 +1,528 @@
+{
+  "corpus_name": "Sovereign Workbench synthetic benchmark corpus",
+  "part": 1,
+  "generated_utc": "2026-09-21T19:57:18Z",
+  "source_of_truth": [
+    "benchmark_cases.jsonl",
+    "benchmark_evidence_requirements.md",
+    "benchmark_conversion_report.md"
+  ],
+  "data_class": "synthetic",
+  "contains_real_plant_data": false,
+  "generator": "build_corpus.py (deterministic, seed 20260921)",
+  "artifact_count": 16,
+  "file_count": 33,
+  "total_bytes": 109914,
+  "artifacts": [
+    {
+      "evidence_id": "SOP-P204-001 §4.2",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SOP-P204-001.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "CIT-001",
+        "HITL-001",
+        "HITL-002",
+        "JSON-001",
+        "RAG-001",
+        "SAF-001",
+        "SAF-005",
+        "SNS-001",
+        "SNS-002",
+        "SNS-003",
+        "SOP-001",
+        "SYN-001",
+        "TOOL-003"
+      ],
+      "notes": "revision R4 (APPROVED_CURRENT); authority site_controlled_procedure"
+    },
+    {
+      "evidence_id": "SOP-P204-001 §5.1",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SOP-P204-001.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "PID-001",
+        "PID-005",
+        "SAF-002",
+        "SOP-002"
+      ],
+      "notes": "revision R4 (APPROVED_CURRENT); authority site_controlled_procedure"
+    },
+    {
+      "evidence_id": "SOP-P204-001 §6.3",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SOP-P204-001.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "CIT-005",
+        "RAG-002",
+        "SOP-004",
+        "SYN-003"
+      ],
+      "notes": "revision R4 (APPROVED_CURRENT); authority site_controlled_procedure"
+    },
+    {
+      "evidence_id": "SOP-PTW-004 §2",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SOP-PTW-004.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "CIT-005",
+        "SOP-002",
+        "SOP-004",
+        "SYN-003"
+      ],
+      "notes": "revision R2 (APPROVED_CURRENT); authority site_controlled_procedure"
+    },
+    {
+      "evidence_id": "SOP-H2S-002 §3",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SOP-H2S-002.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "RAG-005",
+        "SAF-003"
+      ],
+      "notes": "revision R3 (APPROVED_CURRENT); authority site_controlled_procedure"
+    },
+    {
+      "evidence_id": "SOP-E101-003 §4",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SOP-E101-003.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "HITL-003",
+        "OBS-004",
+        "SAF-004",
+        "SNS-004",
+        "SOP-003",
+        "SYN-005"
+      ],
+      "notes": "revision R2 (APPROVED_CURRENT); authority site_controlled_procedure"
+    },
+    {
+      "evidence_id": "MAN-P204-001 §3",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/MAN-P204-001.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "HITL-005",
+        "MNT-001",
+        "RAG-004",
+        "SYN-001",
+        "SYN-002"
+      ],
+      "notes": "revision Issue 5 (VENDOR_ISSUED); authority vendor_manual"
+    },
+    {
+      "evidence_id": "INC-014",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/INC-014.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "INJ-003",
+        "REF-003",
+        "SAF-002"
+      ],
+      "notes": "revision 1.0 (CLOSED); authority incident_report"
+    },
+    {
+      "evidence_id": "INC-022",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/INC-022.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "CIT-003",
+        "PID-005",
+        "RAG-003",
+        "SYN-004"
+      ],
+      "notes": "revision 1.0 (CLOSED); authority incident_report"
+    },
+    {
+      "evidence_id": "SHIFT-U2-091",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/SHIFT-U2-091.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "OBS-001",
+        "REF-004"
+      ],
+      "notes": "revision 1.0 (FINAL); authority shift_log"
+    },
+    {
+      "evidence_id": "LAB-U2-031",
+      "artifact_type": "document_chunk",
+      "data_class": "synthetic",
+      "files": [
+        "documents/LAB-U2-031.md",
+        "chunks/document_chunks.jsonl"
+      ],
+      "referenced_by": [
+        "REF-004"
+      ],
+      "notes": "revision 1.0 (FINAL); authority laboratory_report"
+    },
+    {
+      "evidence_id": "MH-P204",
+      "artifact_type": "maintenance_history",
+      "data_class": "synthetic",
+      "files": [
+        "structured/MH-P204.csv",
+        "structured/MH-P204.json"
+      ],
+      "referenced_by": [
+        "HITL-004",
+        "HITL-005",
+        "INJ-002",
+        "JSON-004",
+        "MNT-001",
+        "MNT-002",
+        "MNT-003",
+        "MNT-005",
+        "OBS-002",
+        "OBS-003",
+        "REF-005",
+        "SNS-003",
+        "SYN-001",
+        "SYN-002",
+        "SYN-003",
+        "TOOL-001"
+      ],
+      "notes": "9 rows; strainer fouling recorded twice; one row carries permit_status 'not recorded'"
+    },
+    {
+      "evidence_id": "MH-E101",
+      "artifact_type": "maintenance_history",
+      "data_class": "synthetic",
+      "files": [
+        "structured/MH-E101.csv",
+        "structured/MH-E101.json"
+      ],
+      "referenced_by": [
+        "SYN-005"
+      ],
+      "notes": "5 rows; cleaning 2026-01-15; DP rise recorded from June"
+    },
+    {
+      "evidence_id": "WO-7712",
+      "artifact_type": "work_order_record",
+      "data_class": "synthetic",
+      "files": [
+        "structured/WO-7712.json"
+      ],
+      "referenced_by": [
+        "CIT-002",
+        "MNT-004"
+      ],
+      "notes": "negative impeller finding stated three ways so no chunk fragment can read as affirmative"
+    },
+    {
+      "evidence_id": "SENSOR-P204-A",
+      "artifact_type": "sensor_timeseries_window_family",
+      "data_class": "synthetic",
+      "files": [
+        "timeseries/SENSOR-P204-A/index.json",
+        "timeseries/SENSOR-P204-A/W1.csv",
+        "timeseries/SENSOR-P204-A/W2.csv",
+        "timeseries/SENSOR-P204-A/W3.csv",
+        "timeseries/SENSOR-P204-A/W4.csv",
+        "timeseries/SENSOR-P204-A/W5.csv",
+        "timeseries/SENSOR-P204-A/W6.csv",
+        "timeseries/SENSOR-P204-A/W7.csv",
+        "timeseries/SENSOR-P204-A/W8.csv",
+        "timeseries/SENSOR-P204-A/W9.csv",
+        "timeseries/SENSOR-P204-A/W10.csv",
+        "timeseries/SENSOR-P204-A/W11.csv",
+        "timeseries/SENSOR-P204-A/W12.csv"
+      ],
+      "referenced_by": [
+        "HITL-002",
+        "JSON-004",
+        "MNT-002",
+        "MNT-003",
+        "OBS-001",
+        "OBS-002",
+        "OBS-003",
+        "REF-004",
+        "REF-005",
+        "SAF-001",
+        "SAF-005",
+        "SNS-001",
+        "SNS-002",
+        "SNS-003",
+        "SNS-005",
+        "SYN-001",
+        "SYN-002",
+        "TOOL-002"
+      ],
+      "notes": "12 separately addressable windows W1-W12, 1-minute samples"
+    },
+    {
+      "evidence_id": "SENSOR-E101",
+      "artifact_type": "sensor_timeseries_window_family",
+      "data_class": "synthetic",
+      "files": [
+        "timeseries/SENSOR-E101/index.json",
+        "timeseries/SENSOR-E101/E1.csv",
+        "timeseries/SENSOR-E101/E2.csv",
+        "timeseries/SENSOR-E101/E3.csv",
+        "timeseries/SENSOR-E101/E4.csv"
+      ],
+      "referenced_by": [
+        "HITL-003",
+        "OBS-004",
+        "SAF-004",
+        "SNS-004",
+        "SYN-005"
+      ],
+      "notes": "4 windows E1-E4; E1 and E4 share one DP curve"
+    }
+  ],
+  "files": [
+    {
+      "path": "chunks/document_chunks.jsonl",
+      "bytes": 26790,
+      "sha256": "cbe2589b4fb9e31f68d9aecb1d740dd059a9904b94fb59f67682096a2ba73c7f"
+    },
+    {
+      "path": "documents/INC-014.md",
+      "bytes": 2633,
+      "sha256": "667884add0dc8778c1f881239599595e6d077b45b9d5df70ab2fb1cf72f72ec8"
+    },
+    {
+      "path": "documents/INC-022.md",
+      "bytes": 3135,
+      "sha256": "d6196472654cd21cac9a78771e5d17ad9d014b9175a0054e4178a82119d91918"
+    },
+    {
+      "path": "documents/LAB-U2-031.md",
+      "bytes": 1812,
+      "sha256": "30e3453753f9ea0f76f6401705fe1a3a34353fa95fdd4de3d935aae3fd262079"
+    },
+    {
+      "path": "documents/MAN-P204-001.md",
+      "bytes": 2797,
+      "sha256": "1ea490f7f6ed9c8f77c62ea04674d4ffcb800986cf9e0fa1cd94208de739f246"
+    },
+    {
+      "path": "documents/SHIFT-U2-091.md",
+      "bytes": 1927,
+      "sha256": "b3b6ba29135a02ca179f4f3c902f916590d11eff4b0c09eb6e43f96314c08b2a"
+    },
+    {
+      "path": "documents/SOP-E101-003.md",
+      "bytes": 3697,
+      "sha256": "523ca194f720c1a7cebf996fc7a3473dffd8611084f757807fd449b166eb6f0f"
+    },
+    {
+      "path": "documents/SOP-H2S-002.md",
+      "bytes": 2813,
+      "sha256": "640e89aba14d098a0c9ae77eaf93aead0a0dc0a9780dd10d128b2934b2da1ac5"
+    },
+    {
+      "path": "documents/SOP-P204-001.md",
+      "bytes": 6190,
+      "sha256": "0b4540bb55d2b22b234c8e7d8c3eb820e6dfa000bb21aebcf450d2926b34389d"
+    },
+    {
+      "path": "documents/SOP-PTW-004.md",
+      "bytes": 2803,
+      "sha256": "dc77ed4d0f1cbca6f4ca6c7e43c2f1d9e36a5b6840df97a147ddaad608bda930"
+    },
+    {
+      "path": "structured/MH-E101.csv",
+      "bytes": 1019,
+      "sha256": "6da081f90660c9c4e0bc77be5df595347d593d1eb7022fd411dc5daaba70a7ee"
+    },
+    {
+      "path": "structured/MH-E101.json",
+      "bytes": 2053,
+      "sha256": "de7a4be080178bd72d64902ee4dcdc762d857ba4cd05fba19049f87948a15b67"
+    },
+    {
+      "path": "structured/MH-P204.csv",
+      "bytes": 1861,
+      "sha256": "af4b631ff955e58fd4fc183435c8720b2cc71c7a4b90c193f48b1ac50f0c5efa"
+    },
+    {
+      "path": "structured/MH-P204.json",
+      "bytes": 3684,
+      "sha256": "10c8944fefc76018b03e219e4a130fc67f1cb64c38f412c4be4a4f8af9312495"
+    },
+    {
+      "path": "structured/WO-7712.json",
+      "bytes": 2332,
+      "sha256": "4e0c0db865b8014c5203a171c7748b76f37f0a46792857b183f4a1b20ca472c4"
+    },
+    {
+      "path": "timeseries/SENSOR-E101/E1.csv",
+      "bytes": 2314,
+      "sha256": "f201c49471824139fb1624b7b65adbb9a1c6cf335a9a4c73bc6db5ea84e5b307"
+    },
+    {
+      "path": "timeseries/SENSOR-E101/E2.csv",
+      "bytes": 1889,
+      "sha256": "305494fba5a48719e39820759e75ecd418773d0570b650437331eb4ead8494b0"
+    },
+    {
+      "path": "timeseries/SENSOR-E101/E3.csv",
+      "bytes": 1891,
+      "sha256": "91298ed9f2895393a055c54e0130282ce54f26924019eba22723bd11b43f10b0"
+    },
+    {
+      "path": "timeseries/SENSOR-E101/E4.csv",
+      "bytes": 7564,
+      "sha256": "3ce7af57731a43b14022499cf6b01261960fdcb1a8210cd479b2437dc42d155f"
+    },
+    {
+      "path": "timeseries/SENSOR-E101/index.json",
+      "bytes": 2943,
+      "sha256": "ba89d460a8777ac9dc7fd082a73b4f9331b88dcf918f30ca014cf729c5253f82"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W1.csv",
+      "bytes": 1779,
+      "sha256": "3ba94642f7f0b6fbbce5dbd34b411cff1112f596888e7a04ae27512f752422bd"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W10.csv",
+      "bytes": 1772,
+      "sha256": "e8da5980f4f2c9a56dcfc7e50c69e51982feb023541d3d8b95f2437ae4765a5d"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W11.csv",
+      "bytes": 1778,
+      "sha256": "2b5145f629b62581a7bcde7a523a4954e511f7c1b7ba4664997bc568fc4fedec"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W12.csv",
+      "bytes": 1777,
+      "sha256": "f52ec6ab88cfe576eb2ad10eccac6f21776b90849bbab538a39d2fef55281c7e"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W2.csv",
+      "bytes": 1775,
+      "sha256": "6860ddf82d5d4be1fd0bb7420ae290c221266f723868562d0f52d32221af53d5"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W3.csv",
+      "bytes": 1238,
+      "sha256": "56f45235982ca528173accdd1f9903f7c7ebff00a07b7ee647da0add52eb582a"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W4.csv",
+      "bytes": 1804,
+      "sha256": "41074e44bd51a7412579cf1cd6b1529158232966587be944d9c2fcd94100465f"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W5.csv",
+      "bytes": 1773,
+      "sha256": "e0305ef41f87b8eb9801c72b9e16e01fa960581ae6b0825db4a8b80159280ced"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W6.csv",
+      "bytes": 970,
+      "sha256": "e8cbbc948ef7b279b9e31be1266e0bd3f595f4e86a4dd2846ca9ae3db13df0cb"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W7.csv",
+      "bytes": 1780,
+      "sha256": "138b56fc32cbeaebbe78abeeebe77c06213a5078cf503adcfb4bd907411bfb97"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W8.csv",
+      "bytes": 2311,
+      "sha256": "8e97c7284765849accca8af1d2d4bc81087c657cdd193493dd5330ed88b5813a"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/W9.csv",
+      "bytes": 3101,
+      "sha256": "5c4191192eea1e2e9079b7e0301995d7c1383f63cbe6ac05b6279c4f2a6c159d"
+    },
+    {
+      "path": "timeseries/SENSOR-P204-A/index.json",
+      "bytes": 5909,
+      "sha256": "98a538425deeecacc9460d144d96bcb71de04556ff5c481161e98a3db804c4ae"
+    }
+  ],
+  "deferred_to_later_parts": [
+    {
+      "evidence_id": "PID-U2-017 R3",
+      "reason": "P&ID OCR artifact - Part 2 (ambiguous regions need operator decisions)"
+    },
+    {
+      "evidence_id": "PID-U2-021 R2",
+      "reason": "E-101 P&ID OCR artifact - Part 2"
+    },
+    {
+      "evidence_id": "REG-U2-001",
+      "reason": "asset registry - deferred, alias table requires an operator decision"
+    },
+    {
+      "evidence_id": "SOP-P204-001 R1-DRAFT",
+      "reason": "obsolete draft - deferred, content not specified in source"
+    },
+    {
+      "evidence_id": "INJ-DOC-001",
+      "reason": "injection payload - deferred"
+    },
+    {
+      "evidence_id": "INJ-WO-001",
+      "reason": "injection payload - deferred"
+    },
+    {
+      "evidence_id": "INJ-INC-001",
+      "reason": "injection payload - deferred"
+    },
+    {
+      "evidence_id": "INJ-OCR-001",
+      "reason": "injection payload - deferred"
+    }
+  ],
+  "deliberate_absences_preserved": [
+    "no confirmed P-204 impeller damage",
+    "no approved maximum temperature for E-101",
+    "no maintenance record for C-909",
+    "no remaining bearing life figure",
+    "no predicted failure timestamp",
+    "no authorization for any reader or automated system to start, stop, isolate or bypass equipment"
+  ],
+  "validation": {
+    "checks_run": 129,
+    "passed": 129,
+    "failed": 0,
+    "failures": []
+  }
+}

@@ -18,7 +18,7 @@ export function DataView({ value }) {
 }
 
 function Evidence({ items = [] }) {
-  return <section><h3>Citations / source evidence</h3>{!items.length && <p>No source evidence returned.</p>}{items.map((item, index) => <details key={item.evidence_id || index}><summary>{item.source_filename || item.evidence_id || `Source ${index + 1}`} — {item.locator || 'Locator in details'}</summary><DataView value={item} /></details>)}</section>
+  return <section><h3>Citations / source evidence</h3>{!items.length && <p>No source evidence returned.</p>}{items.some(item => item.ocr_derived || item.kind === 'pid_region') && <p className="review-notice">P&amp;ID / OCR evidence is as drawn only. It does not prove field topology, connectivity, isolation, valve state, permits, or readiness.</p>}{items.map((item, index) => <details key={item.evidence_id || index}><summary>{item.source_filename || item.evidence_id || `Source ${index + 1}`} — {item.locator || 'Locator in details'}</summary><DataView value={item} /></details>)}</section>
 }
 
 export function ExecutionPanel({ execution }) {
@@ -95,7 +95,7 @@ export function QueryConsole({ user }) {
   const request = useRequest()
   async function submit(event) {
     event.preventDefault()
-    await request.run('/query', { method: 'POST', body: { query, request_id: crypto.randomUUID(), input_language: language, input_channel: channel }, timeout: 660000 })
+    await request.run('/query', { method: 'POST', body: { query, request_id: crypto.randomUUID(), input_language: language, input_channel: channel }, timeout: 2100000 })
   }
   return <section className="panel"><h2>{t('Ask the workbench')}</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
     <VoiceControls key={request.data?.run_id || 'input'} user={user} onTranscript={text => { setQuery(text); setChannel('voice') }} result={request.data} />

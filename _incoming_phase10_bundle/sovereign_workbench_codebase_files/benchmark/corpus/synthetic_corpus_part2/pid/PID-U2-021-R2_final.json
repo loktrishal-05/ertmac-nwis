@@ -1,0 +1,185 @@
+{
+  "evidence_id": "PID-U2-021 R2",
+  "artifact_type": "pid_ocr_evidence",
+  "drawing_number": "PID-U2-021",
+  "revision": "R2",
+  "revision_status": "APPROVED_CURRENT",
+  "title": "P&ID — Unit 2 Heat Exchanger E-101 (synthetic)",
+  "pages": 1,
+  "ocr_derived": true,
+  "data_class": "synthetic",
+  "synthetic_notice": "SYNTHETIC EVALUATION ARTIFACT. Not a real drawing, procedure or record. Not derived from any real facility. Authorizes no operational action.",
+  "role_in_corpus": "Retrieval distractor. No evaluation case in the 75-case manifest requires this artifact. It is retained because the E-101 bypass cases (HITL-003, SYN-005) retrieve in its neighbourhood, and a corpus with no near-miss drawing makes P&ID retrieval easier than the benchmark intends.",
+  "coordinate_system": {
+    "origin": "top-left",
+    "units": "pixels at 300 dpi",
+    "page_width": 3508,
+    "page_height": 2480
+  },
+  "coverage": {
+    "mode": "SELECTED_REGIONS_ONLY",
+    "regions_captured": 5,
+    "complete_drawing_coverage": false,
+    "statement": "OCR was run over selected regions only. This is not a complete inventory of the drawing."
+  },
+  "regions": [
+    {
+      "region_id": "R2-001",
+      "page": 1,
+      "bbox": [
+        820,
+        980,
+        1010,
+        1044
+      ],
+      "raw_ocr_text": "E-101",
+      "confidence": 0.95,
+      "confidence_band": "high",
+      "element_type": "equipment_tag",
+      "line_association": "shell-and-tube exchanger body",
+      "normalization_candidates": [
+        {
+          "candidate": "E-101",
+          "basis": "verbatim match to a verified registry record"
+        }
+      ],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R2-002",
+      "page": 1,
+      "bbox": [
+        612,
+        1052,
+        800,
+        1112
+      ],
+      "raw_ocr_text": "SHELL INLET",
+      "confidence": 0.9,
+      "confidence_band": "high",
+      "element_type": "nozzle_label",
+      "line_association": "E-101 shell-side inlet connection",
+      "normalization_candidates": [],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R2-003",
+      "page": 1,
+      "bbox": [
+        1032,
+        1052,
+        1228,
+        1112
+      ],
+      "raw_ocr_text": "SHELL OUTLET",
+      "confidence": 0.89,
+      "confidence_band": "high",
+      "element_type": "nozzle_label",
+      "line_association": "E-101 shell-side outlet connection",
+      "normalization_candidates": [],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R2-004",
+      "page": 1,
+      "bbox": [
+        1032,
+        1236,
+        1216,
+        1296
+      ],
+      "raw_ocr_text": "TUBE INLET / OUTLET",
+      "confidence": 0.86,
+      "confidence_band": "medium",
+      "element_type": "nozzle_label",
+      "line_association": "E-101 tube-side connections",
+      "normalization_candidates": [],
+      "status": "unverified"
+    },
+    {
+      "region_id": "R2-005",
+      "page": 1,
+      "bbox": [
+        900,
+        806,
+        1074,
+        866
+      ],
+      "raw_ocr_text": "XV-1O1B",
+      "confidence": 0.49,
+      "confidence_band": "low",
+      "element_type": "valve_tag",
+      "line_association": "E-101 bypass line",
+      "normalization_candidates": [
+        {
+          "candidate": "XV-101B",
+          "candidate_status": "unverified_candidate",
+          "basis": "A letter 'O' for digit '0' substitution is a common OCR error. No registry record exists for either the raw text or this candidate in REG-U2-001.",
+          "does_not_imply": "Neither the raw text nor the candidate is verified."
+        }
+      ],
+      "raw_text_preserved": true,
+      "status": "ambiguous",
+      "note": "Low-confidence bypass valve reading retained as read. Not resolved, not rewritten, and not present in the registry."
+    }
+  ],
+  "connectivity": [
+    {
+      "from": "shell inlet header",
+      "to": "R2-002",
+      "relation": "flows_to"
+    },
+    {
+      "from": "R2-002",
+      "to": "R2-001",
+      "relation": "flows_to"
+    },
+    {
+      "from": "R2-001",
+      "to": "R2-003",
+      "relation": "flows_to"
+    },
+    {
+      "from": "shell inlet header",
+      "to": "R2-005",
+      "relation": "flows_to",
+      "note": "The bypass line captured at R2-005 runs around the exchanger body."
+    }
+  ],
+  "does_not_establish": [
+    "isolation authorization",
+    "the current position or state of any valve",
+    "physical isolation",
+    "permit status",
+    "any authority for a reader or automated system to operate equipment",
+    "the identity of the bypass valve at region R2-005",
+    "a complete list of valves or tags on the drawing",
+    "field or as-built topology and physical connectivity",
+    "operational or restart readiness",
+    "valve identity sufficient for isolation without independent field tag verification"
+  ],
+  "referenced_by": [],
+  "evidence_class": "as_drawn_only",
+  "connectivity_metadata": {
+    "evidence_class": "as_drawn_only",
+    "derivation": "Existing drawing-geometry-derived connectivity edges, not field verification or OCR proof of physical connectivity.",
+    "does_not_prove": [
+      "field topology",
+      "as-built topology",
+      "physical connectivity",
+      "isolation",
+      "current valve state",
+      "permit status",
+      "readiness",
+      "valve identity sufficient for safety-critical selection"
+    ],
+    "required_qualification": "Relationships are as drawn only. OCR identities remain subject to the per-region confidence and normalization limitations; independent field tag verification is required."
+  },
+  "hardening": {
+    "source": "Operator decisions 8–10 in the current finalization request",
+    "date": "2026-09-23",
+    "source_file": "PID-U2-021-R2.json",
+    "source_sha256": "2caa5b565103c414886be78d78413c8620689050dc57600e7c366355b238f451",
+    "scope": "Additive evidence limitations only; regions and connectivity unchanged."
+  }
+}

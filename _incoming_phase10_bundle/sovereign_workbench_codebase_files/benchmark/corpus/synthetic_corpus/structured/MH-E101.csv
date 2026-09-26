@@ -1,0 +1,6 @@
+record_id,asset_tag,event_date,event_type,description,work_order,outcome,permit_status
+MH-E101-001,E-101,2025-10-08,preventive,Tube-side inspection carried out at the scheduled interval. No action raised.,WO-7201,completed,closed
+MH-E101-002,E-101,2026-01-15,corrective,Shell side and tube side cleaned. Differential pressure measured lower after cleaning than before cleaning. Exchanger returned to service.,WO-7402,completed,closed
+MH-E101-003,E-101,2026-04-02,preventive,Routine inspection. Differential pressure stable against the value recorded after the January cleaning.,WO-7524,completed,closed
+MH-E101-004,E-101,2026-06-09,observation,Gradual rise in differential pressure first noted by the console. Monitoring continued. No inspection carried out and no cause established.,,monitoring,n/a
+MH-E101-005,E-101,2026-08-21,observation,Differential-pressure rise continuing against the trend since June. No cleaning scheduled at this time. No inspection carried out and no cause established.,,monitoring,n/a

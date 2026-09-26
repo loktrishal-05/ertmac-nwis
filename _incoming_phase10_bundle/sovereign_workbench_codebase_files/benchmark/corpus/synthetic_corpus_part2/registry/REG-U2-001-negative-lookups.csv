@@ -1,0 +1,3 @@
+query,result,normalization_candidates,queried_text_status,data_class
+C-909,NOT_FOUND,,not_applicable,synthetic
+XV-2040,NOT_FOUND,XV-204D,unverified,synthetic

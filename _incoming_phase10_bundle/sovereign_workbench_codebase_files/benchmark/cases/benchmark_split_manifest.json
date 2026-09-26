@@ -1,0 +1,399 @@
+{
+  "format_version": "1.0",
+  "authority": "Exact operator-approved manual split; split_proposed_superseded is archival only.",
+  "benchmark_file": "benchmark_cases_final.jsonl",
+  "benchmark_sha256": "8bbb958865e0042a6951c05342b4cb67e4791e0515f32b2831607b408c9176bb",
+  "counts": {
+    "development": 15,
+    "validation": 15,
+    "blind": 45
+  },
+  "total": 75,
+  "splits": {
+    "development": [
+      "RAG-001",
+      "SOP-001",
+      "TAG-002",
+      "MNT-004",
+      "SAF-004",
+      "TOOL-003",
+      "JSON-003",
+      "CIT-001",
+      "REF-001",
+      "INJ-001",
+      "HITL-002",
+      "OBS-005",
+      "SYN-005",
+      "PID-005",
+      "SNS-002"
+    ],
+    "validation": [
+      "RAG-005",
+      "SOP-004",
+      "TAG-004",
+      "MNT-003",
+      "SAF-002",
+      "TOOL-004",
+      "JSON-005",
+      "CIT-003",
+      "REF-005",
+      "INJ-005",
+      "HITL-001",
+      "OBS-004",
+      "SYN-001",
+      "PID-001",
+      "SNS-005"
+    ],
+    "blind": [
+      "RAG-002",
+      "RAG-003",
+      "RAG-004",
+      "SOP-002",
+      "SOP-003",
+      "SOP-005",
+      "TAG-001",
+      "TAG-003",
+      "TAG-005",
+      "MNT-001",
+      "MNT-002",
+      "MNT-005",
+      "SAF-001",
+      "SAF-003",
+      "SAF-005",
+      "TOOL-001",
+      "TOOL-002",
+      "TOOL-005",
+      "JSON-001",
+      "JSON-002",
+      "JSON-004",
+      "CIT-002",
+      "CIT-004",
+      "CIT-005",
+      "REF-002",
+      "REF-003",
+      "REF-004",
+      "INJ-002",
+      "INJ-003",
+      "INJ-004",
+      "HITL-003",
+      "HITL-004",
+      "HITL-005",
+      "OBS-001",
+      "OBS-002",
+      "OBS-003",
+      "SYN-002",
+      "SYN-003",
+      "SYN-004",
+      "PID-002",
+      "PID-003",
+      "PID-004",
+      "SNS-001",
+      "SNS-003",
+      "SNS-004"
+    ]
+  },
+  "categories": [
+    {
+      "category_id": "A",
+      "category": "Knowledge/RAG questions",
+      "development": [
+        "RAG-001"
+      ],
+      "validation": [
+        "RAG-005"
+      ],
+      "blind": [
+        "RAG-002",
+        "RAG-003",
+        "RAG-004"
+      ]
+    },
+    {
+      "category_id": "B",
+      "category": "SOP retrieval",
+      "development": [
+        "SOP-001"
+      ],
+      "validation": [
+        "SOP-004"
+      ],
+      "blind": [
+        "SOP-002",
+        "SOP-003",
+        "SOP-005"
+      ]
+    },
+    {
+      "category_id": "C",
+      "category": "Equipment-tag extraction",
+      "development": [
+        "TAG-002"
+      ],
+      "validation": [
+        "TAG-004"
+      ],
+      "blind": [
+        "TAG-001",
+        "TAG-003",
+        "TAG-005"
+      ]
+    },
+    {
+      "category_id": "D",
+      "category": "Maintenance reasoning",
+      "development": [
+        "MNT-004"
+      ],
+      "validation": [
+        "MNT-003"
+      ],
+      "blind": [
+        "MNT-001",
+        "MNT-002",
+        "MNT-005"
+      ]
+    },
+    {
+      "category_id": "E",
+      "category": "Safety routing",
+      "development": [
+        "SAF-004"
+      ],
+      "validation": [
+        "SAF-002"
+      ],
+      "blind": [
+        "SAF-001",
+        "SAF-003",
+        "SAF-005"
+      ]
+    },
+    {
+      "category_id": "F",
+      "category": "Tool selection",
+      "development": [
+        "TOOL-003"
+      ],
+      "validation": [
+        "TOOL-004"
+      ],
+      "blind": [
+        "TOOL-001",
+        "TOOL-002",
+        "TOOL-005"
+      ]
+    },
+    {
+      "category_id": "G",
+      "category": "Structured JSON",
+      "development": [
+        "JSON-003"
+      ],
+      "validation": [
+        "JSON-005"
+      ],
+      "blind": [
+        "JSON-001",
+        "JSON-002",
+        "JSON-004"
+      ]
+    },
+    {
+      "category_id": "H",
+      "category": "Citation correctness",
+      "development": [
+        "CIT-001"
+      ],
+      "validation": [
+        "CIT-003"
+      ],
+      "blind": [
+        "CIT-002",
+        "CIT-004",
+        "CIT-005"
+      ]
+    },
+    {
+      "category_id": "I",
+      "category": "Missing-evidence refusal",
+      "development": [
+        "REF-001"
+      ],
+      "validation": [
+        "REF-005"
+      ],
+      "blind": [
+        "REF-002",
+        "REF-003",
+        "REF-004"
+      ]
+    },
+    {
+      "category_id": "J",
+      "category": "Prompt-injection resistance",
+      "development": [
+        "INJ-001"
+      ],
+      "validation": [
+        "INJ-005"
+      ],
+      "blind": [
+        "INJ-002",
+        "INJ-003",
+        "INJ-004"
+      ]
+    },
+    {
+      "category_id": "K",
+      "category": "Human-approval detection",
+      "development": [
+        "HITL-002"
+      ],
+      "validation": [
+        "HITL-001"
+      ],
+      "blind": [
+        "HITL-003",
+        "HITL-004",
+        "HITL-005"
+      ]
+    },
+    {
+      "category_id": "L",
+      "category": "Observation versus hypothesis separation",
+      "development": [
+        "OBS-005"
+      ],
+      "validation": [
+        "OBS-004"
+      ],
+      "blind": [
+        "OBS-001",
+        "OBS-002",
+        "OBS-003"
+      ]
+    },
+    {
+      "category_id": "M",
+      "category": "Multi-document synthesis",
+      "development": [
+        "SYN-005"
+      ],
+      "validation": [
+        "SYN-001"
+      ],
+      "blind": [
+        "SYN-002",
+        "SYN-003",
+        "SYN-004"
+      ]
+    },
+    {
+      "category_id": "N",
+      "category": "P&ID OCR-derived evidence handling",
+      "development": [
+        "PID-005"
+      ],
+      "validation": [
+        "PID-001"
+      ],
+      "blind": [
+        "PID-002",
+        "PID-003",
+        "PID-004"
+      ]
+    },
+    {
+      "category_id": "O",
+      "category": "Sensor anomaly interpretation",
+      "development": [
+        "SNS-002"
+      ],
+      "validation": [
+        "SNS-005"
+      ],
+      "blind": [
+        "SNS-001",
+        "SNS-003",
+        "SNS-004"
+      ]
+    }
+  ],
+  "near_duplicate_clusters": [
+    {
+      "cluster": "C1",
+      "members": {
+        "TAG-002": "development",
+        "JSON-003": "development",
+        "PID-002": "blind",
+        "OBS-005": "development"
+      }
+    },
+    {
+      "cluster": "C2",
+      "members": {
+        "OBS-004": "validation",
+        "SNS-004": "blind",
+        "SYN-005": "development"
+      }
+    },
+    {
+      "cluster": "C3",
+      "members": {
+        "SOP-001": "development",
+        "SAF-005": "blind",
+        "HITL-002": "development"
+      }
+    },
+    {
+      "cluster": "C4",
+      "members": {
+        "MNT-003": "validation",
+        "SYN-002": "blind"
+      }
+    },
+    {
+      "cluster": "C5",
+      "members": {
+        "TAG-004": "validation",
+        "REF-002": "blind",
+        "JSON-005": "validation"
+      }
+    },
+    {
+      "cluster": "C6",
+      "members": {
+        "TOOL-004": "validation",
+        "PID-003": "blind"
+      }
+    },
+    {
+      "cluster": "C7",
+      "members": {
+        "MNT-004": "development",
+        "CIT-002": "blind"
+      }
+    },
+    {
+      "cluster": "C8",
+      "members": {
+        "RAG-005": "validation",
+        "SAF-003": "blind"
+      }
+    }
+  ],
+  "human_approval_counts": {
+    "development": {
+      "true": 2,
+      "false": 13
+    },
+    "validation": {
+      "true": 2,
+      "false": 13
+    },
+    "blind": {
+      "true": 7,
+      "false": 38
+    }
+  }
+}
