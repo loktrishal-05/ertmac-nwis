@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.deps import require_role
 from app.schemas.structured import MaintenanceIngestRequest, StructuredIngestResponse, MaintenanceHistoryResponse
 from app.services.ingestion import IngestionConflict
 from app.services.maintenance_data import ingest_maintenance
@@ -13,7 +14,7 @@ router = APIRouter(tags=["maintenance"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("/data/maintenance/ingest", response_model=StructuredIngestResponse)
+@router.post("/data/maintenance/ingest", response_model=StructuredIngestResponse, dependencies=[Depends(require_role("admin"))])
 def ingest_maintenance_csv(request: MaintenanceIngestRequest, session: Session = Depends(get_db)):
     try:
         return ingest_maintenance(request, session)

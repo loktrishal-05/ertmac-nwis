@@ -116,7 +116,9 @@ def _insert_once(session, model, values):
     session.execute(insert(model).values(**values).on_conflict_do_nothing())
 
 
-def _check_request(binding, request):
+def _check_request(binding, request, requester_user_id=None):
+    if binding.requester_user_id != requester_user_id:
+        raise GovernanceConflict("request_id is already bound to a different authenticated requester")
     if binding.canonical_request_hash != canonical_hash(_request_payload(request)):
         raise GovernanceConflict("request_id is already bound to different request content or claimed context")
 
@@ -289,7 +291,7 @@ def create_revision(session, request: QueryRequest, state: dict, *, replay: bool
     revision_id = uuid5(request_id, CANONICALIZATION_VERSION + ":" + POLICY_VERSION + ":" + proposal_hash)
     existing = session.get(GovernanceRequest, request_id)
     if existing:
-        _check_request(existing, request)
+        _check_request(existing, request, requester_user_id)
     if evaluate_governance(request, state) != "PENDING_REVIEW" and existing is None:
         raise ValueError("Informational output does not create an actionable approval")
 
@@ -306,7 +308,7 @@ def create_revision(session, request: QueryRequest, state: dict, *, replay: bool
         "requester_user_id": requester_user_id,
     })
     binding = session.scalars(select(GovernanceRequest).where(GovernanceRequest.id == request_id).with_for_update()).one()
-    _check_request(binding, request)
+    _check_request(binding, request, requester_user_id)
     previous = _first_revision(session, request_id)
     if replay and previous is not None:
         return previous
@@ -356,13 +358,13 @@ def _draft_response(session, revision) -> QueryResponse:
     )
 
 
-def replay_request(session, request: QueryRequest) -> QueryResponse | None:
+def replay_request(session, request: QueryRequest, *, requester_user_id: UUID | None = None) -> QueryResponse | None:
     if request.request_id is None:
         return None
     binding = session.get(GovernanceRequest, request.request_id)
     if binding is None:
         return None
-    _check_request(binding, request)
+    _check_request(binding, request, requester_user_id)
     revision = _first_revision(session, binding.id)
     if revision is None:
         raise GovernanceConflict("Request has no committed revision")
@@ -379,7 +381,7 @@ def _operational_events(session, state, actor_id):
 def govern_response(session, request: QueryRequest, state: dict, *,
                     requester_user_id: UUID | None = None) -> QueryResponse:
     """Only public response assembler; commit before returning a pending draft."""
-    replayed = replay_request(session, request)
+    replayed = replay_request(session, request, requester_user_id=requester_user_id)
     if replayed is not None:
         return replayed
     if evaluate_governance(request, state) == "PENDING_REVIEW":

@@ -208,6 +208,12 @@ class QueryPreflightIntegrationTests(unittest.TestCase):
         app.dependency_overrides[get_db] = lambda: self.session
         self.addCleanup(app.dependency_overrides.pop, get_db)
         self.client = TestClient(app)
+        from app.api.deps import get_optional_current_user
+        actor = User(username="preflight-requester", role="requester")
+        self.session.add(actor)
+        self.session.commit()
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
 
     def _audit_rows(self):
         return self.session.execute(select(AuditEvent).order_by(AuditEvent.sequence_number)).scalars().all()

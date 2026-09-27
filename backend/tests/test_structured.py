@@ -300,6 +300,11 @@ class MaintenanceIngestionAPITests(unittest.TestCase):
         session = StructuredMemorySession()
         app.dependency_overrides[get_db] = lambda: session
         self.addCleanup(app.dependency_overrides.pop, get_db)
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-admin", role="admin")
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
         with TestClient(app) as client:
             body = {"source_path": "maintenance.csv", "synthetic": True}
             response = client.post("/data/maintenance/ingest", json=body)
@@ -350,6 +355,11 @@ class SensorIngestionAPITests(unittest.TestCase):
         session = StructuredMemorySession()
         app.dependency_overrides[get_db] = lambda: session
         self.addCleanup(app.dependency_overrides.pop, get_db)
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-admin", role="admin")
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
         with TestClient(app) as client:
             body = {"source_path": "sensor.csv", "synthetic": True}
             response = client.post("/data/sensors/ingest", json=body)
@@ -475,6 +485,11 @@ class QueryAPITests(unittest.TestCase):
         session.commit()
         app.dependency_overrides[get_db] = lambda: session
         self.addCleanup(app.dependency_overrides.pop, get_db)
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-requester", role="requester")
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
         with TestClient(app) as client:
             history = client.get("/maintenance/history", params={"equipment_tag": "P-204"})
             self.assertEqual(history.status_code, 200, history.text)

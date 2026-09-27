@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 @router.post("/knowledge/retrieve", response_model=RetrieveResponse)
 def retrieve_evidence(request: RetrieveRequest, session: Session = Depends(get_db)):
+    if request.filters.access_scope not in (None, "internal"):
+        raise HTTPException(status_code=403, detail="Requested evidence scope is not authorized.")
+    request = request.model_copy(update={"filters": request.filters.model_copy(update={"access_scope": "internal"})})
     try:
         return retrieve(request, session)
     except ValueError as error:

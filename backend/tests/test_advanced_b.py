@@ -231,9 +231,14 @@ class OperationalTests(unittest.TestCase):
         with patch.object(op, "invoke_tool", side_effect=self.tools):
             original = query(request, self.session, self.actor)
         self.assertEqual(query(request, self.session, self.actor).action_revision_id, original.action_revision_id)
-        with self.assertRaises(HTTPException) as error:
-            query(request, self.session, None)
-        self.assertEqual(error.exception.status_code, 401)
+        # Authentication now belongs to the mandatory HTTP dependency.
+        from app.api.deps import get_optional_current_user
+        app.dependency_overrides[get_db] = lambda: self.session
+        app.dependency_overrides[get_optional_current_user] = lambda: None
+        self.addCleanup(app.dependency_overrides.pop, get_db)
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
+        with TestClient(app) as client:
+            self.assertEqual(client.post("/query", json=request.model_dump(mode="json")).status_code, 401)
         with patch("app.api.routes.query.authorize", side_effect=DecisionNotAllowed("Role denied")):
             with self.assertRaises(HTTPException) as error:
                 query(request, self.session, self.actor)

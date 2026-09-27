@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
+from app.api.deps import require_role
 from app.schemas.structured import (
     SensorIngestRequest, StructuredIngestResponse, SensorReadingsResponse,
     SensorFeatureRequest, SensorFeatureResponse,
@@ -16,7 +17,7 @@ router = APIRouter(tags=["sensors"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("/data/sensors/ingest", response_model=StructuredIngestResponse)
+@router.post("/data/sensors/ingest", response_model=StructuredIngestResponse, dependencies=[Depends(require_role("admin"))])
 def ingest_sensor_csv(request: SensorIngestRequest, session: Session = Depends(get_db)):
     try:
         return ingest_sensor(request, session)

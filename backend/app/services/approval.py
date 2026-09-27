@@ -152,8 +152,8 @@ def apply_decision(session, *, revision_id: UUID, reviewer: User, decision: str,
     # `no_autoflush` additionally guarantees that a caller's dirty, mutated
     # `User.role` attribute is never flushed to the database as a side
     # effect of merely checking authorization here.
-    reviewer_id = getattr(reviewer, "id", None)
     with session.no_autoflush:
+        reviewer_id = getattr(reviewer, "id", None)
         authoritative_role = session.execute(
             select(User.role).where(User.id == reviewer_id)
         ).scalar_one_or_none()
@@ -270,6 +270,14 @@ def release_advisory(session, revision_id: UUID, *, actor: User) -> dict:
     commits its own transaction (release itself makes no OTHER write) only
     after the audit append succeeds; if it fails, the exception propagates
     and no release is reported to have happened."""
+    with session.no_autoflush:
+        actor_id = getattr(actor, "id", None)
+        role = session.scalar(select(User.role).where(User.id == actor_id))
+        owner = session.scalar(select(GovernanceRequest.requester_user_id)
+            .join(ActionRevision, ActionRevision.request_id == GovernanceRequest.id)
+            .where(ActionRevision.id == revision_id))
+    if role not in ("reviewer", "admin") and not (role == "requester" and owner == actor_id):
+        raise ReleaseNotAllowed("Only the requester or an authorized reviewer may release this advisory")
     assert_release_allowed(session, revision_id)
     # Phase 5F H2: assert_release_allowed's own validation (including the
     # evidence-integrity check) holds no lock and takes real time; a

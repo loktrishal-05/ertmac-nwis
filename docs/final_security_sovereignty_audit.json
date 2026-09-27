@@ -1,0 +1,360 @@
+{
+  "phase": 11,
+  "date": "2026-09-27",
+  "base_commit": "86e895f",
+  "status": "COMPLETE",
+  "verdict": "PHASE 11 COMPLETE ? READY FOR FEATURE EXPANSION",
+  "scope": "Source audit, synthetic regression tests and isolated-schema PostgreSQL integration; not production network attestation. No feature expansion performed.",
+  "auth_affected_tests": {
+    "reported_fixed": 10,
+    "additional_postgres_query_migrations": 3,
+    "additional_direct_call_to_http_migration": 1
+  },
+  "query_policy": "ALL COMPANY QUERY ACCESS REQUIRES AUTHENTICATION",
+  "legacy_binding_policy": "Authenticated callers cannot claim requester_user_id=None records. No migration exists; resubmit with new request ID. Unowned records remain unreviewable.",
+  "validation": {
+    "auth_targeted": {
+      "total": 26,
+      "passed": 26,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "docs/.phase11_auth_repaired.log",
+      "log_sha256": "10fa3210b69a2e9664f47990adf390055eb17e29a56387e3381d640dd67f1ac4"
+    },
+    "security_selected": {
+      "total": 323,
+      "passed": 300,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 23,
+      "log": "docs/.phase11_security_resumed.log",
+      "log_sha256": "8c4f523bba2629cde37078ee2932d5029f58941ca5b4c2e4cce631ea6529687b"
+    },
+    "full_with_test_runtime": {
+      "total": 697,
+      "passed": 651,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 46,
+      "log": "docs/.phase11_full_resumed.log",
+      "log_sha256": "41ad5d3ccd7568ff0fb4238a8ed619f92e296e886ad23986122df37dd620848c"
+    },
+    "full_native": {
+      "total": 697,
+      "passed": 651,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 46,
+      "log": "docs/.phase11_full_native.log",
+      "log_sha256": "df90bbaa085f5ec62e6453c155598c5b7a0e93b592c58f98783202733c308617"
+    },
+    "postgres_security": {
+      "total": 22,
+      "passed": 22,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "docs/.phase11_postgres_security.log",
+      "log_sha256": "20afe6ff20b3a6a1fe18b1e883e4fc10d878d3c4b70dbd616e6bce44ece2589f"
+    },
+    "full_backend": {
+      "total": 697,
+      "passed": 696,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "log": "docs/.phase11_full_postgres.log",
+      "log_sha256": "69a6c7251278db192a1afae77fe3580731d5a62b83c6bc97ad7720c6985eabef"
+    }
+  },
+  "final_run_configuration": {
+    "WORKBENCH_TEST_POSTGRES": "1",
+    "PYTHONPATH": "backend;backend/tests",
+    "ujson_workaround": false,
+    "sole_skip": "test_foundation.FoundationTests.test_query: live local-model smoke not enabled"
+  },
+  "environment_only_failures": [],
+  "environment_history": "Prior sklearn/transformers KeyError __reduce_cython__ and reported Windows ujson Application-Control issue did not reproduce. Native imports and full native suite pass. No native-package upgrades, OS policy changes or application import workarounds. Existing sitecustomize fallback retained strictly for test runtime.",
+  "langsmith_hosted_tracing": "PASS",
+  "sovereignty": "CONDITIONAL",
+  "hosted_ai_tracing_in_confidential_production_path": false,
+  "scada_dcs_plc_write_capability": false,
+  "hitl_bypass_found_after_fixes": false,
+  "real_secrets_found": false,
+  "findings": [
+    {
+      "id": "P11-01",
+      "classification": "REAL VULNERABILITY",
+      "severity": "HIGH",
+      "disposition": "Fixed previously unguarded company data endpoints: document/P&ID operations require admin; knowledge/maintenance/sensor reads require an authorized company role; maintenance/sensor ingestion additionally requires admin."
+    },
+    {
+      "id": "P11-02",
+      "classification": "REAL VULNERABILITY",
+      "severity": "HIGH",
+      "disposition": "Fixed client-selected retrieval scope: `/knowledge/retrieve` rejects non-internal scopes and supplies `internal` server-side when omitted."
+    },
+    {
+      "id": "P11-03",
+      "classification": "REAL VULNERABILITY",
+      "severity": "HIGH",
+      "disposition": "Fixed request-ID replay/revision access without requester binding. Both existing-record and post-insert race checks compare authenticated identity."
+    },
+    {
+      "id": "P11-04",
+      "classification": "REAL VULNERABILITY",
+      "severity": "HIGH",
+      "disposition": "Fixed advisory release without requester ownership: shared release service checks fresh database role and requester ownership under `no_autoflush`; forged or dirty in-memory roles are insufficient. Existing approval, evidence, expiry, revocation, locking and mandatory-audit gates remain."
+    },
+    {
+      "id": "P11-05",
+      "classification": "HARDENING",
+      "severity": "MEDIUM",
+      "disposition": "All `/query` access now requires authentication, including informational preflight. Production authentication was not weakened for tests."
+    },
+    {
+      "id": "P11-06",
+      "classification": "TEST MIGRATION",
+      "severity": "LOW",
+      "disposition": "Repaired the 10 reported auth-affected tests with server-side actors. Preserved validation, provenance, idempotence and response assertions. Also migrated three opt-in PostgreSQL query tests to real requester login and one direct-call anonymous assertion to HTTP."
+    },
+    {
+      "id": "P11-07",
+      "classification": "HARDENING",
+      "severity": "LOW",
+      "disposition": "Preserved hosted-tracing prevention and local tracing code. Removed the line-ending-only `graph.py` worktree change. Added a legacy unowned-binding regression to the existing Phase 11 security tests."
+    },
+    {
+      "id": "P11-08",
+      "classification": "HARDENING",
+      "severity": "MEDIUM",
+      "disposition": "Upgraded only venv pip from 24.0 to 26.2.1. OSV scan: 12 advisory IDs on pip before, zero findings across 178 installed packages after. Advisory aliases can describe the same underlying issue; 12 IDs do not imply 12 distinct vulnerabilities. Project dependency declarations unchanged."
+    },
+    {
+      "id": "P11-09",
+      "classification": "ENVIRONMENT LIMITATION",
+      "severity": "LOW",
+      "disposition": "Previous Windows native-import failures were not hidden by application changes. Fresh sklearn, transformers and ujson imports succeeded in this session. Historical failure cause remains unproven; see validation results for full native execution."
+    }
+  ],
+  "boundary_review": [
+    {
+      "boundary": "Hosted AI and telemetry",
+      "evidence_and_result": "`agents/__init__.py` forcibly disables inherited LangChain/LangSmith tracing and clears endpoints before graph imports. Fresh-process probe with tracing enabled and hosted endpoints confirmed all four values reset. Existing tracing regressions retained. `agents/tracing.py` unchanged.",
+      "residual_limits": "This verifies application configuration and tested paths, not host-wide packet capture or a firewall attestation. Local traces may contain queries when configured; protect storage and retention."
+    },
+    {
+      "boundary": "Local model execution",
+      "evidence_and_result": "`model_gateway/registry.py` permits only configured local/private allowlisted runtimes, denies hosted providers/cloud model tags; runtime clients disable environment proxies and redirects. Embedding/reranking loaders use local artifacts and disable remote code.",
+      "residual_limits": "Provision models separately. Enforce outbound network policy independently; private DNS resolution checks have a network/DNS TOCTOU limitation."
+    },
+    {
+      "boundary": "Authentication/RBAC",
+      "evidence_and_result": "`api/deps.py`, `core/security.py`, `routes/auth.py`: opaque random session tokens, stored hashes, expiry/revocation, Argon2id passwords, server-loaded roles; router and route dependencies enforce company roles.",
+      "residual_limits": "TLS, Secure cookies, login throttling, ingress/body limits and least-privilege accounts are deployment requirements. Default cookie setting supports local HTTP development."
+    },
+    {
+      "boundary": "HITL and model self-approval",
+      "evidence_and_result": "`services/governance.py`, `approval.py`: model authority fields are removed; drafts start pending; independent database-authorized reviewer required; self-approval denied. Requester-bound replay and release deny cross-user access.",
+      "residual_limits": "Approval is human review of an advisory draft, never permission to actuate equipment. Legacy unowned records require resubmission."
+    },
+    {
+      "boundary": "Advisory release",
+      "evidence_and_result": "Fresh approval/evidence checks, expiry/revocation checks, row-lock recheck and mandatory audit commit precede successful release. PostgreSQL acceptance suite tests races and audit failure.",
+      "residual_limits": "Release is a read of advisory content plus audit event, not a plant command. The legacy placeholder approval POST performs no approval."
+    },
+    {
+      "boundary": "SCADA/DCS/PLC",
+      "evidence_and_result": "`agents/registry.py` exposes seven registered read-only tools; no plant-write adapter or dynamic client plugin loader. Operational and automation routes produce records/summaries only.",
+      "residual_limits": "Maintain this prohibition when adding integrations. Local database/audit writes are not plant writes."
+    },
+    {
+      "boundary": "Tool authorization",
+      "evidence_and_result": "Closed tool names, strict argument models, bounded inputs, server graph context and retrieval scope; no model-created execution capability.",
+      "residual_limits": "Registry registration is trusted application code. It is not a sandbox against a malicious process administrator or arbitrary Python code."
+    },
+    {
+      "boundary": "Prompt injection",
+      "evidence_and_result": "Deterministic preflight, untrusted document/user content, citation validation, authorization-language checks and governance after generation. Replays re-run current preflight. PostgreSQL injection tests preserve zero-model-call refusal checks.",
+      "residual_limits": "Heuristics cannot prove detection of every linguistic attack. Security authority rests in deterministic roles, tools and approval gates."
+    },
+    {
+      "boundary": "Evidence identity",
+      "evidence_and_result": "Canonical request/proposal hashes and evidence manifests bind source/version/quote/locator identities; release re-verifies evidence. PostgreSQL triggers reject manifest mutation.",
+      "residual_limits": "Source storage and database administration remain trusted infrastructure."
+    },
+    {
+      "boundary": "Verified registry",
+      "evidence_and_result": "`verified_knowledge.py` rechecks authoritative role, independent review, exact matches, source content/hash/version/scope, approval validity and lifecycle. OCR is excluded from verified promotion.",
+      "residual_limits": "No inferred trust from a model answer or semantic similarity. Registry outages fall back to the governed path."
+    },
+    {
+      "boundary": "Stale/revoked data",
+      "evidence_and_result": "Registry, packs and release recheck lifecycle, source revision/hash and approval revocation/expiry. Regression suites exercise stale/revoked sources and changed content.",
+      "residual_limits": "Ordinary retrieval is evidence, not an assertion of human verification; operators must maintain source lifecycle data."
+    },
+    {
+      "boundary": "CAG/MGS/adaptive routing",
+      "evidence_and_result": "`adaptive_execution.py`, knowledge-pack and MGS tests: planner advises bounded strategy only; it cannot override scope, preflight, trust, source IDs or HITL. Stale packs fail closed; MGS maps to original sources.",
+      "residual_limits": "Optional planner/model availability affects functionality, not authorization."
+    },
+    {
+      "boundary": "OCR/P&ID uncertainty",
+      "evidence_and_result": "`pid_evidence.py` validates manifest/source/artifact identity, confines paths and preserves raw OCR. Low confidence remains ambiguous; other OCR remains unverified, never proven equipment identity/topology.",
+      "residual_limits": "Human verification of drawing interpretation remains necessary."
+    },
+    {
+      "boundary": "Voice/STT/TTS",
+      "evidence_and_result": "`local_voice.py` validates local/private endpoints, DNS, audio size/type, disables redirects/proxies, retains original language and requires transcript confirmation. TTS adds advisory wording. Auth and HITL remain common gates.",
+      "residual_limits": "Local adapter service implementation, network placement and audio-handling policy must be independently trusted; unavailable service falls back to text."
+    },
+    {
+      "boundary": "n8n/webhooks",
+      "evidence_and_result": "`product_integration.py`: HMAC SHA-256 over timestamp/nonce/kind, constant-time comparison, five-minute freshness window, durable unique nonce, current reviewer/admin principal, summary-only schema.",
+      "residual_limits": "Manage signing-secret rotation and n8n host security. Earlier n8n templates must not be treated as authority to approve or write to plant systems."
+    },
+    {
+      "boundary": "File upload/path traversal",
+      "evidence_and_result": "Local staged source paths are resolved and checked under allowed roots; PDF/CSV size/type/row bounds and P&ID artifact bindings are enforced. Admin-only ingestion is regression-tested.",
+      "residual_limits": "Restrict filesystem writes by untrusted local users; path checks do not replace OS isolation. Proxy limits and parser patching remain required."
+    },
+    {
+      "boundary": "PostgreSQL/Qdrant",
+      "evidence_and_result": "Settings reject public endpoints; compose publishes both on 127.0.0.1. Qdrant client disables environment proxy inheritance.",
+      "residual_limits": "Development database password and database superuser are not production credentials/roles. Qdrant authentication, DB TLS where appropriate, ACLs, backups and volume encryption require deployment configuration."
+    },
+    {
+      "boundary": "CORS/debug/network",
+      "evidence_and_result": "FastAPI debug remains off; credentialed CORS uses explicit localhost origins, never wildcard origins.",
+      "residual_limits": "Health/model/tool/sovereignty metadata and API docs are public by design. Restrict ingress in production; CORS is not network access control. No claim of enforced egress isolation."
+    },
+    {
+      "boundary": "Audit integrity",
+      "evidence_and_result": "Hash-linked append-only records, sequence/head/checkpoint verification and PostgreSQL mutation guards are **TAMPER-EVIDENT**. Mandatory governance audit failure rolls back authority changes.",
+      "residual_limits": "A database/host administrator who can replace all state is outside the protection boundary. Use independent checkpoint retention and least-privilege database roles."
+    },
+    {
+      "boundary": "Secrets",
+      "evidence_and_result": "Current tracked/nonignored text pattern scan: zero high-confidence candidates. Three prior candidates manually revalidated as false positives. `.env` is not tracked.",
+      "residual_limits": "Pattern scanning is not proof of absence; ignored runtime secrets and historical scanning limitations are explicit in the scan evidence. No credential values were printed."
+    }
+  ],
+  "remaining_severity": {
+    "critical": [],
+    "high": [],
+    "medium": [
+      "DEPLOYMENT ASSUMPTION: independently enforce on-prem egress, TLS/Secure cookies, ingress throttling and body limits, database least privilege and Qdrant protection; development defaults are not production certification."
+    ],
+    "low": [
+      "Legacy unowned bindings require resubmission.",
+      "Public status/API metadata and local query trace retention require deployment review.",
+      "Pattern-based secret scan has bounded coverage."
+    ]
+  },
+  "remaining_release_blockers": [],
+  "production_deployment_gates": [
+    "Enforce and attest network egress policy and private service placement.",
+    "Deploy TLS and Secure cookies; configure login throttling, request limits and allowed origins.",
+    "Replace development DB credentials; use least privilege; protect Qdrant, volumes, backups and audit checkpoints.",
+    "Protect local trace retention and validate local speech/n8n services."
+  ],
+  "advisories": {
+    "before": {
+      "source": "https://api.osv.dev/v1/querybatch",
+      "packages_checked": 178,
+      "findings": [
+        {
+          "package": "pip",
+          "version": "24.0",
+          "advisories": [
+            "GHSA-4xh5-x5gv-qwph",
+            "GHSA-58qw-9mgm-455v",
+            "GHSA-6vgw-5pg2-w6jp",
+            "GHSA-jp4c-xjxw-mgf9",
+            "GHSA-qwm4-qh6w-59xr",
+            "GHSA-wf93-45jw-7689",
+            "PYSEC-2026-1795",
+            "PYSEC-2026-1796",
+            "PYSEC-2026-196",
+            "PYSEC-2026-2875",
+            "PYSEC-2026-2876",
+            "PYSEC-2026-3721"
+          ]
+        }
+      ]
+    },
+    "after": {
+      "source": "https://api.osv.dev/v1/querybatch",
+      "packages_checked": 178,
+      "pip_version": "26.2.1",
+      "findings": []
+    },
+    "pip_upgrade": "24.0 -> 26.2.1, backend/.venv only",
+    "frontend": "Prior zero-finding scan retained, not rerun; frontend unchanged."
+  },
+  "secret_scan": {
+    "files_scanned": 650,
+    "scope": "Current tracked and nonignored untracked text <=5MB; no values emitted. Prior history scan retained, not repeated. Pattern scan is not proof of absence.",
+    "high_confidence_candidates": [],
+    "false_positives": [
+      {
+        "file": "backend/app/services/execution_observability.py",
+        "line": 14,
+        "reason": "ContextVar reset token, not a credential"
+      },
+      {
+        "file": "backend/app/services/sparse.py",
+        "line": 15,
+        "reason": "Regex TOKEN for text tokenization"
+      },
+      {
+        "file": "infra/n8n/05-wb-operational-summary.json",
+        "line": 40,
+        "reason": "Environment variable reference, not an embedded credential"
+      }
+    ]
+  },
+  "frozen_assets": {
+    "baseline_files_checked": 168,
+    "mismatches": [],
+    "blind_rerun": false,
+    "prompt_tuning": false
+  },
+  "git_diff_check": "PASS",
+  "files_changed_phase11": [
+    "backend/app/api/router.py",
+    "backend/app/api/routes/knowledge.py",
+    "backend/app/api/routes/maintenance.py",
+    "backend/app/api/routes/query.py",
+    "backend/app/api/routes/sensors.py",
+    "backend/app/services/approval.py",
+    "backend/app/services/governance.py",
+    "backend/tests/test_advanced_b.py",
+    "backend/tests/test_agents.py",
+    "backend/tests/test_foundation.py",
+    "backend/tests/test_phase5a.py",
+    "backend/tests/test_phase5e.py",
+    "backend/tests/test_phase5f_security.py",
+    "backend/tests/test_pid.py",
+    "backend/tests/test_structured.py",
+    "backend/tests/test_phase11_security.py",
+    "docs/.phase11_advisory_details.json",
+    "docs/.phase11_baseline.json",
+    "docs/.phase11_npm_audit.json",
+    "docs/.phase11_python_advisories.json",
+    "docs/.phase11_python_advisories_after.json",
+    "docs/.phase11_secret_scan.json",
+    "docs/.phase11_secret_scan_revalidated.json",
+    "docs/.phase11_test_runtime/",
+    "docs/final_security_sovereignty_audit.json",
+    "docs/final_security_sovereignty_audit.md"
+  ],
+  "files_excluded_from_phase11": [
+    "benchmark/reports/final_model_runtime_readiness.json",
+    "claudex-loop"
+  ],
+  "exact_git_status": " M backend/app/api/router.py\n M backend/app/api/routes/knowledge.py\n M backend/app/api/routes/maintenance.py\n M backend/app/api/routes/query.py\n M backend/app/api/routes/sensors.py\n M backend/app/services/approval.py\n M backend/app/services/governance.py\n M backend/tests/test_advanced_b.py\n M backend/tests/test_agents.py\n M backend/tests/test_foundation.py\n M backend/tests/test_phase5a.py\n M backend/tests/test_phase5e.py\n M backend/tests/test_phase5f_security.py\n M backend/tests/test_pid.py\n M backend/tests/test_structured.py\n M benchmark/reports/final_model_runtime_readiness.json\n ? claudex-loop\n?? backend/tests/test_phase11_security.py\n?? docs/.phase11_advisory_details.json\n?? docs/.phase11_baseline.json\n?? docs/.phase11_npm_audit.json\n?? docs/.phase11_python_advisories.json\n?? docs/.phase11_python_advisories_after.json\n?? docs/.phase11_secret_scan.json\n?? docs/.phase11_secret_scan_revalidated.json\n?? docs/.phase11_test_runtime/\n?? docs/final_security_sovereignty_audit.json\n?? docs/final_security_sovereignty_audit.md\n",
+  "committed": false,
+  "staged": false
+}

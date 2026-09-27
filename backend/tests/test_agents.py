@@ -555,6 +555,11 @@ class SourceGuardTests(unittest.TestCase):
 
 class QueryRouteTests(unittest.TestCase):
     def setUp(self):
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-requester", role="requester")
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
         self.client = TestClient(app)
 
     def test_extra_field_rejected(self):
@@ -579,6 +584,7 @@ class QueryRouteTests(unittest.TestCase):
         gateway = MagicMock()
         gateway.generate_structured.return_value = StructuredResult(value=decision, result=gen)
         fake_session = MagicMock()
+        fake_session.scalar.return_value = "requester"
 
         def _fake_get_db():
             yield fake_session

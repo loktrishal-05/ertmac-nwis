@@ -270,6 +270,11 @@ class PIDTests(unittest.TestCase):
 
         app.dependency_overrides[get_db] = lambda: session
         self.addCleanup(app.dependency_overrides.pop, get_db)
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-admin", role="admin")
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
         with patch("app.services.pid_processing.get_paddle_ocr", return_value=SimpleNamespace(recognize_pages=recognize)), TestClient(app) as client:
             body = {"source_path": "test.png", "title": "Synthetic test", "synthetic": True}
             response = client.post("/documents/pid/process", json=body)

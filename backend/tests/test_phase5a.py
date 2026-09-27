@@ -122,6 +122,13 @@ class PersistenceTests(unittest.TestCase):
         self.addCleanup(self.engine.dispose)
         self.addCleanup(self.session.close)
         self.request = QueryRequest(query="Review pump recommendation", request_id=uuid4(), requester_reference="claimed-operator")
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-requester", role="requester")
+        self.session.add(actor)
+        self.session.commit()
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
 
     def make_revision(self, candidate=None):
         revision = create_revision(self.session, self.request, candidate or state())
@@ -257,6 +264,7 @@ class PersistenceTests(unittest.TestCase):
             self.assertEqual(conflict.status_code, 409)
 
     def test_client_authority_fields_are_rejected(self):
+        from app.api.deps import get_optional_current_user
         with TestClient(app) as client:
             for field in ("approved", "approval_status", "approval_required", "human_approval_required", "authorized",
                           "authorization", "action_class", "safe_to_proceed", "permission_granted", "operator_approved"):
@@ -267,6 +275,7 @@ class PersistenceTests(unittest.TestCase):
             # an unauthenticated caller is rejected before any body/authority
             # field is even considered. See test_phase5b.py for the full
             # authenticated decision-endpoint contract.
+            app.dependency_overrides[get_optional_current_user] = lambda: None
             self.assertEqual(client.post(f"/approvals/{uuid4()}/decision", json={"approved": True}).status_code, 401)
 
     def test_commit_failure_does_not_return_draft(self):

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.graph import GraphExecutionError, run_graph
 from app.agents.tracing import record_run
-from app.api.deps import get_optional_current_user
+from app.api.deps import require_role
 from app.core.config import settings
 from app.db.models import User
 from app.db.session import get_db
@@ -79,11 +79,9 @@ def _audit_preflight_denial(session: Session, request: QueryRequest, preflight: 
 @router.post("/query", response_model=QueryResponse)
 @observe_query
 def query(request: QueryRequest, session: Session = Depends(get_db),
-         current_user: User | None = Depends(get_optional_current_user)) -> QueryResponse:
+         current_user: User = Depends(require_role("requester", "reviewer", "admin"))) -> QueryResponse:
     operational = route_for(request.query)
     if operational or request.input_channel == "voice":
-        if current_user is None:
-            raise HTTPException(401, "Sign in for operational intelligence")
         try:
             authorize(session, current_user)
         except DecisionNotAllowed as error:
@@ -98,7 +96,7 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
     # draft get returned -- otherwise the deterministic refusal/clarification
     # wins even for a request_id with an existing stored draft.
     try:
-        replayed = replay_request(session, request)
+        replayed = replay_request(session, request, requester_user_id=current_user.id)
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -194,7 +192,7 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
 
     try:
         response = govern_response(session, request, state,
-                                   requester_user_id=current_user.id if current_user else None)
+                                   requester_user_id=current_user.id)
         return response.model_copy(update={"knowledge_lookup": knowledge_meta}) if response.presentation == "INFORMATIONAL" else response
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error

@@ -120,9 +120,15 @@ class FoundationTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 422)
 
     def test_documents(self):
-        with self.assertRaises(HTTPError) as error:
-            self.request("/documents/ingest", "POST")
-        self.assertEqual(error.exception.code, 422)
+        from uuid import uuid4
+        from fastapi.testclient import TestClient
+        from app.api.deps import get_optional_current_user
+        from app.db.models import User
+        actor = User(id=uuid4(), username="phase11-admin", role="admin")
+        app.dependency_overrides[get_optional_current_user] = lambda: actor
+        self.addCleanup(app.dependency_overrides.pop, get_optional_current_user)
+        with TestClient(app) as client:
+            self.assertEqual(client.post("/documents/ingest").status_code, 422)
 
     def test_audit_and_sovereignty(self):
         # Phase 5C: GET /audit/log is now real (reviewer/admin only) rather
