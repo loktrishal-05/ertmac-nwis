@@ -1,0 +1,625 @@
+{
+  "timestamp_utc": "2026-09-27T04:09:00.263502+00:00",
+  "timestamp_timezone": "Asia/Calcutta",
+  "git_head": "6dba5c11d1cc6e0479413b8c860b4167ca4c25aa",
+  "branch": "master",
+  "stage1_status": "BLOCKED",
+  "verdict": "FINAL MODEL COMPARISON STAGE 1 BLOCKED",
+  "scope": "Runtime and deployment ready, but the required frozen 30-case DEV+VALIDATION execution is blocked by one unresolved validation evidence binding. No inference authorized or executed.",
+  "benchmark": {
+    "case_sha256": "8bbb958865e0042a6951c05342b4cb67e4791e0515f32b2831607b408c9176bb",
+    "counts": {
+      "development": 15,
+      "blind": 45,
+      "validation": 15
+    },
+    "total": 75,
+    "categories": 15,
+    "freeze_commit": "39e6d16",
+    "frozen_files_checked": 101,
+    "frozen_mismatches": [],
+    "frozen_file_hashes": {
+      "benchmark/.gitattributes": "d520a7aa147639667b496959f22ce68910c1750e6fd4e6cc709f0a39161f7627",
+      "benchmark/cases/benchmark_cases_final.jsonl": "8bbb958865e0042a6951c05342b4cb67e4791e0515f32b2831607b408c9176bb",
+      "benchmark/cases/benchmark_cases_final_readable.md": "c10efe6e1910945a0ae7ed71eddf2575a1376eda40891460ed1e30a72c1219cd",
+      "benchmark/cases/benchmark_split_manifest.json": "bf7a90e4a7e2d79b5059bf8adc4b909bdf9f4f4750c3821ba0810552fdd3f68f",
+      "benchmark/corpus/synthetic_corpus/chunks/document_chunks.jsonl": "cbe2589b4fb9e31f68d9aecb1d740dd059a9904b94fb59f67682096a2ba73c7f",
+      "benchmark/corpus/synthetic_corpus/corpus_manifest.json": "e2393ec6c4a0db981b40e4933a1dd5e2dcdce95397c99012f5aa9b97d4d72d38",
+      "benchmark/corpus/synthetic_corpus/corpus_mapping.md": "9aabc934c47b3e25c0829e7d5a54a5ba86e151fc738309b5ae9478b5706a716d",
+      "benchmark/corpus/synthetic_corpus/corpus_validation_report.md": "981c0d3195b146fcbf375abd542347ec7068247fa709cc3d0270104565715d29",
+      "benchmark/corpus/synthetic_corpus/documents/INC-014.md": "667884add0dc8778c1f881239599595e6d077b45b9d5df70ab2fb1cf72f72ec8",
+      "benchmark/corpus/synthetic_corpus/documents/INC-022.md": "d6196472654cd21cac9a78771e5d17ad9d014b9175a0054e4178a82119d91918",
+      "benchmark/corpus/synthetic_corpus/documents/LAB-U2-031.md": "30e3453753f9ea0f76f6401705fe1a3a34353fa95fdd4de3d935aae3fd262079",
+      "benchmark/corpus/synthetic_corpus/documents/MAN-P204-001.md": "1ea490f7f6ed9c8f77c62ea04674d4ffcb800986cf9e0fa1cd94208de739f246",
+      "benchmark/corpus/synthetic_corpus/documents/SHIFT-U2-091.md": "b3b6ba29135a02ca179f4f3c902f916590d11eff4b0c09eb6e43f96314c08b2a",
+      "benchmark/corpus/synthetic_corpus/documents/SOP-E101-003.md": "523ca194f720c1a7cebf996fc7a3473dffd8611084f757807fd449b166eb6f0f",
+      "benchmark/corpus/synthetic_corpus/documents/SOP-H2S-002.md": "640e89aba14d098a0c9ae77eaf93aead0a0dc0a9780dd10d128b2934b2da1ac5",
+      "benchmark/corpus/synthetic_corpus/documents/SOP-P204-001.md": "0b4540bb55d2b22b234c8e7d8c3eb820e6dfa000bb21aebcf450d2926b34389d",
+      "benchmark/corpus/synthetic_corpus/documents/SOP-PTW-004.md": "dc77ed4d0f1cbca6f4ca6c7e43c2f1d9e36a5b6840df97a147ddaad608bda930",
+      "benchmark/corpus/synthetic_corpus/structured/MH-E101.csv": "6da081f90660c9c4e0bc77be5df595347d593d1eb7022fd411dc5daaba70a7ee",
+      "benchmark/corpus/synthetic_corpus/structured/MH-E101.json": "de7a4be080178bd72d64902ee4dcdc762d857ba4cd05fba19049f87948a15b67",
+      "benchmark/corpus/synthetic_corpus/structured/MH-P204.csv": "af4b631ff955e58fd4fc183435c8720b2cc71c7a4b90c193f48b1ac50f0c5efa",
+      "benchmark/corpus/synthetic_corpus/structured/MH-P204.json": "10c8944fefc76018b03e219e4a130fc67f1cb64c38f412c4be4a4f8af9312495",
+      "benchmark/corpus/synthetic_corpus/structured/WO-7712.json": "4e0c0db865b8014c5203a171c7748b76f37f0a46792857b183f4a1b20ca472c4",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-E101/E1.csv": "f201c49471824139fb1624b7b65adbb9a1c6cf335a9a4c73bc6db5ea84e5b307",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-E101/E2.csv": "305494fba5a48719e39820759e75ecd418773d0570b650437331eb4ead8494b0",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-E101/E3.csv": "91298ed9f2895393a055c54e0130282ce54f26924019eba22723bd11b43f10b0",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-E101/E4.csv": "3ce7af57731a43b14022499cf6b01261960fdcb1a8210cd479b2437dc42d155f",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-E101/index.json": "ba89d460a8777ac9dc7fd082a73b4f9331b88dcf918f30ca014cf729c5253f82",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W1.csv": "3ba94642f7f0b6fbbce5dbd34b411cff1112f596888e7a04ae27512f752422bd",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W10.csv": "e8da5980f4f2c9a56dcfc7e50c69e51982feb023541d3d8b95f2437ae4765a5d",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W11.csv": "2b5145f629b62581a7bcde7a523a4954e511f7c1b7ba4664997bc568fc4fedec",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W12.csv": "f52ec6ab88cfe576eb2ad10eccac6f21776b90849bbab538a39d2fef55281c7e",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W2.csv": "6860ddf82d5d4be1fd0bb7420ae290c221266f723868562d0f52d32221af53d5",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W3.csv": "56f45235982ca528173accdd1f9903f7c7ebff00a07b7ee647da0add52eb582a",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W4.csv": "41074e44bd51a7412579cf1cd6b1529158232966587be944d9c2fcd94100465f",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W5.csv": "e0305ef41f87b8eb9801c72b9e16e01fa960581ae6b0825db4a8b80159280ced",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W6.csv": "e8cbbc948ef7b279b9e31be1266e0bd3f595f4e86a4dd2846ca9ae3db13df0cb",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W7.csv": "138b56fc32cbeaebbe78abeeebe77c06213a5078cf503adcfb4bd907411bfb97",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W8.csv": "8e97c7284765849accca8af1d2d4bc81087c657cdd193493dd5330ed88b5813a",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/W9.csv": "5c4191192eea1e2e9079b7e0301995d7c1383f63cbe6ac05b6279c4f2a6c159d",
+      "benchmark/corpus/synthetic_corpus/timeseries/SENSOR-P204-A/index.json": "98a538425deeecacc9460d144d96bcb71de04556ff5c481161e98a3db804c4ae",
+      "benchmark/corpus/synthetic_corpus_part2/chunks/document_chunks_part2.jsonl": "6f20eba806b1f31ea4e78190cc0e8e90d3eb48e76e73d054afdc0c509903405a",
+      "benchmark/corpus/synthetic_corpus_part2/corpus_manifest_part2.json": "1d3b42511c1fec5fa03538e9fc2ec9336fb9394248bbe891e0e4b7ca2ae0cbee",
+      "benchmark/corpus/synthetic_corpus_part2/corpus_manifest_part2_final.json": "41c26eec0ab06ad975e70312f7ce602492b21bdf61ec3a35eac935399715d4b3",
+      "benchmark/corpus/synthetic_corpus_part2/corpus_mapping_part2.md": "c31328246362ef14dff20c944b65c9a6d86eb50ea1c69e18408eca083f282512",
+      "benchmark/corpus/synthetic_corpus_part2/corpus_validation_report_part2.md": "4c71b3a979f591f4c4218a58b0c48deb72ebffea302e27c9f319bd8e61ca18e6",
+      "benchmark/corpus/synthetic_corpus_part2/documents/SOP-P204-001-R1-DRAFT.md": "4275bbaa81b175ab29543a8ef9ec724068725406661fbce9dabce1ae25677aa4",
+      "benchmark/corpus/synthetic_corpus_part2/injection/INJ-DOC-001.md": "19f0dfeb36b775952993ee992e7d65cd1e99396866f8393264f61a2f49040f12",
+      "benchmark/corpus/synthetic_corpus_part2/injection/INJ-INC-001.md": "859f602a29e129dcb6809057189ec1772e2c74b85c1b2734183e6e558a5869c1",
+      "benchmark/corpus/synthetic_corpus_part2/injection/INJ-OCR-001.json": "8072509f11b233efb360df61c8023e389e2ccdbef0c5cdfa65b2d95ced947f56",
+      "benchmark/corpus/synthetic_corpus_part2/injection/INJ-WO-001.json": "a53eae84c3ab5bd295553e0af190dd9117e3b0da7d33308e8ec3c8b5298d0db0",
+      "benchmark/corpus/synthetic_corpus_part2/pid/PID-U2-017-R3.json": "85c7de780268f56b17252eec565000ee114be246ca568e5c66f4785ced2e94f6",
+      "benchmark/corpus/synthetic_corpus_part2/pid/PID-U2-017-R3_final.json": "d20c84592066cd9c3e1a56e80b2cbd6a4ed57f3f7394865d6da870fb6d23b7b6",
+      "benchmark/corpus/synthetic_corpus_part2/pid/PID-U2-021-R2.json": "2caa5b565103c414886be78d78413c8620689050dc57600e7c366355b238f451",
+      "benchmark/corpus/synthetic_corpus_part2/pid/PID-U2-021-R2_final.json": "3ffde938d0e63b3ec809d6b1d4b7d93f95cd32f4869643ab650179f9f269b989",
+      "benchmark/corpus/synthetic_corpus_part2/registry/REG-U2-001-negative-lookups.csv": "d547425aa6f1d08498ba2a7b2335f9cf6fa81d0166c404500cf473f5da4210de",
+      "benchmark/corpus/synthetic_corpus_part2/registry/REG-U2-001-records.csv": "13f24e7fa94a5ec90949da9f0e59111f12750c7d827fde48d5c66895482df042",
+      "benchmark/corpus/synthetic_corpus_part2/registry/REG-U2-001.json": "dc694936314bc6ce282f50039aa43c8af67f64a928b96f143b4d89d70cd7a09f",
+      "benchmark/harness/assets.py": "e6a614e421262036149f7dfc5d3ec8c5d0f8103372a0fd21f5b4f8d7a426f14d",
+      "benchmark/harness/evaluate.py": "2d661e5af50a58e3d85f2f3179c2460a8bef87959be9aa78010da34dd54030f6",
+      "benchmark/harness/test_evaluate.py": "8d8e052edf2b1c6c93ca2904bc757b3ffd9de3997ea4aa9aef6cb16f86fc3c9e",
+      "benchmark/mappings/benchmark_corpus_mapping_final.json": "29181e55e59050ba2ef4043813c33922de6d2ee2114a3fccf244341eaa3ffce0",
+      "benchmark/reports/benchmark_finalization_report.md": "3a16eadc67100c0be4be583d3bdfca8c761bde56c2f3c6190f21b30164758aed",
+      "benchmark/reports/benchmark_validation_results_final.json": "4ac8cb79e73659fceab35c0b87e46367d0dffb3741be087d3649ca59cd5398a0",
+      "benchmark/reports/phase10_1_baseline_trace.jsonl": "38a4af0353aee7335d9ea7a0eb0561382ac46fddacc3c71b42189a7493abfa51",
+      "benchmark/reports/phase10_1_power_events.json": "9e2fdcc7c4032b0b026921a4f982ca83d364ef113f81eb85f5479abf4990b3cb",
+      "benchmark/reports/phase10_1_repair_report.md": "1b23b40ef823efee4142cfcebb212a227683bd553d178d9285b7f714ee3f020e",
+      "benchmark/reports/phase10_1_runtime_evidence.json": "3068a27ffded08dda8d686735b8aced1d02987361d0e502882bdf1bc64a8fd83",
+      "benchmark/reports/phase10_2_runtime_probe.json": "108d8e90601efc3053375d4ae8a2e097f1782c310168959d54e8d9d0d9063d5a",
+      "benchmark/reports/phase10_2_runtime_probe.md": "477299c4298c45c2eaf2282b7e1ba48b6f642bac78f2c75356e16d07caf86b9d",
+      "benchmark/reports/phase10_3_frozen_dev_report.md": "190ef1ec82ea63c8b5e8eea6d83b840daa8a6f735877e340ff229de6c94a44de",
+      "benchmark/reports/phase10_asset_integration.json": "42ca75abf452e4e679e6e3bbff9bd7defe5a7454f28e29b08b1abdbd1c575b4d",
+      "benchmark/reports/phase10_smoke_report.md": "f66d04f4b55b7a85eaf96f6ea640b7a3e92aabfbd9c4950006a8f839f150d052",
+      "benchmark/reports/source_inputs/historical_benchmark_cases.jsonl": "861714b8a76e524dec09a53f2e33b6181bd9478bacc32276cd485a3988818337",
+      "benchmark/reports/source_inputs/historical_benchmark_cases_final.jsonl": "47769815bddb3ffb34d24b95abffa173865e5d8df06117b4a9eecc5d4535e75c",
+      "benchmark/reports/source_inputs/historical_benchmark_cases_final_readable.md": "9fbb524b6f9376339f9b8437c8c9aa51cd2754ae14ddcc57252457f840f835b3",
+      "benchmark/reports/source_inputs/historical_benchmark_cases_readable.md": "0365a23847401aeecfbc8cc207cb95f31aeaf34a5c62c1d7ff22324f188b0265",
+      "benchmark/reports/source_inputs/historical_benchmark_conversion_report.md": "6189c080b5c112eb647684eb565769f07e1a35761b1558f2bcb2827e8db96cd8",
+      "benchmark/reports/source_inputs/historical_benchmark_decision_pack.md": "9f5064d72e43daaef4c8016946923103082fba97c485967d316920469df46e9d",
+      "benchmark/reports/source_inputs/historical_benchmark_evidence_requirements.md": "0609d83cc7b4f0b5d9b13040f2d72dc889ffd1ff378ae89d346bd2f4a67d1e47",
+      "benchmark/reports/source_inputs/historical_benchmark_finalization_report.md": "f8d2f32552ff7646c494a216d4acdc39f7afdb67acad56171b881889ebc954aa",
+      "benchmark/reports/source_inputs/historical_corpus_manifest.json": "e2393ec6c4a0db981b40e4933a1dd5e2dcdce95397c99012f5aa9b97d4d72d38",
+      "benchmark/reports/source_inputs/historical_corpus_manifest_part2.json": "1d3b42511c1fec5fa03538e9fc2ec9336fb9394248bbe891e0e4b7ca2ae0cbee",
+      "benchmark/reports/source_inputs/historical_corpus_mapping.md": "9aabc934c47b3e25c0829e7d5a54a5ba86e151fc738309b5ae9478b5706a716d",
+      "benchmark/reports/source_inputs/historical_corpus_mapping_part2.md": "c31328246362ef14dff20c944b65c9a6d86eb50ea1c69e18408eca083f282512",
+      "benchmark/reports/source_inputs/historical_corpus_validation_report.md": "981c0d3195b146fcbf375abd542347ec7068247fa709cc3d0270104565715d29",
+      "benchmark/reports/source_inputs/historical_corpus_validation_report_part2.md": "4c71b3a979f591f4c4218a58b0c48deb72ebffea302e27c9f319bd8e61ca18e6",
+      "benchmark/reports/source_inputs/historical_sovereign_workbench_model_evaluation_spec.md": "beb507819082539dcdbf3c5b1ff1e30a5590cd071258af6ca8ec475d7f23e0b4",
+      "benchmark/reports/source_inputs/pre_integration/evaluate.py.before_integration": "6dcbfba5a1c36c2f00661650ba545ce7cfa3037fd652391f94fd3ece1a058600",
+      "benchmark/reports/source_inputs/pre_integration/inference_harness.py.snapshot": "97b82ac21e78dfb4fcf5b27582b10f45e8f3268580ae4c29b7ac9190897ddbb5",
+      "benchmark/reports/source_inputs/pre_integration/phase10_smoke_before_score_repair.jsonl.snapshot": "1a8de82b9ac0355c7557b94e942ace3fd6b91244da876d412b759ec0ccc1f407",
+      "benchmark/reports/source_inputs/pre_integration/phase10_smoke_report.md.before_integration": "59ed8220e21e8a31dbdd04637cfe8eb5ed47b3136b20bef42c012a8cfefbd479",
+      "benchmark/reports/source_inputs/pre_integration/phase10_smoke_results.csv.before_integration": "8c201e45481e0f23a64983b4c2cc8155e20babd74a3b073a539730efbf8880e7",
+      "benchmark/reports/source_inputs/pre_integration/phase10_smoke_results.jsonl.before_integration": "f8a7baa4848a3d28614667c39968d2d755c0484c9b677bd235af0b0714ad48c7",
+      "benchmark/reports/source_inputs/pre_integration/test_evaluate.py.before_integration": "6aaa7e34a07779cdab67a883121b31bb167ee8da9a3bd540550ef4d734d14233",
+      "benchmark/reports/source_inputs/work_exports/non_authoritative_prepackaging_finalization_report.md": "f58da243b9e7cb9aacf2d103046de2fd120e6151fd43b505d24c4054b5e196a0",
+      "benchmark/results/phase10_1_repair_results.csv": "4a441894228ef62f545a0be715c680f74debf93f77dd17b62f701d8a3979724d",
+      "benchmark/results/phase10_1_repair_results.jsonl": "8144046cc1e7ae6874ed4c1fe344ca91fa840267a9851b9ed759fac362b06537",
+      "benchmark/results/phase10_3_frozen_dev_results.csv": "3dbafd6f00e78d9238e055677db3bc9e8660a3e710408303fa3942758e29ed5f",
+      "benchmark/results/phase10_3_frozen_dev_results.jsonl": "6e9530bcdd5b25df76142e4eb955c5c42280bc8b20e578e81e270dde296688d2",
+      "benchmark/results/phase10_smoke_results.csv": "892c72065927a0a042e03a91f1142474c3c1b70eeab3ddad9c6ca6e7cbdfa8bb",
+      "benchmark/results/phase10_smoke_results.jsonl": "db5ce3310567a6ac97e82c605ffe806140b281713cdecd4af25f3d22eda6b8b5"
+    },
+    "stage1_benchmark_inference_calls": 0,
+    "blind_inference_calls": 0,
+    "prior_blind_status": "No saved blind inference; unchanged from recovery audit."
+  },
+  "runtime": {
+    "version": {
+      "version": "0.34.4"
+    },
+    "tags": {
+      "models": [
+        {
+          "name": "qwen3.5:9b",
+          "model": "qwen3.5:9b",
+          "modified_at": "2026-09-15T19:38:13.9292122+05:30",
+          "size": 6594474711,
+          "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "qwen35",
+            "families": [
+              "qwen35"
+            ],
+            "parameter_size": "9.7B",
+            "quantization_level": "Q4_K_M",
+            "context_length": 262144,
+            "embedding_length": 4096
+          },
+          "capabilities": [
+            "completion",
+            "vision",
+            "tools",
+            "thinking"
+          ]
+        }
+      ]
+    },
+    "ps_before": {
+      "models": []
+    },
+    "models": [
+      {
+        "inventory": {
+          "name": "qwen3.5:9b",
+          "model": "qwen3.5:9b",
+          "modified_at": "2026-09-15T19:38:13.9292122+05:30",
+          "size": 6594474711,
+          "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "qwen35",
+            "families": [
+              "qwen35"
+            ],
+            "parameter_size": "9.7B",
+            "quantization_level": "Q4_K_M",
+            "context_length": 262144,
+            "embedding_length": 4096
+          },
+          "capabilities": [
+            "completion",
+            "vision",
+            "tools",
+            "thinking"
+          ]
+        },
+        "show": {
+          "thinking": {
+            "values": [
+              false,
+              true
+            ],
+            "default": true
+          },
+          "license": "                                Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n      other entities that control, are controlled by, or are under common\n      control with that entity. For the purposes of this definition,\n      \"control\" means (i) the power, direct or indirect, to cause the\n      direction or management of such entity, whether by contract or\n      otherwise, or (ii) ownership of fifty percent (50%) or more of the\n      outstanding shares, or (iii) beneficial ownership of such entity.\n\n      \"You\" (or \"Your\") shall mean an individual or Legal Entity\n      exercising permissions granted by this License.\n\n      \"Source\" form shall mean the preferred form for making modifications,\n      including but not limited to software source code, documentation\n      source, and configuration files.\n\n      \"Object\" form shall mean any form resulting from mechanical\n      transformation or translation of a Source form, including but\n      not limited to compiled object code, generated documentation,\n      and conversions to other media types.\n\n      \"Work\" shall mean the work of authorship, whether in Source or\n      Object form, made available under the License, as indicated by a\n      copyright notice that is included in or attached to the work\n      (an example is provided in the Appendix below).\n\n      \"Derivative Works\" shall mean any work, whether in Source or Object\n      form, that is based on (or derived from) the Work and for which the\n      editorial revisions, annotations, elaborations, or other modifications\n      represent, as a whole, an original work of authorship. For the purposes\n      of this License, Derivative Works shall not include works that remain\n      separable from, or merely link (or bind by name) to the interfaces of,\n      the Work and Derivative Works thereof.\n\n      \"Contribution\" shall mean any work of authorship, including\n      the original version of the Work and any modifications or additions\n      to that Work or Derivative Works thereof, that is intentionally\n      submitted to Licensor for inclusion in the Work by the copyright owner\n      or by an individual or Legal Entity authorized to submit on behalf of\n      the copyright owner. For the purposes of this definition, \"submitted\"\n      means any form of electronic, verbal, or written communication sent\n      to the Licensor or its representatives, including but not limited to\n      communication on electronic mailing lists, source code control systems,\n      and issue tracking systems that are managed by, or on behalf of, the\n      Licensor for the purpose of discussing and improving the Work, but\n      excluding communication that is conspicuously marked or otherwise\n      designated in writing by the copyright owner as \"Not a Contribution.\"\n\n      \"Contributor\" shall mean Licensor and any individual or Legal Entity\n      on behalf of whom a Contribution has been received by Licensor and\n      subsequently incorporated within the Work.\n\n   2. Grant of Copyright License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      copyright license to reproduce, prepare Derivative Works of,\n      publicly display, publicly perform, sublicense, and distribute the\n      Work and such Derivative Works in Source or Object form.\n\n   3. Grant of Patent License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      (except as stated in this section) patent license to make, have made,\n      use, offer to sell, sell, import, and otherwise transfer the Work,\n      where such license applies only to those patent claims licensable\n      by such Contributor that are necessarily infringed by their\n      Contribution(s) alone or by combination of their Contribution(s)\n      with the Work to which such Contribution(s) was submitted. If You\n      institute patent litigation against any entity (including a\n      cross-claim or counterclaim in a lawsuit) alleging that the Work\n      or a Contribution incorporated within the Work constitutes direct\n      or contributory patent infringement, then any patent licenses\n      granted to You under this License for that Work shall terminate\n      as of the date such litigation is filed.\n\n   4. Redistribution. You may reproduce and distribute copies of the\n      Work or Derivative Works thereof in any medium, with or without\n      modifications, and in Source or Object form, provided that You\n      meet the following conditions:\n\n      (a) You must give any other recipients of the Work or\n          Derivative Works a copy of this License; and\n\n      (b) You must cause any modified files to carry prominent notices\n          stating that You changed the files; and\n\n      (c) You must retain, in the Source form of any Derivative Works\n          that You distribute, all copyright, patent, trademark, and\n          attribution notices from the Source form of the Work,\n          excluding those notices that do not pertain to any part of\n          the Derivative Works; and\n\n      (d) If the Work includes a \"NOTICE\" text file as part of its\n          distribution, then any Derivative Works that You distribute must\n          include a readable copy of the attribution notices contained\n          within such NOTICE file, excluding those notices that do not\n          pertain to any part of the Derivative Works, in at least one\n          of the following places: within a NOTICE text file distributed\n          as part of the Derivative Works; within the Source form or\n          documentation, if provided along with the Derivative Works; or,\n          within a display generated by the Derivative Works, if and\n          wherever such third-party notices normally appear. The contents\n          of the NOTICE file are for informational purposes only and\n          do not modify the License. You may add Your own attribution\n          notices within Derivative Works that You distribute, alongside\n          or as an addendum to the NOTICE text from the Work, provided\n          that such additional attribution notices cannot be construed\n          as modifying the License.\n\n      You may add Your own copyright statement to Your modifications and\n      may provide additional or different license terms and conditions\n      for use, reproduction, or distribution of Your modifications, or\n      for any such Derivative Works as a whole, provided Your use,\n      reproduction, and distribution of the Work otherwise complies with\n      the conditions stated in this License.\n\n   5. Submission of Contributions. Unless You explicitly state otherwise,\n      any Contribution intentionally submitted for inclusion in the Work\n      by You to the Licensor shall be under the terms and conditions of\n      this License, without any additional terms or conditions.\n      Notwithstanding the above, nothing herein shall supersede or modify\n      the terms of any separate license agreement you may have executed\n      with Licensor regarding such Contributions.\n\n   6. Trademarks. This License does not grant permission to use the trade\n      names, trademarks, service marks, or product names of the Licensor,\n      except as required for reasonable and customary use in describing the\n      origin of the Work and reproducing the content of the NOTICE file.\n\n   7. Disclaimer of Warranty. Unless required by applicable law or\n      agreed to in writing, Licensor provides the Work (and each\n      Contributor provides its Contributions) on an \"AS IS\" BASIS,\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n      implied, including, without limitation, any warranties or conditions\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n      PARTICULAR PURPOSE. You are solely responsible for determining the\n      appropriateness of using or redistributing the Work and assume any\n      risks associated with Your exercise of permissions under this License.\n\n   8. Limitation of Liability. In no event and under no legal theory,\n      whether in tort (including negligence), contract, or otherwise,\n      unless required by applicable law (such as deliberate and grossly\n      negligent acts) or agreed to in writing, shall any Contributor be\n      liable to You for damages, including any direct, indirect, special,\n      incidental, or consequential damages of any character arising as a\n      result of this License or out of the use or inability to use the\n      Work (including but not limited to damages for loss of goodwill,\n      work stoppage, computer failure or malfunction, or any and all\n      other commercial damages or losses), even if such Contributor\n      has been advised of the possibility of such damages.\n\n   9. Accepting Warranty or Additional Liability. While redistributing\n      the Work or Derivative Works thereof, You may choose to offer,\n      and charge a fee for, acceptance of support, warranty, indemnity,\n      or other liability obligations and/or rights consistent with this\n      License. However, in accepting such obligations, You may act only\n      on Your own behalf and on Your sole responsibility, not on behalf\n      of any other Contributor, and only if You agree to indemnify,\n      defend, and hold each Contributor harmless for any liability\n      incurred by, or claims asserted against, such Contributor by reason\n      of your accepting any such warranty or additional liability.\n\n   END OF TERMS AND CONDITIONS\n\n   APPENDIX: How to apply the Apache License to your work.\n\n      To apply the Apache License to your work, attach the following\n      boilerplate notice, with the fields enclosed by brackets \"[]\"\n      replaced with your own identifying information. (Don't include\n      the brackets!)  The text should be enclosed in the appropriate\n      comment syntax for the file format. We also recommend that a\n      file or class name and description of purpose be included on the\n      same \"printed page\" as the copyright notice for easier\n      identification within third-party archives.\n\n   Copyright [yyyy] [name of copyright owner]\n\n   Licensed under the Apache License, Version 2.0 (the \"License\");\n   you may not use this file except in compliance with the License.\n   You may obtain a copy of the License at\n\n       http://www.apache.org/licenses/LICENSE-2.0\n\n   Unless required by applicable law or agreed to in writing, software\n   distributed under the License is distributed on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n   See the License for the specific language governing permissions and\n   limitations under the License.",
+          "modelfile": "# Modelfile generated by \"ollama show\"\n# To build a new Modelfile based on this, replace FROM with:\n# FROM qwen3.5:9b\n\nFROM C:\\Users\\Lohith k\\.ollama\\models\\blobs\\sha256-dec52a44569a2a25341c4e4d3fee25846eed4f6f0b936278e3a3c900bb99d37c\nTEMPLATE {{ .Prompt }}\nRENDERER qwen3.5\nPARSER qwen3.5\nPARAMETER presence_penalty 1.5\nPARAMETER temperature 1\nPARAMETER top_k 20\nPARAMETER top_p 0.95\nLICENSE \"\"\"                                Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n      other entities that control, are controlled by, or are under common\n      control with that entity. For the purposes of this definition,\n      \"control\" means (i) the power, direct or indirect, to cause the\n      direction or management of such entity, whether by contract or\n      otherwise, or (ii) ownership of fifty percent (50%) or more of the\n      outstanding shares, or (iii) beneficial ownership of such entity.\n\n      \"You\" (or \"Your\") shall mean an individual or Legal Entity\n      exercising permissions granted by this License.\n\n      \"Source\" form shall mean the preferred form for making modifications,\n      including but not limited to software source code, documentation\n      source, and configuration files.\n\n      \"Object\" form shall mean any form resulting from mechanical\n      transformation or translation of a Source form, including but\n      not limited to compiled object code, generated documentation,\n      and conversions to other media types.\n\n      \"Work\" shall mean the work of authorship, whether in Source or\n      Object form, made available under the License, as indicated by a\n      copyright notice that is included in or attached to the work\n      (an example is provided in the Appendix below).\n\n      \"Derivative Works\" shall mean any work, whether in Source or Object\n      form, that is based on (or derived from) the Work and for which the\n      editorial revisions, annotations, elaborations, or other modifications\n      represent, as a whole, an original work of authorship. For the purposes\n      of this License, Derivative Works shall not include works that remain\n      separable from, or merely link (or bind by name) to the interfaces of,\n      the Work and Derivative Works thereof.\n\n      \"Contribution\" shall mean any work of authorship, including\n      the original version of the Work and any modifications or additions\n      to that Work or Derivative Works thereof, that is intentionally\n      submitted to Licensor for inclusion in the Work by the copyright owner\n      or by an individual or Legal Entity authorized to submit on behalf of\n      the copyright owner. For the purposes of this definition, \"submitted\"\n      means any form of electronic, verbal, or written communication sent\n      to the Licensor or its representatives, including but not limited to\n      communication on electronic mailing lists, source code control systems,\n      and issue tracking systems that are managed by, or on behalf of, the\n      Licensor for the purpose of discussing and improving the Work, but\n      excluding communication that is conspicuously marked or otherwise\n      designated in writing by the copyright owner as \"Not a Contribution.\"\n\n      \"Contributor\" shall mean Licensor and any individual or Legal Entity\n      on behalf of whom a Contribution has been received by Licensor and\n      subsequently incorporated within the Work.\n\n   2. Grant of Copyright License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      copyright license to reproduce, prepare Derivative Works of,\n      publicly display, publicly perform, sublicense, and distribute the\n      Work and such Derivative Works in Source or Object form.\n\n   3. Grant of Patent License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      (except as stated in this section) patent license to make, have made,\n      use, offer to sell, sell, import, and otherwise transfer the Work,\n      where such license applies only to those patent claims licensable\n      by such Contributor that are necessarily infringed by their\n      Contribution(s) alone or by combination of their Contribution(s)\n      with the Work to which such Contribution(s) was submitted. If You\n      institute patent litigation against any entity (including a\n      cross-claim or counterclaim in a lawsuit) alleging that the Work\n      or a Contribution incorporated within the Work constitutes direct\n      or contributory patent infringement, then any patent licenses\n      granted to You under this License for that Work shall terminate\n      as of the date such litigation is filed.\n\n   4. Redistribution. You may reproduce and distribute copies of the\n      Work or Derivative Works thereof in any medium, with or without\n      modifications, and in Source or Object form, provided that You\n      meet the following conditions:\n\n      (a) You must give any other recipients of the Work or\n          Derivative Works a copy of this License; and\n\n      (b) You must cause any modified files to carry prominent notices\n          stating that You changed the files; and\n\n      (c) You must retain, in the Source form of any Derivative Works\n          that You distribute, all copyright, patent, trademark, and\n          attribution notices from the Source form of the Work,\n          excluding those notices that do not pertain to any part of\n          the Derivative Works; and\n\n      (d) If the Work includes a \"NOTICE\" text file as part of its\n          distribution, then any Derivative Works that You distribute must\n          include a readable copy of the attribution notices contained\n          within such NOTICE file, excluding those notices that do not\n          pertain to any part of the Derivative Works, in at least one\n          of the following places: within a NOTICE text file distributed\n          as part of the Derivative Works; within the Source form or\n          documentation, if provided along with the Derivative Works; or,\n          within a display generated by the Derivative Works, if and\n          wherever such third-party notices normally appear. The contents\n          of the NOTICE file are for informational purposes only and\n          do not modify the License. You may add Your own attribution\n          notices within Derivative Works that You distribute, alongside\n          or as an addendum to the NOTICE text from the Work, provided\n          that such additional attribution notices cannot be construed\n          as modifying the License.\n\n      You may add Your own copyright statement to Your modifications and\n      may provide additional or different license terms and conditions\n      for use, reproduction, or distribution of Your modifications, or\n      for any such Derivative Works as a whole, provided Your use,\n      reproduction, and distribution of the Work otherwise complies with\n      the conditions stated in this License.\n\n   5. Submission of Contributions. Unless You explicitly state otherwise,\n      any Contribution intentionally submitted for inclusion in the Work\n      by You to the Licensor shall be under the terms and conditions of\n      this License, without any additional terms or conditions.\n      Notwithstanding the above, nothing herein shall supersede or modify\n      the terms of any separate license agreement you may have executed\n      with Licensor regarding such Contributions.\n\n   6. Trademarks. This License does not grant permission to use the trade\n      names, trademarks, service marks, or product names of the Licensor,\n      except as required for reasonable and customary use in describing the\n      origin of the Work and reproducing the content of the NOTICE file.\n\n   7. Disclaimer of Warranty. Unless required by applicable law or\n      agreed to in writing, Licensor provides the Work (and each\n      Contributor provides its Contributions) on an \"AS IS\" BASIS,\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n      implied, including, without limitation, any warranties or conditions\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n      PARTICULAR PURPOSE. You are solely responsible for determining the\n      appropriateness of using or redistributing the Work and assume any\n      risks associated with Your exercise of permissions under this License.\n\n   8. Limitation of Liability. In no event and under no legal theory,\n      whether in tort (including negligence), contract, or otherwise,\n      unless required by applicable law (such as deliberate and grossly\n      negligent acts) or agreed to in writing, shall any Contributor be\n      liable to You for damages, including any direct, indirect, special,\n      incidental, or consequential damages of any character arising as a\n      result of this License or out of the use or inability to use the\n      Work (including but not limited to damages for loss of goodwill,\n      work stoppage, computer failure or malfunction, or any and all\n      other commercial damages or losses), even if such Contributor\n      has been advised of the possibility of such damages.\n\n   9. Accepting Warranty or Additional Liability. While redistributing\n      the Work or Derivative Works thereof, You may choose to offer,\n      and charge a fee for, acceptance of support, warranty, indemnity,\n      or other liability obligations and/or rights consistent with this\n      License. However, in accepting such obligations, You may act only\n      on Your own behalf and on Your sole responsibility, not on behalf\n      of any other Contributor, and only if You agree to indemnify,\n      defend, and hold each Contributor harmless for any liability\n      incurred by, or claims asserted against, such Contributor by reason\n      of your accepting any such warranty or additional liability.\n\n   END OF TERMS AND CONDITIONS\n\n   APPENDIX: How to apply the Apache License to your work.\n\n      To apply the Apache License to your work, attach the following\n      boilerplate notice, with the fields enclosed by brackets \"[]\"\n      replaced with your own identifying information. (Don't include\n      the brackets!)  The text should be enclosed in the appropriate\n      comment syntax for the file format. We also recommend that a\n      file or class name and description of purpose be included on the\n      same \"printed page\" as the copyright notice for easier\n      identification within third-party archives.\n\n   Copyright [yyyy] [name of copyright owner]\n\n   Licensed under the Apache License, Version 2.0 (the \"License\");\n   you may not use this file except in compliance with the License.\n   You may obtain a copy of the License at\n\n       http://www.apache.org/licenses/LICENSE-2.0\n\n   Unless required by applicable law or agreed to in writing, software\n   distributed under the License is distributed on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n   See the License for the specific language governing permissions and\n   limitations under the License.\"\"\"\n",
+          "parameters": "top_p                          0.95\npresence_penalty               1.5\ntemperature                    1\ntop_k                          20",
+          "template": "{{ .Prompt }}",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "qwen35",
+            "families": [
+              "qwen35"
+            ],
+            "parameter_size": "9.7B",
+            "quantization_level": "Q4_K_M"
+          },
+          "model_info": {
+            "general.architecture": "qwen35",
+            "general.file_type": 15,
+            "general.parameter_count": 9653104368,
+            "general.quantization_version": 2,
+            "qwen35.attention.head_count": 16,
+            "qwen35.attention.head_count_kv": [
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              4
+            ],
+            "qwen35.attention.key_length": 256,
+            "qwen35.attention.layer_norm_rms_epsilon": 1e-06,
+            "qwen35.attention.value_length": 256,
+            "qwen35.block_count": 32,
+            "qwen35.context_length": 262144,
+            "qwen35.embedding_length": 4096,
+            "qwen35.feed_forward_length": 12288,
+            "qwen35.full_attention_interval": 4,
+            "qwen35.image_token_id": 248056,
+            "qwen35.mrope_sections": [
+              11,
+              11,
+              10
+            ],
+            "qwen35.rope.dimension_count": 64,
+            "qwen35.rope.dimension_sections": [
+              11,
+              11,
+              10
+            ],
+            "qwen35.rope.freq_base": 10000000,
+            "qwen35.rope.mrope_interleaved": true,
+            "qwen35.rope.mrope_section": [
+              11,
+              11,
+              10
+            ],
+            "qwen35.ssm.conv_kernel": 4,
+            "qwen35.ssm.group_count": 16,
+            "qwen35.ssm.inner_size": 4096,
+            "qwen35.ssm.state_size": 128,
+            "qwen35.ssm.time_step_rank": 32,
+            "qwen35.ssm.v_head_reordered": true,
+            "qwen35.vision.attention.head_count": 16,
+            "qwen35.vision.block_count": 27,
+            "qwen35.vision.deepstack_visual_indexes": [],
+            "qwen35.vision.embedding_length": 1152,
+            "qwen35.vision.image_mean": [
+              0.5,
+              0.5,
+              0.5
+            ],
+            "qwen35.vision.image_std": [
+              0.5,
+              0.5,
+              0.5
+            ],
+            "qwen35.vision.longest_edge": 16777216,
+            "qwen35.vision.num_channels": 3,
+            "qwen35.vision.patch_size": 16,
+            "qwen35.vision.shortest_edge": 65536,
+            "qwen35.vision.spatial_merge_size": 2,
+            "qwen35.vision.temporal_patch_size": 2,
+            "qwen35.vision_end_token_id": 248054,
+            "qwen35.vision_start_token_id": 248053,
+            "tokenizer.ggml.add_eos_token": false,
+            "tokenizer.ggml.add_padding_token": false,
+            "tokenizer.ggml.eos_token_id": 248046,
+            "tokenizer.ggml.merges": [],
+            "tokenizer.ggml.model": "gpt2",
+            "tokenizer.ggml.padding_token_id": 248044,
+            "tokenizer.ggml.pre": "qwen35",
+            "tokenizer.ggml.scores": [],
+            "tokenizer.ggml.token_type": [],
+            "tokenizer.ggml.tokens": []
+          },
+          "capabilities": [
+            "completion",
+            "vision",
+            "tools",
+            "thinking"
+          ],
+          "modified_at": "2026-09-15T19:38:13.9292122+05:30",
+          "requires": "0.17.1"
+        },
+        "health": {
+          "request": {
+            "model": "qwen3.5:9b",
+            "messages": [
+              {
+                "role": "system",
+                "content": "Return only valid JSON, no markdown or commentary."
+              },
+              {
+                "role": "user",
+                "content": "Synthetic runtime health check: return exactly {\"healthy\":true,\"value\":2}."
+              }
+            ],
+            "stream": false,
+            "think": false,
+            "options": {
+              "temperature": 0,
+              "seed": 42,
+              "num_ctx": 16384,
+              "num_predict": 64
+            },
+            "keep_alive": "5m"
+          },
+          "timeout_seconds": 180,
+          "attempts": 1,
+          "started_utc": "2026-09-27T04:05:07.118424+00:00",
+          "response": {
+            "model": "qwen3.5:9b",
+            "created_at": "2026-09-27T04:05:53.0359543Z",
+            "message": {
+              "role": "assistant",
+              "content": "{\"healthy\":true,\"value\":2}"
+            },
+            "done": true,
+            "done_reason": "stop",
+            "total_duration": 45913961300,
+            "load_duration": 41476134600,
+            "prompt_eval_count": 44,
+            "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 1420566000,
+            "eval_count": 10,
+            "eval_duration": 2857671000
+          },
+          "elapsed_seconds": 46.00341340000159,
+          "http_status": 200,
+          "passed": true
+        }
+      }
+    ],
+    "ps_after": {
+      "models": [
+        {
+          "name": "qwen3.5:9b",
+          "model": "qwen3.5:9b",
+          "size": 6587909403,
+          "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "qwen35",
+            "families": [
+              "qwen35"
+            ],
+            "parameter_size": "9.7B",
+            "quantization_level": "Q4_K_M"
+          },
+          "expires_at": "2026-09-27T09:40:53.0695394+05:30",
+          "size_vram": 1720367184,
+          "context_length": 16384
+        }
+      ]
+    }
+  },
+  "hardware": {
+    "gpu": [
+      {
+        "Name": "NVIDIA GeForce RTX 2050",
+        "AdapterRAM": 4293918720,
+        "DriverVersion": "31.0.15.3652"
+      },
+      {
+        "Name": "Intel(R) UHD Graphics",
+        "AdapterRAM": 2147479552,
+        "DriverVersion": "32.0.101.7085"
+      }
+    ],
+    "cpu": [
+      {
+        "Name": "12th Gen Intel(R) Core(TM) i5-12450H",
+        "NumberOfCores": 8,
+        "NumberOfLogicalProcessors": 12
+      }
+    ],
+    "disks": [
+      {
+        "Name": "C",
+        "Used": 270597332992,
+        "Free": 240377942016
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Home Single Language",
+      "TotalVisibleMemorySize": 16457592,
+      "FreePhysicalMemory": 4628304
+    },
+    "nvidia": "NVIDIA GeForce RTX 2050, 4096 MiB, 3918 MiB, 536.52"
+  },
+  "hardware_loaded_snapshot": {
+    "free_system_ram_kib": 1190380,
+    "ollama_processor": "74%/26% CPU/GPU",
+    "context": 16384,
+    "note": "Snapshot while Docker data services and 9B were loaded; memory is dynamic."
+  },
+  "services": {
+    "postgres": {
+      "select_1": 1,
+      "revision": "0014_product_integration",
+      "server_version": "17.11 (Debian 17.11-1.pgdg13+2)",
+      "new_tables": [
+        "automation_receipts",
+        "knowledge_packs",
+        "operator_notes",
+        "verified_knowledge"
+      ]
+    },
+    "qdrant": {
+      "endpoint": "http://127.0.0.1:6333",
+      "readyz_status": 200,
+      "readyz_body": "all shards are ready",
+      "collections": {
+        "result": {
+          "collections": [
+            {
+              "name": "knowledge_chunks_v1_hybrid_v1"
+            },
+            {
+              "name": "knowledge_chunks_v1_dense_backup"
+            }
+          ]
+        },
+        "status": "ok",
+        "time": 1.2645e-05
+      }
+    },
+    "readiness": {
+      "status": "ready",
+      "checks": {
+        "fastapi": true,
+        "configuration": true,
+        "postgresql": true,
+        "qdrant": true,
+        "model": true
+      },
+      "model_check": "runtime reachable and configured model installed; no inference performed"
+    },
+    "sovereignty": {
+      "config_version": "phase7-v1",
+      "timestamp": "2026-09-27T04:06:30.904660Z",
+      "inference_runtime": "ollama",
+      "local_model": "qwen3.5:9b",
+      "inference_endpoint_classification": "local",
+      "qdrant_classification": "local",
+      "postgresql_classification": "local",
+      "data_path_classification": "local_filesystem",
+      "hosted_ai_configured": false,
+      "cloud_ai_enabled": false,
+      "external_ai_calls": 0,
+      "local_ai_attempts": 0,
+      "observed_since": "2026-09-27T04:06:29.026533Z",
+      "inference_mode": "local_only",
+      "status": "sovereign",
+      "speech_endpoints": {
+        "stt": "disabled",
+        "tts": "disabled"
+      },
+      "proof_scope": "application_configuration_and_current_process_gateway_dispatches",
+      "network_egress_enforced": false,
+      "limitations": "No firewall or physical-network isolation attested. Counters cover this process only, reset on restart, and exclude other processes, model-server upstream traffic, and downloads. Hostname classification is configuration-based; DNS is checked before model dispatch, not pinned. Filesystem mounts are not attested."
+    }
+  },
+  "deployment_actions": [
+    "Started installed Docker Desktop hidden; existing Linux engine was stopped.",
+    "docker compose --env-file .env -f infra/docker-compose.yml up -d --no-recreate --pull never postgres qdrant",
+    "Inspected current revision: 0010_phase5f_repairs. Inspected committed upgrades 0011-0014: additive tables/indexes and widened CHECK constraints, no row/table deletions in upgrade path.",
+    "From backend: .venv/Scripts/python.exe -B -m alembic upgrade head",
+    "From backend: alembic current => 0014_product_integration (head); alembic check => No new upgrade operations detected.",
+    "Verified SELECT 1 and all four newly deployed tables; existing volumes/containers retained."
+  ],
+  "service_validation_scope": "Called application readiness functions directly with actual configured dependencies, not a running FastAPI HTTP endpoint. The fastapi=true field is intrinsic to that function and does not attest a listening server. Benchmark adapters read frozen local corpus files, not live DB/Qdrant; deployment readiness checked separately.",
+  "candidate_readiness": [
+    {
+      "model": "qwen3.5:9b",
+      "installed": true,
+      "runnable": true,
+      "resource_status": "RESOURCE_RISK",
+      "stage2_eligible": false,
+      "reason": "One successful 16384-context JSON request; 6.6 GB weights exceed 4 GB VRAM. Ollama reports 74% CPU/26% GPU. About 1.14 GiB system RAM free after services/model loaded. Run serially; health is not long-run capacity certification. Runtime eligible, but Stage 2 execution is held by REF-005.",
+      "runtime_eligible": true
+    },
+    {
+      "model": "qwen3.5:4b",
+      "installed": false,
+      "runnable": null,
+      "resource_status": "NOT_INSTALLED",
+      "stage2_eligible": false,
+      "reason": "Minimum practical additional candidate: official Q4_K_M package is 3.4 GB. Provision only with authorization, unload 9B when switching, then one non-benchmark readiness request. Memory overhead means GPU-only fit is not guaranteed.",
+      "runtime_eligible": false
+    },
+    {
+      "model": "qwen3.5:35b",
+      "requested_family": "Qwen3.5-35B-A3B",
+      "installed": false,
+      "runnable": null,
+      "resource_status": "NOT_PRACTICAL_ON_CURRENT_MACHINE",
+      "stage2_eligible": false,
+      "reason": "Official local catalog tag is qwen3.5:35b, qwen35moe Q4_K_M, 24 GB package. No equivalent installed tag exists. Package exceeds total 15.70 GiB usable RAM plus 4 GiB VRAM before OS/context overhead. Exclude today; no load or speed claim.",
+      "runtime_eligible": false
+    }
+  ],
+  "blockers": [
+    {
+      "id": "VALIDATION_EVIDENCE_BINDING",
+      "case_id": "REF-005",
+      "split": "validation",
+      "message": "No source-assigned bounded sensor window.",
+      "evidence": "benchmark/mappings/benchmark_corpus_mapping_final.json: SENSOR-P204-A binding has window_bindings=[] and window_binding_status=family_resolved_specific_window_unspecified. Frozen assets.py record() rejects an empty sensor window assignment; evaluate.py resolve() propagates Blocked.",
+      "impact": "29 of 30 selected cases resolve; cannot execute the required complete 30-case comparison unchanged.",
+      "next_action": "Review the authoritative REF-005 assignment and obtain explicit authorization for any necessary versioned benchmark/interface correction. Do not guess a window, skip the case, or modify frozen files under Stage 1 authorization."
+    }
+  ],
+  "comparison_prerequisites": [
+    "Only one candidate installed. A cross-model comparison needs authorized 4B provisioning and one passing readiness check before its Stage 2 run. This does not block beginning 9B DEV+VALIDATION."
+  ],
+  "sources": [
+    {
+      "url": "https://ollama.com/library/qwen3.5:4b",
+      "observed": "3.4GB, Q4_K_M, qwen35, 4.66B; catalog digest prefix 2a654d98e6fb"
+    },
+    {
+      "url": "https://ollama.com/library/qwen3.5:35b",
+      "observed": "24GB, Q4_K_M, qwen35moe, 36B; catalog digest prefix 3460ffeede54"
+    }
+  ],
+  "sovereignty_notes": [
+    "Synthetic request sent only to loopback /api/chat using trust_env=False and no redirects. No benchmark content sent to hosted services.",
+    "Application proof is configuration/process scoped, not firewall attestation. Zero gateway counters in the separate probe process do not count the direct synthetic HTTP request.",
+    "Public catalog browsing sent model names/URLs only, not project or benchmark contents."
+  ],
+  "stage2": {
+    "executed": false,
+    "runner_source": "import ctypes, hashlib, json, os, re, subprocess, sys\nfrom pathlib import Path\nfrom datetime import datetime, timezone\nfrom benchmark.harness import evaluate as h\nroot = Path.cwd()\nrecord = json.loads((root/'benchmark/reports/final_model_runtime_readiness.json').read_text(encoding='utf-8'))\nmodel = sys.argv[1]\ncheck_only = '--check' in sys.argv[2:]\nif model not in ('qwen3.5:9b', 'qwen3.5:4b'):\n    raise SystemExit('Only the named local candidates are eligible; no blind mode exists.')\nfor path, expected in record['benchmark']['frozen_file_hashes'].items():\n    if hashlib.sha256((root/path).read_bytes()).hexdigest() != expected:\n        raise SystemExit('Frozen input changed: ' + path)\nsource = root/'benchmark/cases/benchmark_cases_final.jsonl'\ncases = h.load_cases(source)\nsplit = json.loads(source.with_name('benchmark_split_manifest.json').read_text())\nids = split['splits']['development'] + split['splits']['validation']\nassert len(ids) == len(set(ids)) == 30 and not set(ids).intersection(split['splits']['blind'])\nby_id = {case['evaluation_id']: case for case in cases}\nselected = [by_id[key] for key in ids]\nassert all(c['split'] in ('development', 'validation') for c in selected)\nbundle = h.load_mapping(root/'benchmark/mappings/benchmark_corpus_mapping_final.json', source, cases)\nblocked = []\nfor case in selected:\n    try:\n        h.resolve(case, bundle)\n    except h.Blocked as error:\n        blocked.append({'case_id':case['evaluation_id'], 'split':case['split'], 'error':str(error)})\nif blocked:\n    raise SystemExit('Stage 2 preflight BLOCKED; zero inference: ' + json.dumps(blocked))\nconfig = h.settings.model_copy(update={'model_runtime':'ollama', 'model_name':model,\n    'model_base_url':'http://127.0.0.1:11434', 'model_allowed_hosts':'127.0.0.1,localhost',\n    'model_temperature':0, 'model_seed':42, 'model_context_window':16384,\n    'model_max_output_tokens':1536, 'model_max_retries':0, 'model_structured_repair_attempts':0})\ngateway = h.ModelGateway(config)\ninventory = [m.model_dump(mode='json') for m in gateway.list_models()]\ninstalled = next((m for m in inventory if m['name'] == model), None)\nif installed is None:\n    raise SystemExit('Candidate not installed; no download attempted.')\nif model == 'qwen3.5:9b' and installed['digest'] != record['runtime']['tags']['models'][0]['digest']:\n    raise SystemExit('9B digest changed; re-establish readiness before comparison.')\nif check_only:\n    print(json.dumps({'preflight':'PASS', 'model':model, 'cases':len(selected), 'splits':['development','validation'], 'inference_calls':0}))\n    raise SystemExit(0)\n# Exclusive directory creation prevents accidental repetitions or overwrites.\nout = root/'benchmark/results'/('final_model_stage2_' + re.sub(r'[^a-zA-Z0-9]+','_',model).strip('_'))\nout.mkdir(exist_ok=False)\nmeta = {'stage':'final_model_comparison_2', 'scoring_status':'FINALIZED_SOURCE',\n    'timestamp':datetime.now(timezone.utc).isoformat(), 'git_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),\n    'model':model, 'installed_model':installed, 'ollama_version':record['runtime']['version'],\n    'temperature':0, 'seed':42, 'context_window':16384, 'max_output_tokens':1536, 'think':False,\n    'call_timeout_seconds':900, 'repetitions':1, 'retries':0, 'case_ids':ids,\n    'splits':['development','validation'], 'blind_inference':False,\n    'frozen_file_hashes':record['benchmark']['frozen_file_hashes'],\n    'runner_sha256':record['stage2']['runner_sha256'],\n    'note':'Model label corrected after evaluation only; frozen prompts, adapters, parser and validators unchanged.'}\nrows = [{'evaluation_id':c['evaluation_id'], 'case_id':c['evaluation_id'], 'category':c['category'],\n    'split':c['split'], 'model':model, 'status':'NOT_RUN', 'pass_fail':'NOT_RUN'} for c in selected]\ndef save():\n    h.persist(rows, out/'results.jsonl', out/'report.md', meta)\nsave()\nheld = False\ntry:\n    if os.name == 'nt':\n        held = bool(ctypes.windll.kernel32.SetThreadExecutionState(0x80000001))\n        if not held:\n            raise RuntimeError('Cannot obtain process-scoped sleep prevention.')\n    for i, case in enumerate(selected):\n        rows[i]['status'] = 'STARTED'\n        save()\n        print('Running', model, case['evaluation_id'], flush=True)\n        result = h.evaluate(case, bundle, gateway)\n        result.update(model=model, split=case['split'])\n        rows[i] = result\n        save()\nfinally:\n    if held:\n        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)\nprint('Saved', out, '; REVIEW_REQUIRED is not a semantic PASS.', flush=True)\n",
+    "runner_sha256": "d2e5797dbb2c0d18f0362e76f692884097c71e700da109cd45b5e719c8f50b5f",
+    "command_9b": "Set-Location 'C:\\Users\\Lohith k\\Desktop\\sovereign-agentic-workbench'\n$env:PYTHONPATH='backend'\n$env:PYTHONDONTWRITEBYTECODE='1'\n$env:HF_HUB_OFFLINE='1'\n$env:TRANSFORMERS_OFFLINE='1'\n$env:LANGCHAIN_TRACING_V2='false'\n$env:LANGSMITH_TRACING='false'\nbackend/.venv/Scripts/python.exe -B -c \"import json; from pathlib import Path; r=json.loads(Path('benchmark/reports/final_model_runtime_readiness.json').read_text(encoding='utf-8')); exec(compile(r['stage2']['runner_source'], '<stage2-plan>', 'exec'))\" qwen3.5:9b",
+    "command_4b_after_provisioning": "Set-Location 'C:\\Users\\Lohith k\\Desktop\\sovereign-agentic-workbench'\n$env:PYTHONPATH='backend'\n$env:PYTHONDONTWRITEBYTECODE='1'\n$env:HF_HUB_OFFLINE='1'\n$env:TRANSFORMERS_OFFLINE='1'\n$env:LANGCHAIN_TRACING_V2='false'\n$env:LANGSMITH_TRACING='false'\nbackend/.venv/Scripts/python.exe -B -c \"import json; from pathlib import Path; r=json.loads(Path('benchmark/reports/final_model_runtime_readiness.json').read_text(encoding='utf-8')); exec(compile(r['stage2']['runner_source'], '<stage2-plan>', 'exec'))\" qwen3.5:4b",
+    "preflight_command": "Set-Location 'C:\\Users\\Lohith k\\Desktop\\sovereign-agentic-workbench'\n$env:PYTHONPATH='backend'\n$env:PYTHONDONTWRITEBYTECODE='1'\n$env:HF_HUB_OFFLINE='1'\n$env:TRANSFORMERS_OFFLINE='1'\n$env:LANGCHAIN_TRACING_V2='false'\n$env:LANGSMITH_TRACING='false'\nbackend/.venv/Scripts/python.exe -B -c \"import json; from pathlib import Path; r=json.loads(Path('benchmark/reports/final_model_runtime_readiness.json').read_text(encoding='utf-8')); exec(compile(r['stage2']['runner_source'], '<stage2-plan>', 'exec'))\" qwen3.5:9b --check",
+    "case_count_per_model": 30,
+    "order": "15 development followed by 15 validation, manifest order",
+    "max_calls_per_model": 60,
+    "output_9b": "benchmark/results/final_model_stage2_qwen3_5_9b/",
+    "output_4b": "benchmark/results/final_model_stage2_qwen3_5_4b/",
+    "runtime_estimate": {
+      "historical_9b_15_cases_seconds": 1989.868,
+      "linear_30_cases_minutes": 66.32893333333332,
+      "planning_allowance_9b_minutes": "90-120, allowance rather than measured prediction",
+      "four_b": "No measured throughput; do not invent a duration. Provisioning time excluded.",
+      "deadline_ceiling": "60 calls x 900 seconds = up to 15 hours if every call consumes its limit; estimate is not a completion guarantee."
+    },
+    "limitations": [
+      "Frozen evaluate.py CLI is hard-coded to 9B/DEV and old output files: do not invoke main for Stage 2. Embedded orchestration reuses unchanged functions.",
+      "Frozen evaluate() hard-codes top-level row model label to 9B; wrapper sets that metadata to the actual configured candidate after generation without changing inference/scoring.",
+      "Exclusive output directory prevents reruns/overwrite. Interrupted STARTED/NOT_RUN results require review; no automatic resampling.",
+      "Keep runner/interface/validators fixed across models; preserve failures and semantic review requirements.",
+      "All 30 bindings preflight before any model request; currently aborts at REF-005. A future authorized freeze revision must update the readiness hash baseline and rerun this preflight, not bypass it."
+    ],
+    "execution_status": "PREPARED_NOT_EXECUTABLE_UNTIL_FROZEN_BINDING_BLOCKER_RESOLVED"
+  },
+  "validation": {
+    "frozen_hashes": "PASS",
+    "migration_check": "PASS",
+    "application_code_changed": false,
+    "full_tests": "Not rerun; no application code/config edits",
+    "runner_syntax": "PASS",
+    "runner_preflight": {
+      "status": "BLOCKED_AS_EXPECTED",
+      "selected_cases": 30,
+      "resolved": 29,
+      "blocked": [
+        "REF-005"
+      ],
+      "inference_calls": 0,
+      "initial_attempt": "First interpreter startup was interrupted (KeyboardInterrupt); retry reached the deterministic preflight. Neither attempt dispatched inference."
+    },
+    "git_diff_check": "PASS",
+    "final_frozen_hashes": "101/101 byte-identical to Phase 10.3",
+    "runner_guard_check": "PASS: exact saved command --check exits blocked at REF-005 with zero inference and no Stage 2 output directories.",
+    "final_git_status": " M .codex/hooks.json\n?? .codex/test_hooks.py\n?? .impeccable/\n?? benchmark/reports/final_model_runtime_readiness.json\n?? benchmark/reports/final_model_runtime_readiness.md\n?? claudex-loop/\n?? docs/tooling-health.md\n"
+  }
+}
