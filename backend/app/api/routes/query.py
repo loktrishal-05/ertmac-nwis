@@ -26,7 +26,8 @@ from app.services.preflight import PreflightResult, run_preflight
 from app.services.verified_knowledge import lookup as lookup_verified_knowledge
 from app.services.adaptive_execution import choose as choose_execution
 
-from app.services.execution_observability import observe_query, attach, stage
+from app.services.execution_observability import observe_query, attach, stage, record_routing, routing_snapshot
+from app.services.model_routing import select_model, RiskSignals
 from app.services.operational_intelligence import route_for
 from app.services.verified_knowledge import authorize
 from app.services.approval import DecisionNotAllowed
@@ -134,6 +135,9 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
                 adaptive_state, execution_meta = choose_execution(session, request, current_user)
         knowledge_meta.update(execution_meta)
         knowledge_meta["path"] = execution_meta["selected_path"]
+        if adaptive_state is None:
+            record_routing(select_model(request.query, requested_path=execution_meta["selected_path"],
+                signals=RiskSignals(evidence_required=True, missing_verified_knowledge=True)))
         if adaptive_state is not None:
             state = adaptive_state
         elif operational:
@@ -162,14 +166,15 @@ def query(request: QueryRequest, session: Session = Depends(get_db),
         knowledge_meta["path"] = knowledge_meta["selected_path"]
         attach(session, request, state, knowledge_meta)
         knowledge_meta["latency_ms"] = (time.perf_counter() - lookup_started) * 1000
-        knowledge_meta["execution_model_call_count"] = None  # Existing graph does not expose a complete call counter.
+        knowledge_meta["execution_model_call_count"] = state["execution"]["model_call_count"]
         logging.getLogger(__name__).info("Adaptive execution: %s", knowledge_meta)
     except GovernanceConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except GraphExecutionError as wrapped:
         session.rollback()
         try:
-            record_run(session, wrapped.state, status="error", model=settings.model_name,
+            wrapped.state["execution"] = routing_snapshot()
+            record_run(session, wrapped.state, status="error", model=settings.primary_model,
                        runtime=settings.model_runtime, error=str(wrapped.original))
         except Exception:
             session.rollback()

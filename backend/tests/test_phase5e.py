@@ -305,9 +305,10 @@ class RegressionTests(unittest.TestCase):
         import hashlib
         from pathlib import Path
 
+        from test_evaluation_asset_guard import canonical_asset_bytes
         spec = Path(__file__).resolve().parents[2] / "docs" / "model-evaluation-spec.md"
         self.assertEqual(
-            hashlib.sha256(spec.read_bytes()).hexdigest(),
+            hashlib.sha256(canonical_asset_bytes(spec)).hexdigest(),
             "beb507819082539dcdbf3c5b1ff1e30a5590cd071258af6ca8ec475d7f23e0b4",
         )
 

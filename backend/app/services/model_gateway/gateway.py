@@ -141,7 +141,8 @@ class ModelGateway:
         return self._runtime().list_models()
 
 
-@lru_cache(maxsize=1)
-def get_model_gateway() -> ModelGateway:
+@lru_cache(maxsize=2)
+def get_model_gateway(role="primary") -> ModelGateway:
     from app.core.config import settings  # deferred: settings' own validation imports this package
-    return ModelGateway(settings)
+    from app.services.model_routing import model_config
+    return ModelGateway(model_config(settings, role))
