@@ -318,7 +318,7 @@ def create_revision(session, request: QueryRequest, state: dict, *, replay: bool
         return previous
     run_id = UUID(state["run_id"])
     if session.get(AgentRun, run_id) is None:
-        record_run(session, state, status="ok", model=settings.model_name, runtime=settings.model_runtime,
+        record_run(session, state, status="ok", model=settings.primary_model, runtime=settings.model_runtime,
                    required=True, commit=False)
     _insert_once(session, ActionRevision, {
         "id": revision_id, "request_id": request_id, "action_id": action_id, "originating_run_id": run_id,
@@ -420,7 +420,7 @@ def govern_response(session, request: QueryRequest, state: dict, *,
             raise
     _operational_events(session, state, requester_user_id)
     record_run(session, state, status="error" if state.get("errors") else "ok",
-               model=settings.model_name, runtime=settings.model_runtime,
+               model=settings.primary_model, runtime=settings.model_runtime,
                error="; ".join(state.get("errors", [])) or None)
     if state.get("operational_events"): session.commit()
     return QueryResponse(

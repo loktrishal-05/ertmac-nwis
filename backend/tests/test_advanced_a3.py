@@ -183,7 +183,7 @@ class AdvancedA3Tests(unittest.TestCase):
         from app.services import adaptive_execution as adaptive
         import json
         planner = self.f.planner(json.dumps({"path":"MGS_PATH", "reason_code":"document_lookup", "requires_deep_reasoning":False, "requires_multiple_documents":False}))
-        with patch.object(settings, "system1_enabled", True), patch.object(adaptive, "ModelGateway", return_value=planner):
+        with patch.object(settings, "system1_enabled", True), patch.object(adaptive, "get_model_gateway", return_value=planner):
             self.assertEqual(self.f.choose("Explain the P-204A documentation")[1]["selected_path"], "EXISTING_AGENTIC_PATH")
 
     def test_query_metadata_and_governed_replay(self):

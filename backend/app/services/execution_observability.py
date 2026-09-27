@@ -24,13 +24,38 @@ def stage(name):
     finally: _stage.reset(token)
 
 
+def record_routing(decision):
+    current = _current.get()
+    if current is not None:
+        current["routing"] = dict(decision)
+        current.setdefault("routing_history", []).append(dict(decision))
+
+
+def routing_snapshot():
+    current = _current.get() or {"started": perf_counter(), "calls": [], "tools": []}
+    calls = current["calls"]
+    history = current.get("routing_history", [])
+    decision = dict(current.get("routing", {}))
+    escalations = [d for d in history if d.get("escalated")]
+    if escalations:
+        decision.update(escalated=True, escalation_reason=escalations[-1]["escalation_reason"],
+                        routing_fallback_reason=escalations[-1].get("routing_fallback_reason"))
+    def tokens(key):
+        return sum(c[key] for c in calls) if all(c[key] is not None for c in calls) else None
+    return {**decision, "routing_history": history,
+        "model_used": sorted({c["model"] for c in calls}), "model_call_count": len(calls), "model_stages": calls,
+        "input_tokens": tokens("input_tokens"), "output_tokens": tokens("output_tokens"),
+        "generation_latency_ms": sum(c["latency_ms"] for c in calls),
+        "total_latency_ms": (perf_counter() - current["started"]) * 1000}
+
+
 def record_model(model, elapsed, result=None):
     current = _current.get()
     if current is not None:
         current["calls"].append({"stage": _stage.get(), "model": model, "latency_ms": elapsed,
             "input_tokens": result.usage.prompt_tokens if result else None,
             "output_tokens": result.usage.completion_tokens if result else None,
-            "failed": result is None})
+            "failed": result is None, **current.get("routing", {})})
 
 
 def record_tool(name, elapsed, failed):
@@ -62,9 +87,6 @@ def attach(session, request, state, meta):
     if output.get("status") == "INDETERMINATE": sufficiency["state"] = "INSUFFICIENT"
     if gaps:
         state["operational_events"] = list(dict.fromkeys(state.get("operational_events", []) + ["KNOWLEDGE_GAPS_IDENTIFIED"]))
-    calls = current["calls"]
-    def tokens(key):
-        return sum(c[key] for c in calls) if all(c[key] is not None for c in calls) else None
     execution = {"execution_path": meta.get("selected_path", "EXISTING_AGENTIC_PATH"),
         "input_language": request.input_language, "input_channel": request.input_channel,
         "selection_source": meta.get("selection_source", "deterministic"), "reason_code": meta.get("reason_code"),
@@ -74,11 +96,8 @@ def attach(session, request, state, meta):
         "retrieved_document_count": len({getattr(r, "document_id", None) for r in refs if getattr(r, "document_id", None)}),
         "retrieved_sources": len({r.source_sha256 for r in refs}), "evidence_count": len(refs),
         "mgs_group_count": state.get("mgs_group_count", 0),
-        "knowledge_gaps": gaps, "evidence_sufficiency": sufficiency, "model_used": sorted({c["model"] for c in calls}),
-        "model_call_count": len(calls), "model_stages": calls,
-        "input_tokens": tokens("input_tokens"), "output_tokens": tokens("output_tokens"),
+        "knowledge_gaps": gaps, "evidence_sufficiency": sufficiency, **routing_snapshot(),
         "retrieval_latency_ms": sum(t["latency_ms"] for t in current["tools"]),
-        "generation_latency_ms": sum(c["latency_ms"] for c in calls),
         "total_latency_ms": (perf_counter() - current["started"]) * 1000}
     if sufficiency["state"] != "SUFFICIENT":
         state.setdefault("warnings", []).append("Evidence coverage: " + sufficiency["state"] +

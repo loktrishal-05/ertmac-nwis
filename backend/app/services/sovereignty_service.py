@@ -12,7 +12,7 @@ def get_sovereignty_proof() -> SovereigntyProof:
     inference = classify_http_url(settings.model_base_url)
     try:
         validate_model_url(settings.model_base_url, settings.model_allowed_hosts_set)
-        validate_model_name(settings.model_name)
+        validate_model_name(settings.primary_model)
     except ValueError:
         inference = 'invalid'
     hosted = inference == 'invalid' or settings.model_runtime not in ('ollama', 'vllm')
@@ -25,7 +25,7 @@ def get_sovereignty_proof() -> SovereigntyProof:
     observations = snapshot()
     valid = not hosted and 'invalid' not in (qdrant, postgres, files) and observations['external_ai_calls'] == 0
     return SovereigntyProof(timestamp=datetime.now(timezone.utc), inference_runtime=settings.model_runtime,
-        local_model=settings.model_name, inference_endpoint_classification=inference,
+        local_model=settings.primary_model, inference_endpoint_classification=inference,
         qdrant_classification=qdrant, postgresql_classification=postgres, data_path_classification=files,
         hosted_ai_configured=hosted, cloud_ai_enabled=hosted, inference_mode='local_only' if not hosted else 'invalid',
         status='sovereign' if valid else 'invalid', speech_endpoints=speech, **observations)

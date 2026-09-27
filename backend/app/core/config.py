@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     model_max_output_tokens: int = Field(default=1024, ge=1, validation_alias="MODEL_MAX_OUTPUT_TOKENS")
     model_keep_alive: str = Field(default="30m", validation_alias="MODEL_KEEP_ALIVE")
     model_structured_repair_attempts: int = Field(default=1, ge=0, le=3, validation_alias="MODEL_STRUCTURED_REPAIR_ATTEMPTS")
+    fast_model: Literal["qwen3.5:4b"] = Field(default="qwen3.5:4b", validation_alias="FAST_MODEL")
+    primary_model: Literal["qwen3.5:9b"] = Field(default="qwen3.5:9b", validation_alias="PRIMARY_MODEL")
     system1_enabled: bool = Field(default=False, validation_alias="SYSTEM1_ENABLED")
     system1_model: str = Field(default="qwen3.5:4b", validation_alias="SYSTEM1_MODEL")
     system1_timeout_seconds: float = Field(default=15, gt=0, le=120, validation_alias="SYSTEM1_TIMEOUT_SECONDS")
