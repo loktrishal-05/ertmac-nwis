@@ -23,7 +23,7 @@ from app.db.models.evidence_manifest import EvidenceManifest, EvidenceManifestIt
 
 __all__ = ["User","Agent","AgentAction","Document","Equipment","SensorReading","IncidentReport","Approval","AuditLog","DocumentVersion","StructuredDataSource","MaintenanceRecord","AgentRun","AgentRunStep","GovernanceRequest","ActionRevision","AuthSession","ApprovalDecision","AuditEvent","AuditChainHead","AuditCheckpoint","EvidenceManifest","EvidenceManifestItem"]
 
-from app.db.models.verified_knowledge import VerifiedKnowledge
+from app.db.models.verified_knowledge import VerifiedKnowledge, KnowledgeGap
 
 from app.db.models.knowledge_pack import KnowledgePack
 

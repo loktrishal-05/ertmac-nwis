@@ -1,17 +1,17 @@
 """Authenticated operational services reuse /query governance and audit."""
-from fastapi import APIRouter, Depends, Query
+from typing import Literal
+from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_role
 from app.db.session import get_db
 from app.db.models import User, OperatorNote
-from app.db.models.agent_run_step import AgentRunStep
-from app.db.models.agent_run import AgentRun
 from app.schemas.operational import NoteInput, HandoverInput, ComplianceInput
 from app.schemas.query import QueryRequest, QueryResponse
+from app.schemas.verified_knowledge import GapDecision, GapSubmission
 from app.api.routes.query import query as execute_query
 from app.api.routes.verified_knowledge import transaction
-from app.services import operator_notes as notes
+from app.services import knowledge_gaps as gaps, operator_notes as notes
 from app.services.verified_knowledge import authorize
 
 router = APIRouter(tags=["operational-intelligence"])
@@ -41,14 +41,16 @@ def environmental_compliance(payload: ComplianceInput, actor: User = Depends(get
     return transaction(session, lambda: execute_query(request, session, actor))
 
 @router.get("/knowledge-gaps")
-def knowledge_gaps(actor: User = Depends(get_current_user), session: Session = Depends(get_db)):
-    def run():
-        authorize(session, actor)
-        rows = session.scalars(select(AgentRunStep).join(AgentRun).where(AgentRunStep.node_name == "execution_metadata")
-            .order_by(AgentRun.created_at.desc(), AgentRunStep.id.desc()).limit(100)).all()
-        unique = {}
-        for row in rows:
-            for gap in row.usage.get("execution", {}).get("knowledge_gaps", []):
-                unique.setdefault(gap["gap_id"], {**gap, "run_id": str(row.run_id)})
-        return list(unique.values())
-    return transaction(session, run)
+def knowledge_gaps(status: Literal["OPEN", "UNDER_REVIEW", "RESOLVED", "DISMISSED"] | None = None,
+                   actor: User = Depends(get_current_user), session: Session = Depends(get_db)):
+    return transaction(session, lambda: gaps.listing(session, actor, status))
+
+@router.post("/knowledge-gaps")
+def submit_gap(payload: GapSubmission, actor: User = Depends(get_current_user), session: Session = Depends(get_db)):
+    return transaction(session, lambda: gaps.submit(session, payload, actor))
+
+@router.post("/knowledge-gaps/{gap_id}/{operation}")
+def decide_gap(operation: Literal["assign", "resolve", "dismiss"], payload: GapDecision = Body(),
+               gap_id: str = Path(pattern=r"^[a-f0-9]{64}$"), actor: User = Depends(require_role("reviewer", "admin")),
+               session: Session = Depends(get_db)):
+    return transaction(session, lambda: gaps.transition(session, gap_id, payload, actor, operation))

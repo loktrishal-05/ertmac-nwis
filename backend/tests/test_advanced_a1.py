@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import select
 from app.core.config import settings
-from app.db.models import VerifiedKnowledge, AuditEvent, User, ApprovalDecision
+from app.db.models import VerifiedKnowledge, KnowledgeGap, AuditEvent, User, ApprovalDecision
 from app.main import app
 from app.schemas.query import QueryRequest
 from app.schemas.verified_knowledge import KnowledgeCandidate, KnowledgeDecision
@@ -24,7 +24,7 @@ import test_phase5d
 class VerifiedKnowledgeTests(unittest.TestCase):
     def setUp(self):
         test_phase5d.EvidenceIntegrityTests.setUp(self)
-        VerifiedKnowledge.__table__.create(self.engine)
+        VerifiedKnowledge.__table__.create(self.engine); KnowledgeGap.__table__.create(self.engine)
         folder = tempfile.TemporaryDirectory(); self.addCleanup(folder.cleanup)
         root = Path(folder.name); source = root / "manual.pdf"; source.write_bytes(b"synthetic P204 source")
         self.source = source
