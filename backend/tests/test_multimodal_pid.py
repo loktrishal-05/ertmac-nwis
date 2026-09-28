@@ -134,7 +134,9 @@ class FusionTests(unittest.TestCase):
 
     def test_q_deep_routing(self):
         for query, signals in (("classify visual region", RiskSignals()), ("helper", RiskSignals(ocr_confidence=.2)),
-                               ("helper", RiskSignals(conflicting_evidence=True)), ("P&ID isolation", RiskSignals())):
+                               ("helper", RiskSignals(conflicting_evidence=True)), ("P&ID isolation", RiskSignals()),
+                               ("helper", RiskSignals(pid_uncertainty=True)), ("helper", RiskSignals(critical_tag_verification=True)),
+                               ("upstream topology", RiskSignals()), ("is it safe to start", RiskSignals())):
             self.assertEqual(select_model(query, task="classification", signals=signals)["model_selected"], "qwen3.5:9b")
         self.assertEqual(drawing_tags("Show P&ID around P-101A", [ref()])["agent_result"]["model_routing"]["model_selected"], "qwen3.5:9b")
 
@@ -223,6 +225,34 @@ class AdapterTests(unittest.TestCase):
             manifest = PIDManifest.model_validate_json((self.root / first.manifest_uri).read_text())
             self.assertEqual(manifest.vision[0].candidates[0].tag, "P-101A")
             self.assertEqual(manifest.operational_metadata["visual_model_call_count"], 1)
+
+    def test_interrupted_processing_reuses_completed_vision(self):
+        source = self.root / "raw/pids/source/test.png"
+        source.parent.mkdir(parents=True)
+        Image.new("RGB", (200,100), "white").save(source)
+        ocr = MagicMock()
+        ocr.recognize_pages.side_effect = lambda pages: iter([normalize_result(result(), pages[0])])
+        vision = MagicMock(model="mock-local")
+        vision.analyze.side_effect = lambda page: VisionEvidence(status="available", model="mock-local", page=page.page,
+            source_image_uri=page.source_image_uri, candidates=[visual()], call_count=1)
+        request = PIDProcessRequest(source_path="test.png", title="Synthetic", revision="R1")
+        with patch.object(settings, "data_root", self.root):
+            with patch("app.services.pid_processing.group_regions", side_effect=RuntimeError("interrupted")):
+                with self.assertRaises(RuntimeError):
+                    process_pid(request, MemorySession(), ocr, vision)
+            # A fresh session models a hard kill: the version row rolled back, so ids differ.
+            done = process_pid(request, MemorySession(), ocr, vision)
+            self.assertEqual(vision.analyze.call_count, 1)
+            manifest = PIDManifest.model_validate_json((self.root / done.manifest_uri).read_text())
+            self.assertEqual(manifest.vision[0].candidates[0].tag, "P-101A")
+            self.assertEqual(manifest.vision[0].source_image_uri, manifest.pages[0].source_image_uri)
+            self.assertEqual(manifest.operational_metadata["vision_pages_reused"], 1)
+            # Unavailable results are never persisted, so vision is retried once it recovers.
+            other = MagicMock(model="other-local")
+            other.analyze.return_value = VisionEvidence(model="other-local", page=1, source_image_uri="x", fallback_reason="disabled")
+            process_pid(request, MemorySession(), ocr, other)
+            process_pid(request, MemorySession(), ocr, other)
+            self.assertEqual(other.analyze.call_count, 2)
 
 
 class SourceTests(unittest.TestCase):

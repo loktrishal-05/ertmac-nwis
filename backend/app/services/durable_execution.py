@@ -24,7 +24,8 @@ _active = ContextVar("durable_execution", default=None)
 _node = ContextVar("durable_node", default=None)
 _sqlite_lock = RLock()
 READ_ONLY_TOOLS = frozenset({"retrieve_documents", "get_pid_regions", "get_maintenance_history", "get_work_order",
-                             "get_sensor_readings", "get_latest_reading", "compute_sensor_features"})
+                             "get_sensor_readings", "get_latest_reading", "compute_sensor_features",
+                             "analyze_sensor_maintenance"})
 
 
 class RecoveryConflict(RuntimeError):

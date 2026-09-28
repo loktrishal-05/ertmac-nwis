@@ -53,8 +53,9 @@ are keyed by node name within one execution/revision.
 
 Tool receipts use execution, node, call position, tool name and canonical validated
 arguments. A completed tool call is returned from storage even if its surrounding
-model node must restart. Current registered graph tools are read-only; an
-interrupted read may retry. Unregistered/write-capable tools are rejected by the
+model node must restart. Current registered graph tools are read-only, including
+B2's deterministic `analyze_sensor_maintenance`; a test fails if a registered tool
+is missing from the durable read-only allowlist. An interrupted read may retry. Unregistered/write-capable tools are rejected by the
 durable boundary until they implement a reviewed transactional/idempotent adapter.
 An uncertain side effect is never treated as permission to repeat it.
 

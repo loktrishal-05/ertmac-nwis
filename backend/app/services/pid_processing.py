@@ -36,6 +36,29 @@ def manifest_response(manifest, uri, status):
     )
 
 
+def page_vision(vision, page):
+    """Reuse a completed local-vision result for a byte-identical rendered page.
+
+    A retry after an interrupted run (even a rolled-back version row) never repeats
+    finished visual work. This is an artifact beside the OCR JSON, not a checkpoint;
+    graph-run durability stays in app.services.durable_execution."""
+    from hashlib import sha256
+    from app.schemas.pid import VisionEvidence
+    image = (settings.data_root / page.source_image_uri).read_bytes()
+    key = sha256(image + f"\0{getattr(vision, 'model', '')}\0v1".encode()).hexdigest()
+    path = settings.data_root / "processed/pids/vision" / f"{key}.json"
+    try:
+        stored = VisionEvidence.model_validate_json(path.read_text(encoding="utf-8"))
+        return stored.model_copy(update={"page": page.page, "source_image_uri": page.source_image_uri,
+                                         "call_count": 0, "latency_ms": 0})
+    except (OSError, ValueError):
+        pass
+    result = vision.analyze(page)
+    if result.status == "available":  # Fallbacks are retried; only completed work is reused.
+        write_json(path, result.model_dump(mode="json"))
+    return result
+
+
 def process_pid(request, session, ocr=None, vision=None):
     path, source = read_pid_source(request.source_path)
     checksum = source_sha256(source)
@@ -86,7 +109,7 @@ def process_pid(request, session, ocr=None, vision=None):
         for page in render_pages(source, path.suffix.lower(), version.id, request.render_dpi, request.preprocessing):
             pages.append(page)
             detections.extend(next(ocr.recognize_pages([page])))
-            visual_pages.append(vision.analyze(page))
+            visual_pages.append(page_vision(vision, page))
             if len(detections) > 20_000:
                 raise ValueError("Drawing exceeds 20000 OCR detections")
         regions = group_regions(detections, version.id)
@@ -129,6 +152,7 @@ def process_pid(request, session, ocr=None, vision=None):
             operational_metadata={"document_id": str(document.id), "revision": request.revision,
                 "regions_processed": len(regions), "ocr_region_count": sum(bool(r.text_items) for r in regions),
                 "visual_model_call_count": sum(v.call_count for v in visual_pages),
+                "vision_pages_reused": sum(v.status == "available" and v.call_count == 0 for v in visual_pages),
                 "candidate_count": sum(len(v.candidates) for v in visual_pages), "verified_count": 0,
                 "conflict_count": 0, "selected_local_vision_model": visual_pages[0].model if visual_pages else None,
                 "latency_ms": sum(v.latency_ms for v in visual_pages),

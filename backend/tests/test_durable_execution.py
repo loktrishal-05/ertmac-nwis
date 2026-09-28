@@ -326,5 +326,13 @@ class PostgresDurableTests(DurableTests):
                 self.resume()
 
 
+class ToolAllowlistTests(unittest.TestCase):
+    def test_every_registered_tool_is_durable_read_only(self):
+        # A registered tool missing here fails closed inside every durable run.
+        import app.agents.tools  # noqa: F401 - populates the registry
+        from app.agents.registry import list_tools
+        self.assertLessEqual({spec.name for spec in list_tools()}, durable.READ_ONLY_TOOLS)
+
+
 if __name__ == "__main__":
     unittest.main()

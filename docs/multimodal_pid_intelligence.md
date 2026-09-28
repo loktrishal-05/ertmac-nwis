@@ -105,10 +105,17 @@ No separate approval system is introduced.
 Processing reuses DocumentVersion ingestion lifecycle, PostgreSQL advisory locks,
 atomic artifact writes and completed-manifest duplicate detection. Retrying persisted
 completed processing does not repeat OCR or vision, including after process restart.
-This checkout has no A2 LangGraph checkpointer. No second checkpoint system is added.
-A crash before the final manifest/database commit may repeat unfinished processing;
-per-page resume is not implemented. Enabling vision does not silently reprocess a
-completed OCR-only version; existing immutable duplicate semantics are retained.
+After A2 integration, query-time P&ID reads (`get_pid_regions`) are journaled
+read-only durable tools, so a resumed durable execution reuses completed reads and
+pins qwen3.5:9b. Ingestion (`process_pid`) is an HTTP route, not a graph execution,
+so it does not use the A2 journal and no second checkpoint system is added. Instead,
+each completed local-vision page result is an atomic artifact under
+`processed/pids/vision/`, keyed by the rendered page bytes and vision model. A retry
+after an interruption, including a hard kill that rolls back the version row, reuses
+finished vision pages (`vision_pages_reused`) and never repeats them; unavailable or
+failed vision results are not stored and are retried. OCR for unfinished runs is
+repeated (it is local and deterministic). Enabling vision does not silently reprocess
+a completed OCR-only version; existing immutable duplicate semantics are retained.
 
 The manifest records document/revision, region counts, calls, model, latency and
 fallback reasons. Processing verification/conflict counts are zero because registry
