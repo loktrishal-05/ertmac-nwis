@@ -31,15 +31,63 @@ SIGNATURES = {
 }
 BOUNDARY = "Advisory only. No permission to operate equipment. "
 UNITS = r"mm/s|m/s|mm|µm|um|barg|bar|kPa|MPa|psi|°C|degC|rpm|Hz|kW|MW|kV|V|A|%|m3/h|m³/h|kg/h|t/h|L/min|mg/L|ppm"
+DOCUMENT_PREFIXES = ("SOP", "WO", "DOC", "MOC", "PTW", "WI", "DWG")
 # Detected and reported, never rewritten or translated.
 IDENTIFIERS = {
     "equipment_tag": PID_PATTERNS["equipment_tags"],
     "instrument_tag": PID_PATTERNS["instrument_tags"],
-    "document_id": r"(?<![A-Z0-9-])(?:SOP|WO|DOC|MOC|PTW|WI|DWG)(?:-[A-Z0-9]+){1,4}(?![A-Z0-9-])",
+    "document_id": rf"(?<![A-Z0-9-])(?:{'|'.join(DOCUMENT_PREFIXES)})(?:-[A-Z0-9]+){{1,4}}(?![A-Z0-9-])",
     "measurement": rf"(?<![\w.-])\d+(?:\.\d+)?\s?(?:{UNITS})(?![\w/])",
 }
-# A spoken identifier split by spaces ("P 204 A"): flagged for correction, never joined automatically.
-SPLIT_IDENTIFIER = re.compile(r"(?<![A-Za-z0-9-])[A-Z]{1,4}(?:\s+-?\s*|-\s+)\d{2,5}(?:\s+[A-Z])?(?![A-Za-z0-9-])")
+# Relax only separators in the established tag grammar; never normalize the transcript.
+NEAR_TAGS = [re.compile(IDENTIFIERS[kind].replace(
+    r"-\d{2,5}[A-Z]?", r"[- \t]{0,3}\d{2,5}(?:[- \t]{0,3}[A-Z](?![A-Z]))?"), re.I)
+    for kind in ("equipment_tag", "instrument_tag")]
+NEAR_DOCUMENT = re.compile(
+    r"(?<![\w-])([A-Z]{2,3})[- \t]{0,3}(?:[A-Z]{1,4})?\d{2,5}[A-Z]?"
+    r"(?:[- \t]{1,3}(?:[A-Z]{1,4})?\d{2,5}[A-Z]?){0,3}(?![\w-])", re.I)
+ORPHAN_TAG = re.compile(r"(?<![\w.-])\d{2,5}[A-Z](?![\w-])", re.I)
+RATE_UNITS = "|".join(re.escape(unit).replace("/", r"[- \t]{1,3}")
+                      for unit in UNITS.split("|") if "/" in unit)
+NEAR_UNIT = re.compile(rf"(?<![\w.-])\d+(?:\.\d+)?\s?(?:{RATE_UNITS})(?![\w/])", re.I)
+SPOKEN_UNIT = re.compile(
+    r"(?<![\w.])\d{1,5}(?:[ \t]+point[ \t]+\d{1,5})?[ \t]+"
+    r"(?:milli)?met(?:er|re)s?[ \t]+per[ \t]+second(?!\w)", re.I)
+
+
+def suspicious_identifiers(text, found):
+    """Bounded structural warnings only. No registry lookup, inferred tag or correction."""
+    matches = []
+    for pattern in NEAR_TAGS:
+        for match in pattern.finditer(text):
+            if not any(re.fullmatch(IDENTIFIERS[k], match.group(), re.I)
+                       for k in ("equipment_tag", "instrument_tag")):
+                reason = "possible_split_identifier" if " " in match.group() else "malformed_identifier"
+                matches.append((match, reason))
+    for match in NEAR_DOCUMENT.finditer(text):
+        prefix = match[1].upper()
+        # At most one substitution in a known prefix, only beside a numeric ID shape.
+        if prefix in DOCUMENT_PREFIXES:
+            if not re.fullmatch(IDENTIFIERS["document_id"], match.group(), re.I):
+                matches.append((match, "malformed_document_identifier"))
+        elif any(len(prefix) == len(p) and sum(a != b for a, b in zip(prefix, p)) == 1
+                 for p in DOCUMENT_PREFIXES):
+            matches.append((match, "possible_document_prefix"))
+    for pattern, reason in ((ORPHAN_TAG, "possible_identifier_fragment"),
+                            (NEAR_UNIT, "suspicious_engineering_unit"),
+                            (SPOKEN_UNIT, "spoken_engineering_measurement")):
+        matches.extend((m, reason) for m in pattern.finditer(text))
+    result = []
+    # ponytail: overlap scans are quadratic on at most 10k characters; index spans if that limit grows.
+    for match, reason in sorted(matches, key=lambda item: (item[0].start(), -item[0].end())):
+        if any(i["start"] <= match.start() and match.end() <= i["end"]
+               for i in found if i["kind"] != "measurement"):
+            continue
+        if any(i["start"] <= match.start() and match.end() <= i["end"] for i in result):
+            continue
+        result.append({"text": match.group(), "kind": "possible_identifier", "start": match.start(),
+                       "end": match.end(), "reasons": [reason]})
+    return result
 
 
 def language(value):
@@ -125,11 +173,10 @@ def identifier_review(text, words=(), confidence=None, threshold=None):
             reasons.append("low_transcript_confidence")
         if reasons:
             review.append({**item, "reasons": reasons})
-    for match in SPLIT_IDENTIFIER.finditer(text):
-        # "P 204 A" also reads as "204 A" (amperes); ambiguity is exactly what a human must resolve.
-        if not any(i["start"] < match.end() and match.start() < i["end"] for i in found if i["kind"] != "measurement"):
-            review.append({"text": match.group(), "kind": "possible_identifier", "start": match.start(),
-                           "end": match.end(), "reasons": ["possible_split_identifier"]})
+    review.extend(suspicious_identifiers(text, found))
+    for item in review:
+        item.update(raw_span=text[item["start"]:item["end"]], review_required=True,
+                    confirmation_required=True, candidates=[])
     return sorted(review, key=lambda item: item["start"])
 
 
@@ -170,9 +217,11 @@ def transcribe(audio, mime, input_language):
     except (httpx.HTTPError, OSError, ValueError, KeyError, TypeError, AttributeError) as error:
         return _unavailable(base, settings.stt_url, error, "Local STT unavailable. Continue in text mode.")
     detected = result.get("language")
+    review = identifier_review(text, words, confidence)
     return {**base, "status": "ok", "text": text, "original_text": text, "translated_text": None,
             "detected_language": detected if isinstance(detected, str) else None, "confidence": confidence,
-            "technical_identifiers": identifiers(text), "identifier_review": identifier_review(text, words, confidence)}
+            "technical_identifiers": identifiers(text), "identifier_review": review, "review_required": bool(review),
+            "review_message": "Review the original transcript and verify all tags, document IDs and measurements before submitting."}
 
 
 def synthesize(text, input_language):
