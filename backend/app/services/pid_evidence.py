@@ -34,13 +34,27 @@ def load_pid_evidence(session, version_id):
     regions = [OCRRegion.model_validate(item) for item in artifact['regions']]
     if len(regions) != manifest.regions or len({r.region_id for r in regions}) != len(regions):
         raise ValueError('P&ID region set is inconsistent.')
+    # A newer revision, including one still processing, invalidates derived evidence.
+    from sqlalchemy import select
+    if version.created_at is not None and session.scalar(select(DocumentVersion.id).where(
+            DocumentVersion.document_id == version.document_id, DocumentVersion.id != version.id,
+            DocumentVersion.created_at >= version.created_at).limit(1)):
+        raise ValueError('P&ID source revision is stale.')
     refs = []
-    for region in regions:
-        if not region.text_items or not region.combined_text.strip():
+    for region, raw_region in zip(regions, artifact['regions']):
+        legacy = 'visual_candidates' not in raw_region
+        region_content = region.model_dump(mode='json', exclude={'visual_candidates', 'visual_model'} if legacy else set())
+        if not region.text_items and not region.visual_candidates:
             continue
         if region.page > manifest.page_count or region.combined_text != '\n'.join(i.text for i in region.text_items):
             raise ValueError('P&ID raw OCR/page binding mismatch.')
-        confidence = min(item.confidence for item in region.text_items)
+        page = manifest.pages[region.page - 1]
+        if (region.source_image_uri != page.source_image_uri
+                or any(i.page != region.page or i.source_image != region.source_image_uri for i in region.text_items)
+                or not (0 <= region.bbox[0] < region.bbox[2] <= page.width and 0 <= region.bbox[1] < region.bbox[3] <= page.height)
+                or any(v.bbox[2] > page.width or v.bbox[3] > page.height for v in region.visual_candidates)):
+            raise ValueError('P&ID region image/coordinate binding mismatch.')
+        confidence = min((item.confidence for item in region.text_items), default=0)
         refs.append(pid_region_evidence(
             region_id=region.region_id, document_id=version.document_id, document_version_id=version.id,
             source_filename=manifest.source_filename, source_sha256=version.source_sha256,
@@ -48,6 +62,11 @@ def load_pid_evidence(session, version_id):
             ocr_status='ambiguous' if confidence < .6 else 'unverified', combined_text=region.combined_text,
             source_uri=manifest.source_uri, source_image_uri=region.source_image_uri,
             revision=version.ingestion_metadata.get('request', {}).get('revision'),
-            text_items=region.text_items, ocr_region_hash=canonical_hash(region.model_dump(mode='json')),
+            text_items=region.text_items, ocr_region_hash=canonical_hash(region_content),
         ))
+        from app.services.pid_fusion import region_fusion
+        refs[-1].region_type = region.region_type
+        refs[-1].visual_candidates = region.visual_candidates
+        refs[-1].visual_model = region.visual_model
+        refs[-1].fusion = [] if legacy else region_fusion(region, session)
     return refs

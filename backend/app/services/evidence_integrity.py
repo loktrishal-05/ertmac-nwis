@@ -69,6 +69,9 @@ def _pid_region_content(ref: dict) -> tuple[str, dict, str]:
     if ref.get('ocr_region_hash'):
         provenance.update(ocr_region_hash=ref['ocr_region_hash'], revision=ref.get('revision'),
                           text_items=ref.get('text_items', []), source_image_uri=ref.get('source_image_uri'))
+    if ref.get("visual_candidates") or ref.get("fusion"):
+        provenance.update(visual_candidates=ref.get("visual_candidates", []), visual_model=ref.get("visual_model"),
+                          fusion=ref.get("fusion", []))
     source_identifier = f"document:{ref.get('document_id')}:region:{ref.get('region_id')}"
     return content_hash, provenance, source_identifier
 

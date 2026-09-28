@@ -27,19 +27,26 @@ def artifact(uri):
 def region_chunks(manifest, regions, request_metadata, tokenizer):
     chunks = []
     for region in regions:
-        if not region.combined_text.strip() or not any(c.isalnum() for c in region.combined_text):
+        visual_text = "\n".join(f"Unverified visual candidate {v.region_type}: {v.tag or 'unlabeled'}"
+                                for v in region.visual_candidates)
+        content = "\n".join(value for value in (region.combined_text, visual_text) if value)
+        if not content.strip() or not any(c.isalnum() for c in content):
             continue
         if region.page > manifest.page_count or any(d.page != region.page or d.source_image != region.source_image_uri for d in region.text_items):
             raise ValueError("Region has inconsistent page/image provenance")
         if region.source_image_uri != manifest.pages[region.page - 1].source_image_uri:
             raise ValueError("Region source differs from manifest")
-        if region.combined_text != "\n".join(d.text for d in region.text_items) or not region.text_items:
+        if region.combined_text != "\n".join(d.text for d in region.text_items):
             raise ValueError("Region text must equal its stored OCR items")
+        page = manifest.pages[region.page - 1]
+        if any(v.bbox[2] > page.width or v.bbox[3] > page.height for v in region.visual_candidates):
+            raise ValueError("Visual candidate outside rendered page")
         boxes = [{"page": region.page, "coordinates": d.bbox, "origin": "TOPLEFT"} for d in region.text_items]
-        block = Block(text=region.combined_text, section_path=[f"OCR region {region.region_id}"],
+        boxes += [{"page": region.page, "coordinates": v.bbox, "origin": "TOPLEFT"} for v in region.visual_candidates]
+        block = Block(text=content, section_path=[f"OCR region {region.region_id}"],
                       page_start=region.page, page_end=region.page, bounding_boxes=boxes, content_type="pid_region_text")
         for index, chunk in enumerate(Chunker(tokenizer).chunk([block], request_metadata["title"])):
-            confidence = min(d.confidence for d in region.text_items)
+            confidence = min((d.confidence for d in region.text_items), default=0)
             chunks.append(ChunkMetadata(
                 chunk_id=uuid5(manifest.document_version_id, f"pid:{region.region_id}:{index}"),
                 document_id=manifest.document_id, document_version_id=manifest.document_version_id,
@@ -52,8 +59,8 @@ def region_chunks(manifest, regions, request_metadata, tokenizer):
                 content=chunk.content, content_type="pid_region_text", token_count=chunk.token_count,
                 page_start=region.page, page_end=region.page, page=region.page, bounding_boxes=boxes,
                 document_date=None, revision=request_metadata.get("revision"), effective_date=None,
-                language="en", synthetic=manifest.synthetic, extraction_method="paddleocr_ppocrv5",
-                ocr_engine="paddleocr_ppocrv5", ocr_confidence=confidence, ocr_derived=True,
+                language="en", synthetic=manifest.synthetic, extraction_method="local_multimodal" if region.visual_candidates else "paddleocr_ppocrv5",
+                ocr_engine="paddleocr_ppocrv5" if region.text_items else None, ocr_confidence=confidence, ocr_derived=True,
                 extraction_quality="low_confidence_ocr" if confidence < 0.6 else "unverified_ocr",
                 pipeline_version="3b2.1", access_scope=request_metadata["access_scope"],
                 ingested_at=datetime.now(timezone.utc), region_id=region.region_id, source_image_uri=region.source_image_uri,

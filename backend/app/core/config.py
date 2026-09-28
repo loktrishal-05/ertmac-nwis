@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = Field(default=60, validation_alias="CHUNK_OVERLAP_TOKENS")
     data_root: Path = Path(__file__).resolve().parents[3] / "data"
     model_root: Path = Path(__file__).resolve().parents[3] / "models"
+    pid_vision_enabled: bool = Field(default=False, validation_alias="PID_VISION_ENABLED")
+    pid_vision_model: str = Field(default="qwen3.5:9b", validation_alias="PID_VISION_MODEL")
+    pid_vision_timeout_seconds: float = Field(default=60, gt=0, le=600, validation_alias="PID_VISION_TIMEOUT_SECONDS")
     pid_render_dpi: int = Field(default=300, ge=300, le=400, validation_alias="PID_RENDER_DPI")
     sparse_retrieval_enabled: bool = Field(default=True, validation_alias="SPARSE_RETRIEVAL_ENABLED")
     dense_top_k: int = Field(default=30, ge=1, le=100, validation_alias="DENSE_TOP_K")

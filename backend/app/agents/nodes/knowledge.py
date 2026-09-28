@@ -8,8 +8,6 @@ model: Phase 3B2 proved dense/hybrid retrieval returns unrelated neighbours
 for a nonexistent identifier (ZZQ-99999), so an empty result set is not the
 only failure signal. See docs/phase4-autonomous-continuation.md section 5 and
 docs/phase4-decisions.md D-006/D-007."""
-from sqlalchemy import select
-
 from app.agents.enforcement import CitationEnforcementFailure, enforce_citations, refuse
 from app.agents.prompts.knowledge import (
     KNOWLEDGE_SYSTEM_PROMPT,
@@ -20,7 +18,6 @@ from app.agents.prompts.knowledge import (
 from app.agents.registry import invoke_tool
 from app.agents.pid_evidence import DRAWING_QUERY, drawing_tags, pid_evidence_lookup
 from app.core.config import settings
-from app.db.models.equipment import Equipment
 from app.schemas.agent_outputs import EquipmentTag, EquipmentTags, GroundedAnswer
 from app.services.equipment_tags import normalize_equipment_tag
 from app.services.model_gateway import ChatMessage, StructuredOutputError, get_model_gateway
@@ -60,7 +57,9 @@ def _registry_confirms(session, raw_text: str) -> bool:
     normalized = normalize_equipment_tag(raw_text.strip())
     if not normalized:
         return False
-    return session.scalar(select(Equipment.id).where(Equipment.equipment_tag == normalized)) is not None
+    from app.services.pid_fusion import registry_evidence
+    match = registry_evidence(session, normalized)
+    return match is not None and match["status"] == "verified"
 
 
 def _equipment_tags_from_ocr(refs, session) -> EquipmentTags:
