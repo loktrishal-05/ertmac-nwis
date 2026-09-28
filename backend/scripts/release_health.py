@@ -7,6 +7,51 @@ import re
 import shutil
 
 ROOT = Path(__file__).resolve().parents[2]
+RUNTIME_TIMEOUT_SECONDS = 180  # First CPU load of both BGE models dominates; inference itself is tiny.
+
+
+def retrieval_runtime(config, timeout=None):
+    """Real, bounded embedding + rerank on fixed synthetic text; returns (ok, detail).
+
+    Catches runtime failures the artifact check cannot, such as a native DLL refused by
+    OS code-integrity policy. Local files only, no download, no confidential data; the
+    detail names only the failing stage and exception type, never exception text.
+    """
+    import threading
+    import time
+    timeout = RUNTIME_TIMEOUT_SECONDS if timeout is None else timeout
+    outcome = {}
+
+    def run():
+        stage, started = "Embedding runtime", time.perf_counter()
+        try:
+            from app.services.embeddings import get_embeddings
+            vector = get_embeddings().embed(["Synthetic pump vibration reading for a release health check."])[0]
+            if len(vector) != 768:
+                raise ValueError("unexpected embedding dimension")
+            if config.reranking_enabled:
+                stage = "Reranker runtime"
+                from app.services.reranking import get_reranker
+                scores = get_reranker().score("synthetic pump vibration",
+                    ["Synthetic pump vibration note for testing.", "Unrelated synthetic cafeteria menu."])
+                if len(scores) != 2 or not scores[0] > scores[1]:
+                    raise ValueError("implausible reranker ordering")
+            outcome["seconds"] = time.perf_counter() - started
+        except Exception as error:
+            outcome["error"] = (stage, type(error).__name__)
+
+    # Daemon thread: a hung native load can fail this check without blocking process exit.
+    worker = threading.Thread(target=run, name="release-retrieval-runtime", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        return False, f"Retrieval runtime exceeded {timeout:g}s; check CPU load, native runtime policy and local model artifacts"
+    if "error" in outcome:
+        stage, kind = outcome["error"]
+        return False, (f"{stage} failed ({kind}); check native runtime policy (e.g. a blocked DLL), "
+                       "installed packages and local model artifacts")
+    reranked = "reranked 2 synthetic passages" if config.reranking_enabled else "reranking disabled"
+    return True, f"Embedded 1 synthetic string (768-d), {reranked} in {outcome['seconds']:.1f}s; no confidential data"
 
 
 def exit_code(rows):
@@ -109,6 +154,7 @@ def collect(*, dependencies_only=False):
           and any((s.model_root / p).glob("*.safetensors")) for p in
           (["bge-base-en-v1.5", "bge-reranker-base"] if s.reranking_enabled else ["bge-base-en-v1.5"])),
           "Local BGE artifacts present; this is not an inference/quality test")
+    add("RETRIEVAL RUNTIME", *retrieval_runtime(s))
     probe("SOVEREIGNTY", lambda: get_sovereignty_proof().status == "sovereign" and s.model_runtime == "ollama",
           "Configured local/private services and local paths; NOT firewall or air-gap attestation")
     add("EGRESS POLICY", s.deployment_mode == "confidential" and not s.bhashini_enabled and not s.government_resources_enabled,

@@ -186,8 +186,12 @@ $env:PYTHONPATH = "$PWD;$PWD/backend"
 ```
 
 PASS/WARNING/FAIL cover database, migration head, Qdrant, Ollama, both models/digests/quantization, context,
-vision, speech, disk, directories, retrieval artifacts, sovereignty, egress/resource policy, secrets/config,
-backend `/ready` and the frontend build. Exit 1 means a blocker. It never emits raw settings, connection strings,
+vision, speech, disk, directories, retrieval artifacts, retrieval runtime, sovereignty, egress/resource policy,
+secrets/config, backend `/ready` and the frontend build. Exit 1 means a blocker. `RETRIEVAL RUNTIME` loads the
+local BGE embedding and reranker models (local files only, no download), embeds one fixed synthetic string and
+reranks two fixed synthetic passages within 180 seconds, so a native runtime the OS refuses to load (for example a
+PyTorch DLL blocked by Windows Smart App Control) fails the release instead of passing on file presence alone. Its
+detail names only the failing stage and exception type. It never emits raw settings, connection strings,
 exception bodies or keys. Development credentials, non-Secure cookies, HTTP CORS or a non-confidential mode correctly
 fail the production check. `--dependencies-only` omits backend/frontend so it can gate backend startup.
 Frontend PASS means a build exists; TLS ingress and browser functional tests are separate site acceptance.

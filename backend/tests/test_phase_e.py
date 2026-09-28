@@ -54,9 +54,12 @@ class PhaseETests(unittest.TestCase):
             return httpx.Response(200, json={"model_info": {"test.context_length": 32768}, "capabilities": ["vision"]})
         return httpx.Response(200, json={"status": "ready"})
 
-    def health(self, *, database=True, qdrant=True, current=("head",), speech="unavailable"):
+    def health(self, *, database=True, qdrant=True, current=("head",), speech="unavailable",
+               runtime=(True, "synthetic retrieval runtime ok")):
         with ExitStack() as stack:
             stack.enter_context(patch("app.core.config.settings", self.config))
+            # Real inference is covered by tests/test_release_retrieval_runtime.py; these models are fake.
+            stack.enter_context(patch.object(release, "retrieval_runtime", return_value=runtime))
             stack.enter_context(patch.object(release, "ROOT", self.root))
             stack.enter_context(patch("app.services.readiness.check_postgres", return_value=database))
             stack.enter_context(patch("app.services.readiness.check_qdrant", return_value=qdrant))
@@ -90,6 +93,12 @@ class PhaseETests(unittest.TestCase):
             for name in ("STT", "TTS"):
                 self.assertEqual(self.status(rows, name), expected)
                 self.assertIn("Configured local speech", next(r["detail"] for r in rows if r["name"] == name))
+
+    def test_retrieval_runtime_failure_fails_release(self):
+        rows = self.health(runtime=(False, "Embedding runtime failed (ImportError); check native runtime policy"))
+        self.assertEqual(self.status(rows, "RETRIEVAL RUNTIME"), "FAIL")
+        self.assertEqual(self.status(rows, "RETRIEVAL ARTIFACTS"), "PASS")  # Files alone no longer look healthy.
+        self.assertEqual(release.exit_code(rows), 1)
 
     def test_b_missing_primary(self):
         self.models.remove("qwen3.5:9b")
