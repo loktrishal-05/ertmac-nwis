@@ -469,7 +469,7 @@ class AuditChainTests(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertEqual(after, {"retrieve_documents", "get_pid_regions", "get_maintenance_history",
                                  "get_work_order", "get_latest_reading", "get_sensor_readings",
-                                 "compute_sensor_features"})
+                                 "compute_sensor_features", "analyze_sensor_maintenance"})
 
 
 class AuditHTTPTests(unittest.TestCase):

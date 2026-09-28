@@ -159,7 +159,7 @@ class UnsafeActionPreflightTests(unittest.TestCase):
         names = {tool.name for tool in list_tools()}
         self.assertEqual(names, {"retrieve_documents", "get_pid_regions", "get_maintenance_history",
                                  "get_work_order", "get_latest_reading", "get_sensor_readings",
-                                 "compute_sensor_features"})
+                                 "compute_sensor_features", "analyze_sensor_maintenance"})
         for name in names:
             self.assertNotIn("scada", name.lower())
             self.assertNotIn("dcs", name.lower())

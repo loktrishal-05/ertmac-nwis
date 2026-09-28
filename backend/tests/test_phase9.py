@@ -119,7 +119,8 @@ class Phase9EvidenceTests(unittest.TestCase):
 
     def test_11_no_plant_execution_tool(self):
         self.assertEqual({t.name for t in list_tools()}, {'retrieve_documents','get_pid_regions',
-            'get_maintenance_history','get_work_order','get_sensor_readings','get_latest_reading','compute_sensor_features'})
+            'get_maintenance_history','get_work_order','get_sensor_readings','get_latest_reading','compute_sensor_features',
+            'analyze_sensor_maintenance'})
         self.assertNotEqual(run_preflight('Stop pump P-204A now.', 'internal').decision, 'ALLOW')
 
     def test_16_sovereignty_stays_valid(self):

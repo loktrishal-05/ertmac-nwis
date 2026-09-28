@@ -149,9 +149,10 @@ class CitationValidatorTests(unittest.TestCase):
 
 
 class RegistryTests(unittest.TestCase):
-    def test_all_seven_tools_registered_exactly_once(self):
+    def test_all_eight_tools_registered_exactly_once(self):
         names = sorted(spec.name for spec in list_tools())
         self.assertEqual(names, sorted([
+            "analyze_sensor_maintenance",
             "retrieve_documents", "get_pid_regions", "get_maintenance_history", "get_work_order",
             "get_sensor_readings", "get_latest_reading", "compute_sensor_features",
         ]))
@@ -619,7 +620,7 @@ class AgentsStatusRouteTests(unittest.TestCase):
         body = response.json()
         self.assertEqual({r["route"] for r in body["routes"]}, set(ROUTE_NAMES) | {"shift_handover", "environmental_compliance"})
         self.assertEqual({r["status"] for r in body["routes"]}, {"implemented", "guardrail"})
-        self.assertEqual(len(body["tools"]), 7)
+        self.assertEqual(len(body["tools"]), 8)
         self.assertTrue(all(t["read_only"] for t in body["tools"]))
         self.assertFalse(body["gateway"]["reachable"])
         self.assertNotIn("base_url", str(body))

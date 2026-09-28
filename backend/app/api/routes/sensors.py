@@ -9,7 +9,11 @@ from app.schemas.structured import (
     SensorIngestRequest, StructuredIngestResponse, SensorReadingsResponse,
     SensorFeatureRequest, SensorFeatureResponse,
 )
+from app.schemas.maintenance_sensor_intelligence import (
+    SensorMaintenanceIntelligenceRequest, SensorMaintenanceIntelligenceResponse,
+)
 from app.services.ingestion import IngestionConflict
+from app.services.maintenance_sensor_intelligence import analyze
 from app.services.sensor_data import ingest_sensor
 from app.services.structured_queries import sensor_readings_query, sensor_latest, sensor_features_query
 
@@ -63,3 +67,13 @@ def post_sensor_features(request: SensorFeatureRequest, session: Session = Depen
     except Exception as error:
         logger.error("Sensor feature computation failed: %s", type(error).__name__)
         raise HTTPException(status_code=503, detail="Sensor feature computation unavailable; check PostgreSQL.") from error
+
+
+@router.post("/sensors/intelligence", response_model=SensorMaintenanceIntelligenceResponse)
+def post_sensor_intelligence(request: SensorMaintenanceIntelligenceRequest, session: Session = Depends(get_db)):
+    try:
+        response, _refs = analyze(session, request)
+        return response
+    except Exception as error:
+        logger.error("Sensor intelligence analysis failed: %s", type(error).__name__)
+        raise HTTPException(status_code=503, detail="Sensor intelligence analysis unavailable; check PostgreSQL.") from error

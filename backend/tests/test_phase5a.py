@@ -110,7 +110,7 @@ class PolicyTests(unittest.TestCase):
     def test_no_plant_control_tools(self):
         self.assertEqual({tool.name for tool in list_tools()}, {
             "retrieve_documents", "get_pid_regions", "get_maintenance_history", "get_work_order",
-            "get_latest_reading", "get_sensor_readings", "compute_sensor_features"})
+            "get_latest_reading", "get_sensor_readings", "compute_sensor_features", "analyze_sensor_maintenance"})
 
 
 class PersistenceTests(unittest.TestCase):
