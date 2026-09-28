@@ -13,7 +13,7 @@ import hashlib
 from typing import Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
-from app.schemas.pid import OCRDetection
+from app.schemas.pid import OCRDetection, VisualCandidate, RegionFusion
 
 
 def make_evidence_id(kind: str, source_sha256: str, stable_key: str) -> str:
@@ -63,6 +63,10 @@ class PIDRegionEvidence(_EvidenceBase):
     ocr_derived: Literal[True] = True
     text_items: list[OCRDetection] = Field(default_factory=list)
     ocr_region_hash: str | None = None
+    region_type: str | None = None
+    visual_candidates: list[VisualCandidate] = Field(default_factory=list)
+    visual_model: str | None = None
+    fusion: list[RegionFusion] = Field(default_factory=list)
 
 
 class CSVRowEvidence(_EvidenceBase):

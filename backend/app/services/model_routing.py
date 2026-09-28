@@ -38,7 +38,7 @@ class RiskSignals(BaseModel):
 
 # These signals only increase caution. Unknown tasks and unbounded input default deep.
 _SAFETY = re.compile(r"\b(safety|unsafe|safe|shutdown|startup|start|stop|isola\w*|interlock|loto|permit|scada|dcs|plc|trip|alarm|leak|fire|gas|environment\w*|compliance|emission\w*|effluent|wastewater)\b", re.I)
-_PLANT = re.compile(r"\b(plant|sensor|readings?|valve|maintenan\w*|diagnos\w*|repair|recommend\w*|approve\w*|approval|verify|verification|evidence|conflict\w*|ocr|drawing|topology|piping)\b|p&?id", re.I)
+_PLANT = re.compile(r"\b(plant|sensor|readings?|valve|maintenan\w*|diagnos\w*|repair|recommend\w*|approve\w*|approval|verify|verification|evidence|conflict\w*|ocr|drawing|visual|multimodal|topology|piping)\b|p&?id", re.I)
 _MULTI = re.compile(r"\b(synthesi\w*|multi[- ](?:document|agent)|(?:multiple|several|two) (?:documents|manuals|sops))\b|\bcompare\b.*\band\b", re.I)
 MAX_FAST_INPUT = 2048
 MAX_FAST_OUTPUT = 256

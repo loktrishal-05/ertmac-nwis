@@ -36,7 +36,7 @@ def manifest_response(manifest, uri, status):
     )
 
 
-def process_pid(request, session, ocr=None):
+def process_pid(request, session, ocr=None, vision=None):
     path, source = read_pid_source(request.source_path)
     checksum = source_sha256(source)
     key = int.from_bytes(bytes.fromhex(checksum[:16]), "big", signed=True)
@@ -76,19 +76,40 @@ def process_pid(request, session, ocr=None):
     version.status = "pid_processing"
     session.flush()
     try:
+        from app.services.local_vision import LocalVisionAdapter
+        from app.services.pid_fusion import overlaps
+        vision = vision or LocalVisionAdapter()
+        visual_pages = []
         pages = []
         detections = []
         ocr = ocr or get_paddle_ocr()
         for page in render_pages(source, path.suffix.lower(), version.id, request.render_dpi, request.preprocessing):
             pages.append(page)
             detections.extend(next(ocr.recognize_pages([page])))
+            visual_pages.append(vision.analyze(page))
             if len(detections) > 20_000:
                 raise ValueError("Drawing exceeds 20000 OCR detections")
         regions = group_regions(detections, version.id)
+        # Attach observations by overlap only; proximity is never process connectivity.
+        from app.schemas.pid import OCRRegion
+        from uuid import uuid5
+        for visual_page in visual_pages:
+            for index, candidate in enumerate(visual_page.candidates):
+                targets = [r for r in regions if r.page == visual_page.page and overlaps(r.bbox, candidate.bbox)]
+                if not targets:
+                    targets = [OCRRegion(region_id=uuid5(version.id, f"visual:{visual_page.page}:{index}"),
+                        page=visual_page.page, bbox=candidate.bbox, text_items=[], combined_text="", identified_tags={},
+                        region_type="annotation_block", source_image_uri=visual_page.source_image_uri)]
+                    regions.extend(targets)
+                for region in targets:
+                    region.visual_candidates.append(candidate)
+                    region.visual_model = visual_page.model
         tags = merged_tags(detections)
         warnings = ["OCR-derived labels are evidence, not process topology.",
                     "All extracted tags are unverified OCR candidates; recognition confidence does not verify equipment identity.",
                     "OCR text and spatial proximity do not establish process topology or connectivity."]
+        if any(v.status == "unavailable" for v in visual_pages):
+            warnings.append("Local vision unavailable; OCR-only evidence retained.")
         if not detections:
             warnings.append("No text was recognized; no OCR content was invented.")
         if any(item.confidence < 0.6 for item in detections):
@@ -104,7 +125,15 @@ def process_pid(request, session, ocr=None):
             source_uri=version.ingestion_metadata["source_uri"], source_sha256=checksum,
             page_count=len(pages), render_dpi=request.render_dpi if path.suffix.lower() == ".pdf" else None,
             ocr_model=list(OCR_MODELS), processed_at=datetime.now(timezone.utc),
-            synthetic=request.synthetic, warnings=warnings, pages=pages,
+            synthetic=request.synthetic, warnings=warnings, pages=pages, vision=visual_pages,
+            operational_metadata={"document_id": str(document.id), "revision": request.revision,
+                "regions_processed": len(regions), "ocr_region_count": sum(bool(r.text_items) for r in regions),
+                "visual_model_call_count": sum(v.call_count for v in visual_pages),
+                "candidate_count": sum(len(v.candidates) for v in visual_pages), "verified_count": 0,
+                "conflict_count": 0, "selected_local_vision_model": visual_pages[0].model if visual_pages else None,
+                "latency_ms": sum(v.latency_ms for v in visual_pages),
+                "fallback_used": any(v.status == "unavailable" for v in visual_pages),
+                "fallback_reason": sorted({v.fallback_reason for v in visual_pages if v.fallback_reason})},
             ocr_json_uri=ocr_path.relative_to(settings.data_root).as_posix(),
             region_json_uri=region_path.relative_to(settings.data_root).as_posix(),
             ocr_detections=len(detections), regions=len(regions),

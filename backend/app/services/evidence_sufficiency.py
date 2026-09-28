@@ -71,6 +71,9 @@ def assess(query, refs, *, invalid_ids=(), tool_failed=False, citations=(), mult
         missing.append("multiple_documents")
     issues = []
     if invalid_ids or len(usable) != len(refs): issues.append("invalid_or_unavailable_source")
+    if any(r.kind == "pid_region" and r.visual_candidates and
+           (not r.fusion or any(f.registry_status != "VERIFIED" for f in r.fusion)) for r in usable):
+        issues.append("unverified_visual_identity")
     if tool_failed: issues.append("tool_or_retrieval_failure")
     try:
         checked = [Citation.model_validate(c) for c in citations]

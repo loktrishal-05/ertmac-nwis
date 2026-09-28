@@ -60,6 +60,62 @@ class OCRDetection(BaseModel):
         return self
 
 
+class VisualCandidate(BaseModel):
+    """Untrusted model observations in rendered-page pixels, never authority."""
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    bbox: tuple[float, float, float, float]
+    region_type: Literal["equipment_symbol", "label", "arrow", "line_fragment", "title_block", "annotation_block"]
+    tag: str | None = Field(default=None, max_length=100)
+    confidence: float = Field(ge=0, le=1)
+    uncertainty: Literal["unverified_visual_observation", "ambiguous_label", "ambiguous_symbol", "partial_region"]
+
+    @model_validator(mode="after")
+    def valid_box(self):
+        x1, y1, x2, y2 = self.bbox
+        if not (0 <= x1 < x2 and 0 <= y1 < y2):
+            raise ValueError("Invalid visual bounding box")
+        if self.tag:
+            from app.services.pid_identifiers import classify_text
+            normalized, category, _ = classify_text(self.tag)
+            if category not in {"equipment_tag", "instrument_tag", "valve_tag"}:
+                raise ValueError("Visual tag must be a single recognized identifier")
+            self.tag = normalized
+        return self
+
+
+class VisualPageResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    candidates: list[VisualCandidate] = Field(default_factory=list, max_length=100)
+
+
+class VisionEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["available", "unavailable"] = "unavailable"
+    model: str | None = None
+    page: int = Field(ge=1)
+    source_image_uri: str
+    candidates: list[VisualCandidate] = Field(default_factory=list, max_length=100)
+    fallback_reason: str | None = None
+    call_count: int = Field(default=0, ge=0, le=1)
+    latency_ms: float = Field(default=0, ge=0)
+    evidence_origin: Literal["VISUAL_MODEL"] = "VISUAL_MODEL"
+
+
+class RegionFusion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    equipment_candidate: str | None
+    raw_ocr_text: str | None = None
+    normalized_text: str | None = None
+    ocr_confidence: float | None = Field(default=None, ge=0, le=1)
+    visual_candidate: str | None = None
+    visual_confidence: float | None = Field(default=None, ge=0, le=1)
+    registry_status: Literal["VERIFIED", "CANDIDATE", "UNVERIFIED", "CONFLICTING", "UNKNOWN"]
+    evidence_origin: list[Literal["OCR", "VISUAL_MODEL", "REGISTRY", "DOCUMENT_METADATA", "HUMAN_VERIFIED"]]
+    provenance: list[dict] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    review_required: bool = False
+
+
 class OCRRegion(BaseModel):
     ocr_derived: Literal[True] = True
     region_id: UUID
@@ -70,6 +126,8 @@ class OCRRegion(BaseModel):
     identified_tags: dict[str, list[str]]
     region_type: Literal["equipment_label", "instrument_cluster", "title_block", "annotation_block"]
     source_image_uri: str
+    visual_candidates: list[VisualCandidate] = Field(default_factory=list)
+    visual_model: str | None = None
 
 
 class PIDPage(BaseModel):
@@ -106,6 +164,8 @@ class PIDManifest(BaseModel):
     regions: int = Field(ge=0)
     equipment_tags: list[str]
     instrument_tags: list[str]
+    vision: list[VisionEvidence] = Field(default_factory=list)
+    operational_metadata: dict = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_pages(self):

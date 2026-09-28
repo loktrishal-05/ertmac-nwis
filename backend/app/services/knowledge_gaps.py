@@ -18,6 +18,9 @@ def detect(subject, sufficiency=None, requests=(), evidence=()):
     from app.services.evidence_sufficiency import refs_as_models
     from app.services.visual_intelligence import observations
     for region in observations(refs_as_models(evidence)):
+        if any(f["review_required"] for f in region.get("fusion", [])):
+            supplied.append({"gap_type": "pid_identity_review", "required_evidence": "current authoritative registry definition and human reconciliation",
+                             "related_evidence": [region["evidence_id"]]})
         if any(label["conflicting_candidates"] for label in region["labels"]):
             supplied.append({"gap_type": "conflicting_evidence", "required_evidence": "human reconciliation of conflicting OCR candidates",
                              "related_evidence": [region["evidence_id"]]})
