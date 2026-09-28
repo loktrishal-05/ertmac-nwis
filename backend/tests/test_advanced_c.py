@@ -23,6 +23,16 @@ import test_advanced_b
 from test_phase5a import state
 
 
+def wav_bytes(seconds=0.1):
+    """A synthetic silent WAV, built in memory; never real plant audio."""
+    import io, wave
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as out:
+        out.setnchannels(1); out.setsampwidth(2); out.setframerate(16000)
+        out.writeframes(b'\0\0' * int(16000 * seconds))
+    return buffer.getvalue()
+
+
 class ProductTests(unittest.TestCase):
     def setUp(self):
         self.f = test_advanced_b.OperationalTests(); self.f.setUp(); self.addCleanup(self.f.doCleanups)
@@ -33,7 +43,7 @@ class ProductTests(unittest.TestCase):
         self.addCleanup(app.dependency_overrides.clear)
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
-        self.audio = base64.b64encode(b'local test audio').decode()
+        self.audio = base64.b64encode(wav_bytes()).decode()
         self.patches = [patch.object(settings, 'stt_url', ''), patch.object(settings, 'tts_url', ''),
             patch.object(settings, 'automation_secret', 'test-only-' * 4),
             patch.object(settings, 'automation_user_id', str(self.f.reviewer.id))]

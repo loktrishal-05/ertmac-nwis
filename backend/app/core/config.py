@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     stt_url: str = ""
     tts_url: str = ""
     speech_timeout_seconds: float = Field(default=30, gt=0, le=120)
+    # Word confidence below this marks a technical identifier for human correction.
+    stt_identifier_min_confidence: float = Field(default=0.85, ge=0, le=1)
+    # PUBLIC_EXTERNAL_OPTIONAL resource: off by default and never eligible for confidential data.
+    bhashini_enabled: bool = False
+    # Operator-reviewed JSON registry of downloadable language resources (e.g. from AIKosh).
+    language_resource_registry: str = ""
     automation_secret: str = Field(default="", repr=False)
     automation_user_id: str = ""
     # Provisional operator-configurable default, not an MRPL-approved policy
