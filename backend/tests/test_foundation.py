@@ -158,7 +158,7 @@ class FoundationTests(unittest.TestCase):
     def test_metadata_and_offline_migration(self):
         configure_mappers()
         self.assertEqual(len(models.__all__), 23)
-        self.assertEqual(len(Base.metadata.tables), 31)
+        self.assertEqual(len(Base.metadata.tables), 32)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])

@@ -37,13 +37,15 @@ def authorize(session, user, review=False):
         role = session.scalar(select(User.role).where(User.id == getattr(user, "id", None)))
     if role not in (("reviewer", "admin") if review else ("requester", "reviewer", "admin")):
         raise DecisionNotAllowed("Authenticated authorized human account required")
+    return role  # Always the stored role, never one supplied with the request.
 
 
-def resolve_sources(session, chunk_ids, scope):
+def resolve_sources(session, chunk_ids, scope, with_scope=False):
     store = get_qdrant()
     points = store.client.retrieve(store.collection, ids=[str(i) for i in chunk_ids], with_payload=True)
     indexed = {str(p.id): p for p in points}
     refs, snapshots = [], []
+    asset = {"equipment_tags": set(), "unit_ids": set(), "facility_ids": set(), "document_ids": set()}
     if len(set(chunk_ids)) != len(chunk_ids):
         raise SourceChanged("Duplicate source identifiers")
     for key in chunk_ids:
@@ -81,6 +83,12 @@ def resolve_sources(session, chunk_ids, scope):
             "revision": chunk.revision, "source_sha256": chunk.source_sha256,
             "chunk_id": str(key), "chunk_hash": canonical_hash(chunk.model_dump(mode="json")),
             "version_metadata_hash": canonical_hash(version.ingestion_metadata)})
+        asset["equipment_tags"].update(chunk.equipment_tags)
+        asset["unit_ids"].update([str(chunk.unit_id)] if chunk.unit_id else [])
+        asset["facility_ids"].update([str(chunk.facility_id)] if chunk.facility_id else [])
+        asset["document_ids"].add(str(doc.id))
+    if with_scope:
+        return refs, snapshots, {key: sorted(value) for key, value in asset.items()}
     return refs, snapshots
 
 
@@ -113,20 +121,44 @@ def eligible(question, statement):
         "agent_result": {"schema": "S1", "output": {"answer": statement}}}) == "INFORMATIONAL"
 
 
+def check_origin(session, origin, reference):
+    """Origins are provenance labels; a referenced record must exist, but grants no trust."""
+    from app.db.models import KnowledgeGap, OperatorNote
+    if origin in ("knowledge_gap", "operator_note") and not reference:
+        raise KnowledgeConflict("This origin requires a reference")
+    if origin == "knowledge_gap":
+        gap = session.get(KnowledgeGap, reference)
+        if gap is None or gap.access_scope != "internal" or gap.status in ("RESOLVED", "DISMISSED"):
+            raise KnowledgeConflict("Referenced knowledge gap is not open")
+    if origin == "operator_note":
+        try:
+            note = session.get(OperatorNote, UUID(reference))
+        except ValueError:
+            note = None
+        if note is None or note.access_scope != "internal":
+            raise KnowledgeConflict("Referenced operator note unavailable")
+
+
 def create_candidate(session, payload, actor):
     authorize(session, actor)
-    refs, snapshots = resolve_sources(session, payload.chunk_ids, payload.access_scope)
+    check_origin(session, payload.origin, payload.origin_reference)
+    # OCR-derived (P&ID) chunks are rejected here, so visual candidates can never become sources.
+    refs, snapshots, asset_scope = resolve_sources(session, payload.chunk_ids, payload.access_scope, with_scope=True)
     parent = None
     if payload.supersedes_id:
         parent = session.get(VerifiedKnowledge, payload.supersedes_id)
         if parent is None or parent.access_scope != payload.access_scope:
             raise KnowledgeConflict("Unknown prior knowledge revision")
+        # Re-verification continues VERIFIED/STALE knowledge; REVOKED is terminal.
+        if parent.status not in ("VERIFIED", "STALE"):
+            raise KnowledgeConflict("Only verified or stale knowledge can be re-verified")
     now = datetime.now(timezone.utc)
     item = VerifiedKnowledge(id=uuid4(), title=payload.title, question=payload.question,
         match_key=canonical_hash(normalized(payload.question)), statement=payload.statement,
         evidence=refs, source_snapshot=snapshots, access_scope=payload.access_scope, status="CANDIDATE",
         revision=parent.revision + 1 if parent else 1, supersedes_id=parent.id if parent else None,
-        created_by=actor.id, updated_at=now)
+        created_by=actor.id, updated_at=now, origin=payload.origin,
+        origin_reference=payload.origin_reference, asset_scope=asset_scope)
     item.content_hash = canonical_hash(binding(item))
     state = state_for(item, review=True)
     state["agent_result"]["knowledge_binding"] = binding(item)
@@ -134,15 +166,21 @@ def create_candidate(session, payload, actor):
     item.approval_revision_id = revision.id
     session.add(item)
     session.flush()
-    audit(session, item, "KNOWLEDGE_CANDIDATE_CREATED", actor)
+    audit(session, item, "KNOWLEDGE_CANDIDATE_CREATED", actor, reason=item.origin)
     return item
 
 
-def audit(session, item, event, actor=None, reason=None):
+def audit(session, item, event, actor=None, reason=None, previous=None):
+    """One tamper-evident record per transition: who (stored role), what, why, and against which sources."""
     append_event(session, event_type=event, actor_id=actor.id if actor else None,
         actor_kind="user" if actor else "system", action_revision_id=item.approval_revision_id,
         payload={"knowledge_id": str(item.id), "revision": item.revision,
-                 "content_hash": item.content_hash, "status": item.status, "reason": reason})
+                 "content_hash": item.content_hash, "status": item.status, "reason": reason,
+                 "previous_status": previous, "actor_role": authorize(session, actor) if actor else "system",
+                 "origin": item.origin, "origin_reference": item.origin_reference, "asset_scope": item.asset_scope,
+                 "supersedes_id": str(item.supersedes_id) if item.supersedes_id else None,
+                 "sources": [{k: s.get(k) for k in ("document_id", "document_version_id", "revision", "source_sha256")}
+                             for s in item.source_snapshot]})
 
 
 def refresh(session, item):
@@ -160,9 +198,9 @@ def refresh(session, item):
             assert_release_allowed(session, item.approval_revision_id)
         return True
     except (SourceChanged, ReleaseNotAllowed, ValueError, KeyError, AttributeError) as error:
-        item.status = "STALE"
+        previous, item.status = item.status, "STALE"
         item.updated_at = datetime.now(timezone.utc)
-        audit(session, item, "KNOWLEDGE_STALE", reason=type(error).__name__)
+        audit(session, item, "KNOWLEDGE_STALE", reason=type(error).__name__, previous=previous)
         session.flush()
         return False
 
@@ -182,6 +220,7 @@ def decide(session, knowledge_id, payload, actor, operation):
     item = inspect_item(session, knowledge_id, actor)
     if item.content_hash != payload.expected_content_hash:
         raise KnowledgeConflict("Review content hash mismatch")
+    previous = item.status
     if operation == "verify":
         if item.status != "CANDIDATE":
             raise KnowledgeConflict("Only a current candidate may be verified")
@@ -191,6 +230,11 @@ def decide(session, knowledge_id, payload, actor, operation):
         item.status = "VERIFIED"
         item.verified_by = decision.approver_id
         item.verified_at = decision.decided_at
+        parent = session.get(VerifiedKnowledge, item.supersedes_id) if item.supersedes_id else None
+        if parent is not None and parent.status == "VERIFIED":
+            # Re-verification supersedes; the prior row and its verification remain as history.
+            parent.status, parent.updated_at = "STALE", datetime.now(timezone.utc)
+            audit(session, parent, "KNOWLEDGE_STALE", actor, reason="superseded_by:" + str(item.id), previous="VERIFIED")
     elif operation in ("stale", "revoke"):
         if item.status == "REVOKED":
             raise KnowledgeConflict("Knowledge already revoked")
@@ -204,9 +248,49 @@ def decide(session, knowledge_id, payload, actor, operation):
     else:
         raise KnowledgeConflict("Unknown lifecycle operation")
     item.updated_at = datetime.now(timezone.utc)
-    audit(session, item, "KNOWLEDGE_" + item.status, actor)
+    audit(session, item, "KNOWLEDGE_" + item.status, actor, reason=payload.comment, previous=previous)
     session.flush()
     return item
+
+
+def revalidate(session, actor, document_id=None):
+    """Authorized sweep: re-check current sources now instead of on next read.
+
+    Reads already fail closed through refresh(); this makes invalidation visible
+    in the registry and audit chain right after a source revision or mutation."""
+    authorize(session, actor, review=True)
+    items = session.scalars(select(VerifiedKnowledge).where(VerifiedKnowledge.status.in_(("CANDIDATE", "VERIFIED")),
+        VerifiedKnowledge.access_scope == "internal").with_for_update().execution_options(populate_existing=True)).all()
+    # ponytail: linear scan over live knowledge; add a source index if the registry grows large.
+    if document_id:
+        items = [i for i in items if any(s.get("document_id") == str(document_id) for s in i.source_snapshot)]
+    changed = [i for i in items if not refresh(session, i)]
+    session.flush()
+    return changed
+
+
+def history(session, knowledge_id, actor):
+    """Revision lineage plus every audit event bound to those governed revisions, in chain order."""
+    from app.db.models import AuditEvent
+    authorize(session, actor, review=True)  # Audit events carry the /audit/log visibility (reviewer/admin).
+    item = inspect_item(session, knowledge_id, actor)
+    lineage, cursor = [], item
+    while cursor is not None:  # Walk back to the first revision.
+        lineage.insert(0, cursor)
+        cursor = session.get(VerifiedKnowledge, cursor.supersedes_id) if cursor.supersedes_id else None
+    while True:  # And forward to any successor revisions.
+        successor = session.scalar(select(VerifiedKnowledge).where(VerifiedKnowledge.supersedes_id == lineage[-1].id)
+                                   .order_by(VerifiedKnowledge.created_at).limit(1))
+        if successor is None:
+            break
+        lineage.append(successor)
+    events = session.scalars(select(AuditEvent).where(AuditEvent.action_revision_id.in_(
+        [i.approval_revision_id for i in lineage])).order_by(AuditEvent.sequence_number)).all()
+    return {"knowledge_id": str(item.id), "lineage": [export_item(i) for i in lineage],
+            "events": [{"sequence_number": e.sequence_number, "event_type": e.event_type, "occurred_at": e.occurred_at,
+                        "actor_id": e.actor_id, "actor_kind": e.actor_kind, "action_revision_id": e.action_revision_id,
+                        "payload": e.payload, "event_hash": e.event_hash} for e in events],
+            "integrity": "Tamper-evident audit chain; verify with the audit chain verifier, not tamper-proof."}
 
 
 def lookup(session, request, actor):
@@ -251,7 +335,9 @@ def export_item(item):
         "trust": {"verified_at": item.verified_at, "verified_by": item.verified_by,
                   "approval_revision_id": item.approval_revision_id},
         "timestamps": {"created_at": item.created_at, "updated_at": item.updated_at},
-        "provenance": {"created_by": item.created_by, "mechanism": "existing_phase5_human_approval"}}
+        "provenance": {"created_by": item.created_by, "mechanism": "existing_phase5_human_approval",
+                       "origin": item.origin, "origin_reference": item.origin_reference},
+        "asset_scope": item.asset_scope}
 
 
 def import_candidate(document):

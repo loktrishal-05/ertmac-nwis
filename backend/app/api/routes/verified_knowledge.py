@@ -1,4 +1,5 @@
 """Authenticated registry; decisions reuse the Phase 5 approval ledger."""
+from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -36,20 +37,40 @@ def create(payload: KnowledgeCandidate, user: User = Depends(get_current_user), 
 
 
 @router.get("")
-def listing(q: str = Query(default="", max_length=2000), user: User = Depends(get_current_user), session: Session = Depends(get_db)):
+def listing(q: str = Query(default="", max_length=2000),
+            status: Literal["CANDIDATE", "VERIFIED", "STALE", "REVOKED"] | None = None,
+            origin: str | None = Query(default=None, max_length=40),
+            equipment_tag: str | None = Query(default=None, max_length=100),
+            user: User = Depends(get_current_user), session: Session = Depends(get_db)):
     def run():
         service.authorize(session, user)
         query = select(VerifiedKnowledge.id).where(VerifiedKnowledge.access_scope == "internal")
         if q:
             query = query.where(VerifiedKnowledge.match_key == service.canonical_hash(service.normalized(q)))
+        if origin:
+            query = query.where(VerifiedKnowledge.origin == origin)
         ids = session.scalars(query.order_by(VerifiedKnowledge.created_at.desc()).limit(100)).all()
-        return [service.export_item(service.inspect_item(session, i, user)) for i in ids]
+        # Status is filtered after refresh(), so a stale source never lists as VERIFIED.
+        items = [service.inspect_item(session, i, user) for i in ids]
+        return [service.export_item(i) for i in items if (status is None or i.status == status) and
+                (equipment_tag is None or equipment_tag in (i.asset_scope or {}).get("equipment_tags", []))]
     return transaction(session, run)
+
+
+@router.post("/revalidate")
+def revalidate(document_id: UUID | None = None, user: User = Depends(require_role("reviewer", "admin")),
+               session: Session = Depends(get_db)):
+    return transaction(session, lambda: [service.export_item(i) for i in service.revalidate(session, user, document_id)])
 
 
 @router.get("/{knowledge_id}")
 def inspect(knowledge_id: UUID, user: User = Depends(get_current_user), session: Session = Depends(get_db)):
     return transaction(session, lambda: service.export_item(service.inspect_item(session, knowledge_id, user)))
+
+
+@router.get("/{knowledge_id}/history")
+def history(knowledge_id: UUID, user: User = Depends(require_role("reviewer", "admin")), session: Session = Depends(get_db)):
+    return transaction(session, lambda: service.history(session, knowledge_id, user))
 
 
 @router.post("/{knowledge_id}/{operation}")
