@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useLanguage } from './language.js'
 import { VoiceControls } from './ProductPages.jsx'
 import { useRequest, useResource } from './hooks/useApi.js'
+import { isSubstantialReplacement, reviewGate } from './features/voice/identifierReview.js'
+import { QueryForm, TranscriptReview } from './features/voice/TranscriptReview.jsx'
 
 export function ApiState({ request, empty = 'No records returned.' }) {
   if (request.loading) return <p role="status">Loading…</p>
@@ -51,25 +53,6 @@ export function Result({ data }) {
   </div>
 }
 
-export function Auth({ auth }) {
-  const action = useRequest()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  async function login(event) {
-    event.preventDefault()
-    const result = await action.run('/auth/login', { method: 'POST', body: { username, password } })
-    setPassword('')
-    if (result) auth.refresh()
-  }
-  async function logout() {
-    if (await action.run('/auth/logout', { method: 'POST' })) auth.refresh()
-  }
-  return <section className="panel auth-panel" aria-label="Account">
-    {auth.data ? <div className="toolbar"><span>Signed in: <strong>{auth.data.username}</strong> · {auth.data.role} (server role)</span><button onClick={logout} disabled={action.loading}>Sign out</button></div> : <form className="toolbar" onSubmit={login}><label>Username<input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required maxLength={100} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required maxLength={255} /></label><button disabled={action.loading || auth.loading}>Sign in</button><span>Sign in before requesting a governed recommendation.</span></form>}
-    {auth.error?.status !== 401 && <ApiState request={auth} />}<ApiState request={action} />
-  </section>
-}
-
 export function Dashboard({ proof, health, user }) {
   const ready = useResource('/ready')
   const agents = useResource('/agents/status')
@@ -88,18 +71,39 @@ export function Dashboard({ proof, health, user }) {
       <p>Agent execution activity is not reported by the status API. This view shows configured capabilities.</p></section></>
 }
 
-export function QueryConsole({ user }) {
+export function QueryConsole({ user, voiceFocus = false }) {
   const { language, t } = useLanguage()
   const [channel, setChannel] = useState('text')
   const [query, setQuery] = useState('')
+  // H3: a voice transcript must be human-reviewed before it can be submitted.
+  const [review, setReview] = useState(null)
+  const [notice, setNotice] = useState('')
   const request = useRequest()
-  async function submit(event) {
-    event.preventDefault()
+  const gate = review ? reviewGate(review) : { ready: true, pending: [], total: 0 }
+  function acceptTranscript(result) {
+    setQuery(result.text); setChannel('voice'); setNotice('')
+    setReview({ result, acknowledged: [], confirmed: false })
+  }
+  function edit(value) {
+    setQuery(value)
+    if (review && isSubstantialReplacement(review.result.text, value)) {
+      setReview(null); setChannel('text')
+      setNotice('The transcript was replaced, so this question will be sent as typed text.')
+    }
+  }
+  const acknowledge = (index, checked) => setReview(current => current && ({ ...current,
+    acknowledged: checked ? [...new Set([...current.acknowledged, index])] : current.acknowledged.filter(i => i !== index) }))
+  async function submit() {
+    if (!gate.ready) return
     await request.run('/query', { method: 'POST', body: { query, request_id: crypto.randomUUID(), input_language: language, input_channel: channel }, timeout: 2100000 })
   }
-  return <section className="panel"><h2>{t('Ask the workbench')}</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
-    <VoiceControls key={request.data?.run_id || 'input'} user={user} onTranscript={text => { setQuery(text); setChannel('voice') }} result={request.data} />
-    <form onSubmit={submit}><label>{t('Question')}<textarea value={query} onChange={e => setQuery(e.target.value)} required maxLength={10000} rows={4} /></label><button disabled={request.loading || !query.trim()}>{t('Submit query')}</button></form>
+  return <section className="panel"><h2>{voiceFocus ? 'Ask by voice' : t('Ask the workbench')}</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
+    <VoiceControls key={request.data?.run_id || 'input'} user={user} onTranscript={acceptTranscript} result={request.data} />
+    {review && <TranscriptReview result={review.result} acknowledged={review.acknowledged} confirmed={review.confirmed}
+      onAcknowledge={acknowledge} onConfirm={confirmed => setReview(current => current && ({ ...current, confirmed }))} />}
+    {notice && <p role="status">{notice}</p>}
+    <QueryForm query={query} onChange={edit} onSubmit={submit} gate={gate} loading={request.loading}
+      label={t('Question')} submitLabel={t('Submit query')} reviewing={!!review} />
     {request.loading && <p>Local inference may take several minutes. Keep this page open.</p>}<ApiState request={request} /><Result data={request.data} />
   </section>
 }

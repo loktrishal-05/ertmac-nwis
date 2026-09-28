@@ -1,4 +1,5 @@
-const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '')
+// Same-origin by default (Vite proxy in development, site reverse proxy in production).
+export const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
 
 export async function apiRequest(path, { signal, method = 'GET', body, timeout = 30000 } = {}) {
   const controller = new AbortController()

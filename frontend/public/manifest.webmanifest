@@ -1,0 +1,13 @@
+{
+  "name": "Sovereign AI Workbench",
+  "short_name": "Workbench",
+  "description": "Governed, evidence-cited industrial intelligence on your own infrastructure.",
+  "start_url": "/app/dashboard",
+  "display": "standalone",
+  "background_color": "#020e21",
+  "theme_color": "#020e21",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
