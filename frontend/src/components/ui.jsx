@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router'
 
 const ICONS = {
@@ -30,7 +31,7 @@ const ICONS = {
 
 export function Icon({ name, size = 20, ...props }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}><path d={ICONS[name] || ICONS.grid} /></svg>
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{ flexShrink: 0 }} {...props}><path d={ICONS[name] || ICONS.grid} /></svg>
 }
 
 // Cropped from the approved brand boards; never the full boards with captions.
@@ -83,13 +84,17 @@ export function PlannedCapability({ title, phase, available, planned, requires }
   </section>
 }
 
+const useStatusTitle = text => useEffect(() => { document.title = `${text} · Sovereign AI Workbench` }, [text])
+
 export function NotFound() {
+  useStatusTitle('Page not found')
   return <div className="status-page"><p className="eyebrow">404</p><h1 tabIndex={-1} data-page-title>Page not found</h1>
     <p>This address does not exist in the Sovereign AI Workbench.</p>
     <div className="toolbar"><Link className="button" to="/app/dashboard">Go to dashboard</Link><Link className="button ghost" to="/">Home</Link></div></div>
 }
 
 export function Forbidden() {
+  useStatusTitle('Access restricted')
   return <div className="status-page"><p className="eyebrow">403</p><h1 tabIndex={-1} data-page-title>Access restricted</h1>
     <p>Your server-assigned role does not permit this area. Roles are granted by an administrator, never by the browser.</p>
     <div className="toolbar"><Link className="button" to="/app/dashboard">Back to dashboard</Link></div></div>

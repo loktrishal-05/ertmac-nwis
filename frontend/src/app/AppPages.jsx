@@ -124,8 +124,8 @@ export function ResourcesPage() {
   return <><PageHeader eyebrow="Trust" title="Government Resources" description="Classification is enforced by the server. Confidential data may only use LOCAL_APPROVED resources." />
     <section className="panel"><h2>Policy</h2><ul className="policy-list">{POLICY.map(([name, state, note]) => <li key={name}><strong>{name}</strong><span className="badge">{state}</span><p>{note}</p></li>)}</ul></section>
     <section className="panel"><h2>Language resources reported by this Workbench</h2><ApiState request={status} />
-      {resources.length ? <table><thead><tr><th>Resource</th><th>Provider</th><th>Classification</th><th>Confidential data</th></tr></thead>
-        <tbody>{resources.map(r => <tr key={r.name}><td>{r.name}</td><td>{r.provider}</td><td><code>{r.classification}</code></td><td>{r.confidential_eligible ? 'Allowed' : 'Never'}</td></tr>)}</tbody></table>
+      {resources.length ? <div className="table-scroll" tabIndex={0} role="region" aria-label="Language resources"><table><thead><tr><th>Resource</th><th>Provider</th><th>Classification</th><th>Confidential data</th></tr></thead>
+        <tbody>{resources.map(r => <tr key={r.name}><td>{r.name}</td><td>{r.provider}</td><td><code>{r.classification}</code></td><td>{r.confidential_eligible ? 'Allowed' : 'Never'}</td></tr>)}</tbody></table></div>
         : status.data && <EmptyState title="No resources reported" />}
       {status.data && <AutomationStatus data={status.data} />}</section></>
 }

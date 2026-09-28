@@ -14,7 +14,8 @@ export function TranscriptReview({ result, acknowledged = [], confirmed = false,
     <p className="raw-transcript" lang={result?.language?.effective || undefined} data-testid="raw-transcript">
       {reviewSegments(result?.text, flags).map((segment, index) => segment.flag === null
         ? <span key={index}>{segment.text}</span>
-        : <mark key={index} className="flagged-span" aria-describedby={`flag-${segment.flag}`}>{segment.text}<sup aria-hidden="true">{segment.flag + 1}</sup></mark>)}
+        // The flag number is CSS-generated so it is never selected, copied or read as part of the identifier.
+        : <mark key={index} className="flagged-span" aria-describedby={`flag-${segment.flag}`} data-flag={segment.flag + 1}>{segment.text}</mark>)}
     </p>
     {!!identifiers.length && <div className="identifier-chips" aria-label="Recognised technical identifiers">
       <span className="raw-label">Recognised identifiers:</span>
@@ -45,6 +46,6 @@ export function QueryForm({ query, onChange, onSubmit, gate, loading, label = 'Q
       <textarea value={query} onChange={event => onChange(event.target.value)} required maxLength={10000} rows={4}
         aria-describedby={blocked ? 'submit-gate' : undefined} /></label>
     {blocked && <p id="submit-gate" className="review-notice">Submission is locked until every flagged identifier is checked and the transcript is confirmed.</p>}
-    <button type="submit" disabled={loading || !query.trim() || blocked}>{submitLabel}</button>
+    <button type="submit" disabled={loading || !query.trim() || blocked} className="primary">{submitLabel}</button>
   </form>
 }

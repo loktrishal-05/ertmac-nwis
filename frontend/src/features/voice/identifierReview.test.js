@@ -73,7 +73,9 @@ test('review UI shows the exact transcript and the form refuses gated submission
     const { TranscriptReview, QueryForm } = await server.ssrLoadModule('/src/features/voice/TranscriptReview.jsx')
     const result = { text: 'Check P 204 A <b>now</b>', identifier_review: [{ start: 6, end: 13, text: 'P 204 A', reasons: ['possible_split_identifier', 'mystery'] }] }
     const html = renderToStaticMarkup(createElement(TranscriptReview, { result }))
-    assert.match(html, /<mark class="flagged-span" aria-describedby="flag-0">P 204 A/)
+    // The flag number is a CSS badge (data-flag), never text inside the identifier that could be copied as "P 204 A1".
+    assert.match(html, /<mark class="flagged-span" aria-describedby="flag-0" data-flag="1">P 204 A<\/mark>/)
+    assert.equal(html.match(/<p class="raw-transcript"[^>]*>(.*?)<\/p>/)[1].replace(/<[^>]+>/g, ''), 'Check P 204 A &lt;b&gt;now&lt;/b&gt;')
     assert.ok(html.includes('&lt;b&gt;now&lt;/b&gt;') && !html.includes('<b>now'))
     for (const text of ['Possibly split identifier', 'Needs review', '0 of 1 flags reviewed']) assert.ok(html.includes(text))
 

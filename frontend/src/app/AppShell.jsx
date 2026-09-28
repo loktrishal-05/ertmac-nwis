@@ -10,7 +10,8 @@ import { useLanguage } from '../language.js'
 
 const THEME_KEY = 'workbench-theme'
 function useTheme() {
-  const [theme, setTheme] = useState(() => { try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark' } catch { return 'dark' } })
+  // The workbench is calm and light by default; dark stays available for control rooms.
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light' } catch { return 'light' } })
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     try { localStorage.setItem(THEME_KEY, theme) } catch { /* Preference is optional. */ }
@@ -29,17 +30,35 @@ export default function AppShell() {
   const [navOpen, setNavOpen] = useState(false)
   const [theme, toggleTheme] = useTheme()
   const main = useRef(null)
+  const toggle = useRef(null)
+  const menu = useRef(null)
   const title = [...matches].reverse().find(match => match.handle?.title)?.handle.title || 'Workbench'
 
   // Route change: announce the page and move focus to its heading. Links close the drawer themselves.
   useEffect(() => {
-    document.title = `${title} · Sovereign AI Workbench`
+    // Title follows what actually rendered, so a guarded route reads "Access restricted", not its own name.
     const heading = main.current?.querySelector('[data-page-title]')
+    document.title = `${heading?.textContent || title} · Sovereign AI Workbench`
     ;(heading || main.current)?.focus({ preventScroll: true })
+    if (menu.current) menu.current.open = false
   }, [location.pathname, title])
+  // The account menu is a <details>: close it on Escape (returning focus) and on any outside press.
+  useEffect(() => {
+    const close = event => {
+      const el = menu.current
+      if (!el?.open) return
+      if (event.type === 'keydown' ? event.key === 'Escape' : !el.contains(event.target)) {
+        el.open = false
+        if (event.type === 'keydown') el.querySelector('summary')?.focus()
+      }
+    }
+    document.addEventListener('keydown', close)
+    document.addEventListener('pointerdown', close)
+    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
+  }, [])
   useEffect(() => {
     if (!navOpen) return undefined
-    const onKey = event => { if (event.key === 'Escape') setNavOpen(false) }
+    const onKey = event => { if (event.key === 'Escape') { setNavOpen(false); toggle.current?.focus() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [navOpen])
@@ -53,7 +72,7 @@ export default function AppShell() {
   return <div className="shell" data-nav-open={navOpen || undefined}>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="shell-topbar">
-      <button type="button" className="icon-button nav-toggle" aria-expanded={navOpen} aria-controls="shell-nav"
+      <button type="button" ref={toggle} className="icon-button nav-toggle" aria-expanded={navOpen} aria-controls="shell-nav"
         aria-label={navOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setNavOpen(value => !value)}>
         <Icon name={navOpen ? 'close' : 'menu'} /></button>
       <Link to="/app/dashboard" className="shell-brand" aria-label="Sovereign AI Workbench dashboard"><Logo variant="horizontal" decorative /></Link>
@@ -65,7 +84,7 @@ export default function AppShell() {
         <LanguageSelector />
         <button type="button" className="icon-button" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
           <Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
-        <details className="user-menu">
+        <details className="user-menu" ref={menu}>
           <summary aria-label="Account menu"><Icon name="user" /><span className="user-name">{session.user?.username}</span></summary>
           <div className="menu-panel">
             <p><strong>{session.user?.username}</strong><br /><span className="muted">Server role: {role}</span></p>

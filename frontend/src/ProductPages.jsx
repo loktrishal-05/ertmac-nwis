@@ -78,7 +78,7 @@ export function VoiceControls({ user, onTranscript, result }) {
     <p>{t('Advisory only. No permission to operate equipment.')}</p>
     <div className="toolbar">
       <button type="button" disabled={!canRecord || request.loading || !globalThis.navigator?.mediaDevices || !globalThis.MediaRecorder} onClick={recording ? () => recorder.current.stop() : record}>{t(recording ? 'Stop' : 'Record')}</button>
-      <label>Local audio (4 MiB, 60 s maximum)<input type="file" accept="audio/wav,audio/webm,audio/ogg,audio/mpeg,audio/mp4" disabled={!canRecord || request.loading || recording} onChange={e => transcribe(e.target.files?.[0])} /></label>
+      <label>Local audio (4 MiB, 60 s maximum)<input type="file" accept="audio/wav,audio/webm,audio/ogg,audio/mpeg,audio/mp4" disabled={!canRecord || request.loading || recording} onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; transcribe(file) }} /></label>
       <button type="button" disabled={!result || !canSpeak || request.loading} onClick={speak}>{t('Read response')}</button>
     </div>
     {recording && <p role="status">Recording… stops automatically after 30 seconds.</p>}
@@ -91,7 +91,7 @@ export function BIReport({ data }) {
   const { t } = useLanguage()
   if (!data) return <p>{t('Unavailable')}</p>
   return <><p>{t('Advisory only. No permission to operate equipment.')}</p><p>Latest {data.sampled_runs} stored runs; metadata available for {data.metadata_runs}. Limit: {data.sample_limit}.</p>
-    <table><caption>{t('Operational BI')}</caption><thead><tr><th>Stored metric</th><th>Value</th></tr></thead><tbody>{Object.entries(data.metrics || {}).map(([key, value]) => <tr key={key}><th scope="row">{key.replaceAll('_', ' ')}</th><td>{value == null ? t('Unavailable') : typeof value === 'number' ? Math.round(value * 100) / 100 : value}</td></tr>)}</tbody></table>
+    <div className="table-scroll" tabIndex={0} role="region" aria-label={t('Operational BI')}><table><caption>{t('Operational BI')}</caption><thead><tr><th>Stored metric</th><th>Value</th></tr></thead><tbody>{Object.entries(data.metrics || {}).map(([key, value]) => <tr key={key}><th scope="row">{key.replaceAll('_', ' ')}</th><td>{value == null ? t('Unavailable') : typeof value === 'number' ? Math.round(value * 100) / 100 : value}</td></tr>)}</tbody></table></div>
     <DataView value={{ evidence_sufficiency: data.evidence_sufficiency, execution_paths: data.execution_paths, model_runtimes: data.model_runtimes, recent_audit: data.recent_audit, limitations: data.limitations }} /></>
 }
 

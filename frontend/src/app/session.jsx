@@ -42,6 +42,7 @@ export function SessionProvider({ children }) {
 
 function LanguageProvider({ children }) {
   const [language, update] = useState(() => { try { return normalizeLanguage(localStorage.getItem('workbench-language')) } catch { return 'en' } })
+  useEffect(() => { document.documentElement.lang = language }, [language]) // Screen readers pick the right voice.
   const value = useMemo(() => ({ language, setLanguage: next => {
     const code = normalizeLanguage(next); update(code)
     try { localStorage.setItem('workbench-language', code) } catch { /* Session-only preference when storage is unavailable. */ }

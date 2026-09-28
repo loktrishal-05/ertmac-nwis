@@ -12,11 +12,17 @@ export function ApiState({ request, empty = 'No records returned.' }) {
   return null
 }
 
+const IDENTIFIER = /\b([A-Z]{1,5}-[A-Z0-9]+(?:-[A-Z0-9]+)*)\b/
+const ACRONYMS = /\b(ai|api|id|ids|ocr|rrf|stt|tts|sop|pid|ms|url|bi|llm|rag)\b/gi
+
 export function DataView({ value }) {
   if (value == null) return <span className="muted">Unavailable</span>
   if (Array.isArray(value)) return value.length ? <ul className="data-list">{value.map((item, index) => <li key={index}><DataView value={item} /></li>)}</ul> : <span className="muted">None returned</span>
-  if (typeof value === 'object') return <dl className="data-fields">{Object.entries(value).map(([key, item]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd><DataView value={item} /></dd></div>)}</dl>
-  return <span>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</span>
+  if (typeof value === 'object') return <dl className="data-fields">{Object.entries(value).map(([key, item]) => <div key={key}><dt>{key.replaceAll('_', ' ').replace(ACRONYMS, word => word.toUpperCase())}</dt><dd><DataView value={item} /></dd></div>)}</dl>
+  // Floats are rounded for reading only; integers (sequence numbers, counts) stay exact and raw JSON stays available.
+  const shown = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : typeof value === 'number' && !Number.isInteger(value) ? String(+value.toFixed(3)) : String(value)
+  // Tags such as SOP-P204-001 or XV-2040 never wrap at their hyphens; the text itself is unchanged.
+  return <span>{shown.split(IDENTIFIER).map((part, index) => index % 2 ? <span key={index} className="identifier">{part}</span> : part)}</span>
 }
 
 function Evidence({ items = [] }) {
@@ -59,12 +65,18 @@ export function Dashboard({ proof, health, user }) {
   const reviewer = ['reviewer', 'admin'].includes(user?.role)
   const approvals = useResource(reviewer ? '/approvals' : null)
   const metrics = [
-    ['Backend', health, 'Process liveness'], ['Readiness', ready.data?.status || ready.error?.data?.status, 'Dependencies checked without inference'],
-    ['Implemented routes', agents.data?.routes?.filter(r => r.status === 'implemented').length, 'Running-agent count unavailable'],
-    ['Pending approvals', approvals.data?.length, reviewer ? 'Current review queue' : 'Reviewer sign-in required'],
-    ['Indexed documents', null, 'No inventory-count API available'], ['External AI calls', proof.data?.external_ai_calls, 'Current backend process only'],
+    ['Backend', health, 'Process liveness'], ['Readiness', ready.data?.status || ready.error?.data?.status, 'Dependencies checked without inference', ready],
+    ['Implemented routes', agents.data?.routes?.filter(r => r.status === 'implemented').length, 'Running-agent count unavailable', agents],
+    ['Pending approvals', approvals.data?.length, reviewer ? 'Current review queue' : 'Reviewer sign-in required', reviewer && approvals],
+    ['Indexed documents', null, 'No inventory-count API available'], ['External AI calls', proof.data?.external_ai_calls, 'Current backend process only', proof],
   ]
-  return <><section className="metrics">{metrics.map(([label, value, caption]) => <article className="metric" key={label}><div className="metric-label">{label}</div><div className="metric-value">{value ?? 'Unavailable'}</div><p>{caption}</p></article>)}</section>
+  // A request with no answer yet is "Checking", never "Unavailable"; green is reserved for verified healthy values.
+  const state = (value, loading) => loading && value == null ? 'loading' : value == null ? 'missing' : ['Connected', 'ready'].includes(value) ? 'ok' : 'value'
+  return <><section className="metrics">{metrics.map(([label, value, caption, request]) => {
+    const loading = !!request && (request.loading || (request.data == null && request.error == null))
+    return <article className="metric" key={label}><div className="metric-label">{label}</div>
+    <div className="metric-value" data-state={state(value, loading)}>{value ?? (loading ? 'Checking…' : 'Unavailable')}</div><p>{caption}</p></article>
+  })}</section>
     <section className="panel"><div className="section-heading"><h2>Runtime overview</h2><button onClick={() => { ready.refresh(); agents.refresh(); approvals.refresh(); proof.refresh() }}>Refresh overview</button></div>
       <ApiState request={ready} />{ready.error?.data && <DataView value={ready.error.data} />}<ApiState request={agents} />{reviewer && <ApiState request={approvals} />}<ApiState request={proof} />
       <DataView value={{ sovereignty: proof.data?.status, model: proof.data?.local_model, ready: ready.data?.checks }} />
@@ -111,7 +123,7 @@ export function QueryConsole({ user, voiceFocus = false }) {
 export function Agents() {
   const request = useResource('/agents/status')
   return <section className="panel"><div className="section-heading"><h2>Agent capabilities</h2><button disabled={request.loading} onClick={request.refresh}>Refresh agents</button></div><ApiState request={request} />
-    {request.data && <><p>Configured routes, not a live activity feed.</p>{!request.data.routes?.length && <p>No agent routes returned.</p>}<div className="agent-grid">{request.data.routes?.map(route => <article className="agent-card" key={route.route}><h3>{route.route.replaceAll('_', ' ')}</h3><p>{route.description}</p><div className="agent-footer">{route.status}</div></article>)}</div><details><summary>Read-only tools and model runtime</summary><DataView value={{ tools: request.data.tools, gateway: request.data.gateway }} /></details></>}
+    {request.data && <><p>Configured routes, not a live activity feed.</p>{!request.data.routes?.length && <p>No agent routes returned.</p>}<div className="agent-grid">{request.data.routes?.map(route => <article className="agent-card" key={route.route}><h3>{route.route.replaceAll('_', ' ')}</h3><p>{route.description}</p><div className="agent-footer" data-status={route.status}>{route.status}</div></article>)}</div><details><summary>Read-only tools and model runtime</summary><DataView value={{ tools: request.data.tools, gateway: request.data.gateway }} /></details></>}
   </section>
 }
 

@@ -1,4 +1,4 @@
-/* Design tokens. Dark is the default industrial theme; landing and auth always force dark. */
+/* Design tokens. :root is dark for the cinematic landing and auth; the workbench shell defaults to the calm light theme. */
 :root, [data-theme="dark"] {
   color-scheme: dark;
   --brand-navy: #020e21; /* Sampled from the approved brand boards so logo crops blend in. */
@@ -39,14 +39,16 @@
   --text-muted: #3f5570;
   --text-faint: #5d7089;
   --ai: #1d63d6;
-  --ai-cyan: #0b7f8c;
+  --ai-cyan: #096b76; /* Teal accent; AA on every light surface. */
   --human: #9a5b00;
   --knowledge: #5a3fd1;
   --ok: #1c7c48;
   --danger: #b3261e;
   --focus: #1d63d6;
   --on-accent: #ffffff;
-  --shadow-2: 0 8px 24px rgba(15, 35, 65, 0.1);
+  --shadow-1: 0 1px 2px rgba(15, 35, 65, 0.06);
+  --shadow-2: 0 8px 24px rgba(15, 35, 65, 0.08);
+  --shadow-3: 0 18px 48px rgba(15, 35, 65, 0.14);
   --glow: 0 0 0 1px rgba(29, 99, 214, 0.2);
 }
 

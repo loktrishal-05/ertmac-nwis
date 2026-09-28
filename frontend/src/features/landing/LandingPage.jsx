@@ -141,7 +141,8 @@ export default function LandingPage() {
           onUpdate: () => { element.textContent = Math.round(counter.value).toLocaleString() } })
       })
       const offsets = [[-70, -45, -7], [60, -25, 6], [-35, 40, -4], [80, 45, 7], [-55, 15, -3]]
-      gsap.to('.source-card', { x: i => offsets[i][0] * (desktop ? 2 : 1), y: i => offsets[i][1] * (desktop ? 2 : 1), rotate: i => offsets[i][2], ease: 'none',
+      // Full-width cards on narrow screens scatter vertically only, so they are never clipped at the edge.
+      gsap.to('.source-card', { x: i => (desktop ? offsets[i][0] * 2 : 0), y: i => offsets[i][1] * (desktop ? 2 : 1), rotate: i => offsets[i][2] * (desktop ? 1 : 0.5), ease: 'none',
         scrollTrigger: { trigger: '#scattered', start: desktop ? 'top top' : 'top 60%', end: desktop ? '+=120%' : 'bottom top', scrub: true, pin: desktop ? '#scattered' : false } })
       const unify = gsap.timeline({ scrollTrigger: { trigger: '#unify', start: 'top top', end: desktop ? '+=220%' : '+=140%', pin: true, scrub: 0.6,
         onUpdate: self => convergence.current?.setProgress(self.progress) } })
@@ -211,8 +212,8 @@ export default function LandingPage() {
         <Tag id="unify" />
         <ConvergenceCanvas controllerRef={convergence} />
         <div className="unify-copy"><p className="eyebrow">The answer</p><h2>One sovereign intelligence layer</h2></div>
-        <p className="unify-note unify-note-a">Retrieved locally. Every answer cites its source.</p>
-        <p className="unify-note unify-note-b">One layer over all five sources: on your hardware, under your governance.</p>
+        <div className="unify-notes"><p className="unify-note unify-note-a">Retrieved locally. Every answer cites its source.</p>
+        <p className="unify-note unify-note-b">One layer over all five sources: on your hardware, under your governance.</p></div>
       </section>
 
       <section id="workflow" className="story workflow">
@@ -225,7 +226,7 @@ export default function LandingPage() {
       <section id="reveal" className="story reveal">
         <Tag id="reveal" />
         <div className="story-copy" data-reveal><p className="eyebrow">The workbench</p><h2>One governed workbench</h2><p>Queries, evidence, approvals, knowledge and audit in one place. Restrained, keyboard-friendly and built for long shifts.</p></div>
-        <div className="reveal-stage"><div className="reveal-frame" role="img" aria-label="Illustrative Workbench interface with synthetic values">
+        <div className="reveal-stage"><div className="reveal-frame" data-theme="light" role="img" aria-label="Illustrative Workbench interface with synthetic values">
           <div className="mock-nav"><span /><span /><span /><span /><span /></div>
           <div className="mock-body">
             <div className="mock-card"><small>Pending reviews</small><strong>—</strong></div>
@@ -244,10 +245,10 @@ export default function LandingPage() {
           <p className="disclaimer">Drawings are as-drawn evidence only. They do not prove valve state, isolation, LOTO, permit status or process readiness.</p></div>
         <figure className="pid-figure" data-reveal>
           <svg viewBox="0 0 520 280" role="img" aria-label="Synthetic P&ID with OCR regions and a flagged visual candidate">
-            <g className="pid-lines"><path className="draw" pathLength="1" d="M20 150 H150 M190 150 H300 M340 150 H500 M170 110 V60 H420 V130" /><circle cx="170" cy="150" r="20" /><path d="M300 136 v28 l40-14z M340 136 v28 l-40-14z" /><circle cx="420" cy="150" r="18" /><text x="410" y="155">FT</text></g>
+            <g className="pid-lines"><path className="draw" pathLength="1" d="M20 150 H150 M190 150 H300 M340 150 H402 M438 150 H500 M170 130 V60 H420 V132" /><circle cx="170" cy="150" r="20" /><path d="M300 136 v28 l40-14z M340 136 v28 l-40-14z" /><circle cx="420" cy="150" r="18" /><text x="410" y="155">FT</text></g>
             <g className="ocr-box"><rect x="140" y="180" width="70" height="26" /><text x="146" y="198">P-101A</text><text className="conf" x="146" y="222">OCR 0.96</text></g>
             <g className="ocr-box"><rect x="292" y="180" width="74" height="26" /><text x="298" y="198">XV-204D</text><text className="conf" x="298" y="222">OCR 0.91</text></g>
-            <g className="vision-box"><rect x="392" y="100" width="60" height="96" /><text x="360" y="92">visual candidate · review</text></g>
+            <g className="vision-box"><rect x="392" y="100" width="60" height="96" /><text x="452" y="246" textAnchor="end">visual candidate · review</text></g>
           </svg>
           <figcaption>Synthetic illustration. Region colours are categories, never valve or equipment states.</figcaption>
         </figure>
@@ -258,7 +259,7 @@ export default function LandingPage() {
         <div className="story-copy" data-reveal><p className="eyebrow">Maintenance and sensors</p><h2>Maintenance and sensor intelligence</h2><p>Measured observations and tentative hypotheses stay visibly separate. Thresholds are supplied by people, and correlation is never presented as causation.</p></div>
         <figure className="chart-figure" data-reveal>
           <svg viewBox="0 0 520 220" role="img" aria-label="Synthetic vibration trend crossing a user-supplied threshold">
-            <rect className="persist" x="330" y="20" width="150" height="170" />
+            <rect className="persist" x="345" y="20" width="110" height="170" rx="6" /><text className="persist-label" x="400" y="206" textAnchor="middle">3 readings above</text>
             <line className="threshold" x1="20" x2="500" y1="90" y2="90" /><text className="threshold-label" x="24" y="82">User-supplied threshold · 7.1 mm/s</text>
             <polyline className="draw trend" pathLength="1" points="20,170 70,160 120,164 170,150 220,146 270,130 320,110 360,84 400,76 440,70 480,66" />
           </svg>
@@ -314,7 +315,7 @@ export default function LandingPage() {
 
       <section id="enter" className="story enter">
         <Tag id="enter" />
-        <img className="enter-mark brand-img" src="/assets/branding/sovereign-mark.png" alt="" width="220" height="220" loading="lazy" />
+        <img className="enter-mark brand-img" src="/assets/branding/sovereign-mark.png" alt="" width="220" height="220" />
         <h2 data-reveal>Enter Sovereign Workbench</h2>
         <p data-reveal>Local inference. Cited evidence. Human approval. Tamper-evident audit.</p>
         <Link className="button primary large" to={enter}>Enter Sovereign Workbench</Link>
