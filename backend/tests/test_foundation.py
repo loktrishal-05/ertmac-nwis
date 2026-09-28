@@ -158,7 +158,7 @@ class FoundationTests(unittest.TestCase):
     def test_metadata_and_offline_migration(self):
         configure_mappers()
         self.assertEqual(len(models.__all__), 23)
-        self.assertEqual(len(Base.metadata.tables), 27)
+        self.assertEqual(len(Base.metadata.tables), 31)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])
@@ -166,9 +166,15 @@ class FoundationTests(unittest.TestCase):
         config = Config(str(BACKEND / "alembic.ini"), output_buffer=output)
         command.upgrade(config, "head", sql=True)
         sql = output.getvalue()
+        recovery_keys = {
+            "graph_checkpoints": ["execution_id", "namespace", "checkpoint_id"],
+            "graph_writes": ["execution_id", "namespace", "checkpoint_id", "task_id", "idx"],
+            "execution_operations": ["execution_id", "key"],
+        }
         for table in Base.metadata.sorted_tables:
             self.assertIn(f"CREATE TABLE {table.name} (", sql)
-            self.assertEqual(list(table.primary_key.columns)[0].name, "id")
+            self.assertEqual([column.name for column in table.primary_key.columns],
+                             recovery_keys.get(table.name, ["id"]))
         self.assertIn("JSONB", sql)
         self.assertNotIn("DROP TABLE", sql)
 

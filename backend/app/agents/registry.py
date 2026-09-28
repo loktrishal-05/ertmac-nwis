@@ -36,7 +36,9 @@ class RegisteredTool:
             if "access_scope" in self.argument_model.model_fields and "access_scope" not in values:
                 values["access_scope"] = get_access_scope()
             arguments = self.argument_model.model_validate(values)
-            result = self.adapter(session, arguments)
+            from app.services.durable_execution import durable_tool
+            result = durable_tool(self.spec.name, arguments.model_dump(mode="json"),
+                                  lambda: self.adapter(session, arguments))
             payload, refs = result if isinstance(result, tuple) and len(result) == 2 else (result, [])
             tool_records().append({"tool_name": self.spec.name, "arguments": values,
                                    "evidence_ids": [ref.evidence_id for ref in refs],
