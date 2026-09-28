@@ -1,0 +1,8 @@
+**
+!backend/
+!backend/**
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+!infra/
+!infra/Dockerfile.backend

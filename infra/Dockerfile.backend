@@ -1,0 +1,14 @@
+FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libgomp1 espeak-ng && rm -rf /var/lib/apt/lists/*
+WORKDIR /workbench
+COPY backend/requirements-linux.lock /tmp/requirements-linux.lock
+RUN pip install --no-cache-dir -r /tmp/requirements-linux.lock && pip check
+ENV PYTHONPATH=/workbench:/workbench/backend:/workbench/backend/tests \
+    HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 \
+    DO_NOT_TRACK=1 LANGCHAIN_TRACING_V2=false LANGSMITH_TRACING=false \
+    WORKBENCH_ESPEAK_EXE=/usr/bin/espeak-ng ESPEAK_DATA_PATH=/usr/lib/x86_64-linux-gnu/espeak-ng-data
+COPY backend /workbench/backend
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home workbench && mkdir -p data models && chown workbench data models
+USER workbench
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -196,6 +196,8 @@ def _unavailable(base, url, error, message):
         reason = "policy_denied"
     elif isinstance(error, httpx.TimeoutException):
         reason = "timeout"
+    elif isinstance(error, httpx.HTTPStatusError) and error.response.status_code in (415, 422):
+        reason = "unsupported_audio_format" if error.response.status_code == 415 else "invalid_audio"
     elif isinstance(error, (httpx.HTTPError, OSError)):
         reason = "runtime_unavailable"
     else:

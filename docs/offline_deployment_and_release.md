@@ -1,15 +1,15 @@
 # Offline deployment and release
 
-Supported topology: native Python backend and Ollama, existing Compose PostgreSQL 17 and Qdrant 1.17.0,
+Supported topology: Linux Docker Python 3.11 CPU backend, host-local Ollama, existing Compose PostgreSQL 17 and Qdrant 1.17.0,
 local files, and a locally served frontend build behind a site-managed TLS proxy. Optional STT/TTS are
 local HTTP adapters. Optional n8n stays on-premise and summary-only. No Netlify deployment is involved.
 
 This runbook supersedes earlier development startup instructions. It does not certify a site's firewall,
 TLS, hardware capacity, backup retention or adapter quality. No frozen benchmark or BLIND execution is required.
 
-## Clean Windows installation
+## Supported Linux backend on this Windows host
 
-Prerequisites: Git, Python 3.12, Node 22/npm, Docker Desktop with Linux containers, Ollama, and enough RAM/VRAM
+Prerequisites: Git, Node 22/npm, Docker Desktop with Linux containers, Ollama, and enough RAM/VRAM
 for the selected models/context. For native backup outside the bundled Compose, install PostgreSQL 17 client tools.
 Use a dedicated service account and encrypted local storage. Commands start in PowerShell; no venv activation needed.
 
@@ -18,8 +18,8 @@ $Repository = Read-Host 'Approved repository URL or local Git bundle path'
 git clone $Repository sovereign-workbench
 Set-Location sovereign-workbench
 Copy-Item .env.example .env
-py -3.12 -m venv backend/.venv
-& backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+# Configure .env as described below, then build the Linux backend.
+docker build -f infra/Dockerfile.backend -t sovereign-workbench-backend:py311-cpu .
 Push-Location frontend
 npm.cmd ci
 npm.cmd run lint
@@ -31,8 +31,10 @@ $env:PYTHONPATH = "$PWD;$PWD/backend;$PWD/backend/tests"
 ```
 
 Check each native command's exit status before continuing. This is installation/build work, not frontend feature work.
-The Python requirements retain existing version ranges: capture the resolved environment, wheels and hashes for each
-approved release. Do not claim different future online resolutions are bit-identical. Frontend dependencies use the lockfile.
+The release installs `backend/requirements-linux.lock`: exact direct and transitive versions from the validated Linux environment,
+plus the existing local speech stack. The broad `requirements.txt` records dependency intent only. Python 3.11 on Linux x86_64
+is the approved backend runtime. Torch and torchvision are pinned to `+cpu` builds from the official PyTorch CPU index;
+CUDA packages are not part of this release. Frontend dependencies use the existing lockfile.
 `VITE_API_BASE_URL` is embedded at build time: set it to the site's HTTPS API origin before every production build.
 It is public configuration, never a secret. The proxy must route that origin to the loopback backend, with the
 frontend's exact HTTPS origin in CORS. For a same-origin deployment, route API paths and static frontend paths
@@ -56,11 +58,11 @@ ollama pull qwen3.5:4b
 ollama list
 ollama show qwen3.5:9b
 ollama show qwen3.5:4b
-& backend/.venv/Scripts/python.exe -m scripts.download_models --docling
-& backend/.venv/Scripts/python.exe -m scripts.download_reranker
-& backend/.venv/Scripts/python.exe -m scripts.download_pid_models
-& backend/.venv/Scripts/python.exe -m pip freeze > approved-python-lock.txt
-& backend/.venv/Scripts/python.exe -m pip download -r approved-python-lock.txt -d wheelhouse
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm -e HF_HUB_OFFLINE=0 -e TRANSFORMERS_OFFLINE=0 -v "${PWD}/models:/workbench/models" backend python -m scripts.download_models --docling
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm -e HF_HUB_OFFLINE=0 -e TRANSFORMERS_OFFLINE=0 -v "${PWD}/models:/workbench/models" backend python -m scripts.download_reranker
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm -e HF_HUB_OFFLINE=0 -e TRANSFORMERS_OFFLINE=0 -v "${PWD}/models:/workbench/models" backend python -m scripts.download_pid_models
+# The prebuilt backend image contains all Python and native dependencies.
+docker image save -o offline-backend.tar sovereign-workbench-backend:py311-cpu
 ```
 
 Ensure the wheelhouse contains compatible wheels for every dependency; build missing wheels on that preparation machine,
@@ -74,7 +76,7 @@ On the disconnected target, transfer the Git bundle/source, wheels, frontend art
 
 ```powershell
 docker image load -i offline-images.tar
-& backend/.venv/Scripts/python.exe -m pip install --no-index --find-links wheelhouse -r approved-python-lock.txt
+docker image load -i offline-backend.tar
 # Only if rebuilding the frontend offline; otherwise deploy the approved frontend/dist.
 Push-Location frontend
 npm.cmd ci --offline --cache ../npm-cache
@@ -87,7 +89,7 @@ context/capabilities after provisioning; set `WORKBENCH_RELEASE_MODEL_DIGESTS` t
 approved full digests. Missing primary **or fast** model is a release failure. Unpinned digests warn. Ollama metadata
 verification follows its [local API contract](https://github.com/ollama/ollama/blob/main/docs/api.md).
 Model presence/capacity does not prove inference speed or available RAM. Run explicitly approved synthetic smoke checks
-on target hardware; the release preflight itself performs no inference.
+on target hardware; the release preflight performs only the bounded synthetic retrieval runtime probe, never BLIND.
 
 ### Deterministic startup order
 
@@ -104,8 +106,8 @@ docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compo
 docker compose -f infra/docker-compose.yml exec -T postgres pg_isready -U postgres -d sovereign_workbench
 Invoke-WebRequest http://127.0.0.1:6333/readyz -UseBasicParsing
 $env:PYTHONPATH = "$PWD;$PWD/backend;$PWD/backend/tests"
-& backend/.venv/Scripts/python.exe -m alembic -c backend/alembic.ini upgrade head
-& backend/.venv/Scripts/python.exe -m alembic -c backend/alembic.ini check
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm backend python -m alembic -c backend/alembic.ini upgrade head
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm backend python -m alembic -c backend/alembic.ini check
 ```
 
 Use the migration account only for these Alembic commands; do not leave its credentials in the backend environment.
@@ -149,10 +151,13 @@ Likewise set `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1` and `HF_HUB_DISABLE_TE
 The supported guarded backend launcher sets the latter variables:
 
 ```powershell
-& ./infra/start-backend.ps1
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm backend python -m scripts.release_health --dependencies-only
+# Continue only when preflight passes:
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml up -d --no-build backend
 ```
 
-This launcher does not pull images/models, migrate, or silently ignore release failures.
+The Linux image does not download models or migrate at startup. Inspect preflight exit status before starting the backend.
+`infra/start-backend.ps1` is a legacy native launcher, unsupported on this Smart App Control host.
 For development only, plain `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` and
 `npm.cmd --prefix frontend run dev -- --host 127.0.0.1` remain available; HTTP needs non-Secure cookies.
 Neither Vite dev nor Vite preview is the production web server.
@@ -160,7 +165,7 @@ Neither Vite dev nor Vite preview is the production web server.
 Create individual production users with existing password hashing, not `seed_dev_users`:
 
 ```powershell
-& backend/.venv/Scripts/python.exe -c "from getpass import getpass; from app.db.session import SessionLocal; from app.db.models import User; from app.core.security import hash_password; name=input('Username: '); role=input('Role (requester/reviewer/admin): '); assert role in ('requester','reviewer','admin'); password=getpass('Password: '); assert len(password)>=16; session=SessionLocal(); session.add(User(username=name,role=role,password_hash=hash_password(password))); session.commit(); session.close()"
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm backend python -c "from getpass import getpass; from app.db.session import SessionLocal; from app.db.models import User; from app.core.security import hash_password; name=input('Username: '); role=input('Role (requester/reviewer/admin): '); assert role in ('requester','reviewer','admin'); password=getpass('Password: '); assert len(password)>=16; session=SessionLocal(); session.add(User(username=name,role=role,password_hash=hash_password(password))); session.commit(); session.close()"
 ```
 
 Provision at least an independent requester and reviewer. Protect administrator access and user lifecycle operations.
@@ -180,9 +185,9 @@ stop it during backup. No n8n container/version is newly invented by this phase.
 
 ```powershell
 $env:PYTHONPATH = "$PWD;$PWD/backend"
-& backend/.venv/Scripts/python.exe -m scripts.release_health
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm backend python -m scripts.release_health
 # Machine-readable result and the same exit status:
-& backend/.venv/Scripts/python.exe -m scripts.release_health --json
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm backend python -m scripts.release_health --json
 ```
 
 PASS/WARNING/FAIL cover database, migration head, Qdrant, Ollama, both models/digests/quantization, context,
@@ -272,18 +277,29 @@ The optional workflow-dispatch job runs only on a dedicated approved on-premise 
 with required reviewers, preinstall dependencies/models, and never attach production files or credentials.
 
 ```powershell
-$env:PYTHONPATH = "$PWD;$PWD/backend;$PWD/backend/tests"
-$env:WORKBENCH_TEST_POSTGRES = '1'
-& backend/.venv/Scripts/python.exe -m unittest test_phase_e test_phase11_security test_model_routing test_durable_execution test_multimodal_pid test_maintenance_sensor_intelligence test_enterprise_knowledge test_local_voice -v
-& backend/.venv/Scripts/python.exe -m unittest discover -s backend/tests -v
-& backend/.venv/Scripts/python.exe -m scripts.validate_migrations
-& backend/.venv/Scripts/python.exe -m scripts.frozen_integrity
-& backend/.venv/Scripts/python.exe -m scripts.nonblind_regression
+$LinuxChecks = @'
+set -e
+git config --global --add safe.directory /source/.git
+git clone --quiet --no-hardlinks /source /tmp/release-check
+cd /tmp/release-check
+export PYTHONPATH=/tmp/release-check:/tmp/release-check/backend:/tmp/release-check/backend/tests
+export WORKBENCH_DATA_ROOT=/tmp/release-check/data
+python -m scripts.frozen_integrity
+python -m scripts.validate_migrations
+python -m unittest test_browser_audio test_seed_guards test_release_retrieval_runtime test_local_voice test_voice_identifier_review test_advanced_c test_phase_e test_phase11_security -v
+python -m unittest discover -s backend/tests -v
+python -m scripts.nonblind_regression
+'@
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml run --rm -e WORKBENCH_TEST_POSTGRES=1 -e MODEL_ALLOWED_HOSTS=127.0.0.1,localhost,::1,host.docker.internal -v "${PWD}:/source:ro" backend sh -c $LinuxChecks
 git diff --check
 git diff --exit-code -- benchmark
 ```
 
-The final command above plans exactly 30 development/validation cases without inference. Live regression requires
+These checks use committed source in a disposable Linux filesystem, avoiding Windows bind-mount startup latency;
+commit reviewed changes before reproducing the release run. Git's ownership exception is limited to the read-only
+source repository inside the disposable container. Test fixtures need loopback plus the private host bridge in their
+allowlist; the running backend remains configured only for its chosen private model host.
+The `nonblind_regression` command plans exactly 30 development/validation cases without inference. Live regression requires
 both `WORKBENCH_LIVE_REGRESSION=1` and `python -m scripts.nonblind_regression --execute`. It reuses frozen Stage 2
 schema, route/tool, citation, missing-evidence, HITL, refusal and injection scoring, with both configured models.
 It writes only new timestamped files under ignored `data/regression`; every selected split is checked before inference.
@@ -311,7 +327,7 @@ or site firewall policy, systemd service isolation and container-forwarding rule
 firewall commands remotely; stage the policy with console recovery access. Verify denial with an approved external
 test destination using non-confidential probes and retain evidence. Application-level blocking is not an air-gap.
 
-Linux notes: use `python3.12 -m venv backend/.venv`, `backend/.venv/bin/python`, `export PYTHONPATH="$PWD:$PWD/backend:$PWD/backend/tests"`,
+Linux notes: use `python3.11 -m venv backend/.venv`, `backend/.venv/bin/python`, `export PYTHONPATH="$PWD:$PWD/backend:$PWD/backend/tests"`,
 `npm` and `curl` equivalents. Start guarded backend with `python -m scripts.release_health --dependencies-only && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
 under a site-managed service unit. Build wheelhouse and native dependencies for Linux separately; do not reuse Windows wheels.
 
@@ -367,3 +383,82 @@ warning cases. Health is availability, not recognition accuracy: Hindi/Tamil
 synthetic recognition remains poor. Damaged identifiers require human review;
 raw transcripts are never silently corrected. Confidential speech remains
 restricted to LOCAL_APPROVED resources.
+
+
+## Linux runtime release requirements (M1 / H1 / M2 / H2 / M3)
+
+Windows Smart App Control remains enabled and unchanged. Do not run native Windows Torch or disable code integrity.
+The Dockerfile includes `libgl1`, `libglib2.0-0` and `libgomp1` for OpenCV/Paddle/native imports and eSpeak NG for local TTS.
+Its base image is digest-pinned; apt repositories may change, so preserve the built image digest and signed archive for
+byte-identical offline deployment. The Python lock pins versions, not wheel hashes; hash the approved wheelhouse/archive
+in the signed release manifest. Do not claim a fresh online image build is byte-identical.
+
+Set `BACKEND_DATABASE_URL` in protected root `.env` to the intended account with `postgres` as hostname and URL-encoded
+credentials. This is deliberately required; it must agree with the provisioned database, without printing the URL.
+Models mount read-only and data stays on this machine. Backend port 8000 is published only on `127.0.0.1`; existing DB and
+Qdrant ports remain loopback-only. The backend runs as UID 10001; Linux bind directories must grant that user access.
+Container model traffic uses `host.docker.internal:11434`, explicitly allowed and checked for private resolution.
+First test host Ollama access through Docker Desktop's private host bridge with Ollama still bound to loopback. If that
+host configuration cannot reach loopback, provision a host bridge-only listener/firewall rule; never bind Ollama publicly
+or disable the firewall. Keep `OLLAMA_NO_CLOUD=1` on the Ollama process. No cloud fallback exists.
+
+```powershell
+$ComposeBackend = @('--env-file', '.env', '-f', 'infra/docker-compose.yml', '-f', 'infra/docker-compose.backend.yml')
+docker compose @ComposeBackend build backend
+docker compose @ComposeBackend up -d postgres qdrant
+# Use reviewed migration-owner credentials for migrations, then the restricted runtime account.
+docker compose @ComposeBackend run --rm backend python -m alembic -c backend/alembic.ini upgrade head
+docker compose @ComposeBackend run --rm backend python -m alembic -c backend/alembic.ini current
+docker compose @ComposeBackend up -d --no-build backend
+# After loading approved image archives on a disconnected host:
+docker compose @ComposeBackend -f infra/docker-compose.offline.yml up -d --no-build --pull never
+```
+
+For a wheelhouse instead of an image transfer, on connected Linux x86_64/Python 3.11 run
+`python -m pip wheel -r backend/requirements-linux.lock --wheel-dir wheelhouse`.
+Include every transitive wheel (including official `+cpu` Torch/torchvision); sign and verify file hashes.
+Rehearse installation with `python -m pip install --no-index --find-links wheelhouse -r backend/requirements-linux.lock`
+and `python -m pip check` on clean Linux. Windows wheels are unusable here. The image archive is the simpler supported
+offline path and also captures native libraries; a wheelhouse alone does not include libGL or eSpeak.
+
+Optional speech uses the same image and backend network namespace, so the adapter stays on loopback with no published
+speech port. Provision `models/local-speech/faster-whisper-small` first and set `WORKBENCH_STT_URL=http://127.0.0.1:8765/stt`
+and `WORKBENCH_TTS_URL=http://127.0.0.1:8765/tts` in `.env`, then:
+`docker compose @ComposeBackend --profile speech up -d --no-build backend speech`.
+PyAV decodes WebM/Opus, Ogg/Opus, MP4/AAC and WAV in memory to mono 16 kHz samples. MP4 depends on the bundled codec;
+unsupported containers/codecs return 415 (`unsupported_audio_format`), invalid input/duration returns 422 (`invalid_audio`),
+and outages retain `runtime_unavailable`. Input remains limited to 4 MiB and 60 decoded seconds, including compressed input.
+Decode happens under the existing single-request lock, containers close on every path, external media protocols are disabled,
+and no raw audio or conversion subprocess is written to disk. Browser-origin and non-loopback requests remain rejected.
+
+Both known-password seed scripts refuse before side effects unless `WORKBENCH_DEPLOYMENT_MODE=development`.
+Confidential/public deployments are refused; invalid production mode configuration also fails closed. There is no override.
+Use individually provisioned accounts with existing RBAC in production.
+
+**FIRST REQUIRED PHASE F FRONTEND ITEM:** H3 ? identifier review UI must handle `identifier_review` and
+`technical_identifiers` and require human review. This backend task deliberately does not implement H3.
+
+Backup management commands retain the existing host-side Python 3.11 tool environment and Docker CLI;
+they invoke PostgreSQL 17 tools in the existing database container and do not import Torch.
+The backend image intentionally has neither Docker socket access nor host backup privileges.
+
+### Pre-frontend blocker validation — 2026-09-28
+
+- M1 was already committed as `e47d46b` (exactly the four release-health files); reviewed and preserved.
+- Clean Linux image build and `pip check` passed: Python 3.11.16, Torch 2.14.0+cpu (CUDA absent), PyAV 18.1.0;
+  all 178 installed package versions match the release lock. Git is included for existing frozen-asset checks.
+- Targeted browser audio, seed guards, release health, Phase D/D-LIVE, Phase E and Phase 11 security: 87 passed.
+- Full backend in a temporary Linux checkout with PostgreSQL: **890 passed, 0 failed, 0 errors, 1 skipped**
+  (the opt-in live-model query). The first Windows bind-mount attempt exposed missing Git, a fixture allowlist
+  mismatch and a startup timeout; the final image and documented Linux checkout procedure resolved those errors.
+- Running Compose backend `/health` and `/ready` passed, including PostgreSQL, Qdrant and host-local Ollama.
+  Database and code migration heads both equal `0016_enterprise_knowledge`.
+- Real local retrieval probe: one 768-dimensional embedding and two reranked synthetic passages passed in 19.3 seconds.
+- Real in-memory eSpeak → WebM/Opus, Ogg/Opus, MP4/AAC and WAV → Whisper round trips all passed.
+  Speech has no published port; backend, PostgreSQL and Qdrant are published only on host loopback.
+- Frontend lint, 11/11 tests and build passed; frontend source unchanged.
+- Frozen benchmark: all 168 committed files match the manifest. The pre-existing local edit to
+  `benchmark/reports/final_model_runtime_readiness.json` remains untouched and is not part of the frozen release;
+  the final suite used committed benchmark bytes in its isolated checkout. BLIND was not executed.
+- Windows Smart App Control remained enabled (`VerifiedAndReputablePolicyState=1`); no Windows security changes.
+- H3 remains the **FIRST REQUIRED PHASE F FRONTEND ITEM**. No frontend implementation or push was performed.

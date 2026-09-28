@@ -1,3 +1,5 @@
+# Dependency intent only. Supported releases install requirements-linux.lock
+# on Linux x86_64 / Python 3.11, including official CPU-only Torch wheels.
 fastapi>=0.115,<1.0
 uvicorn>=0.30,<1.0
 pydantic-settings>=2.5,<3.0

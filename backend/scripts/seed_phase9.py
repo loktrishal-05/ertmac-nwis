@@ -92,6 +92,8 @@ def prepare_sources():
 
 
 def main():
+    if settings.deployment_mode != "development":
+        raise RuntimeError("Demo users require development deployment mode")
     prepare_sources()
     results = {}
     with TestClient(app) as client:

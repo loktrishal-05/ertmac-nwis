@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 from threading import Lock
-import wave
+from fractions import Fraction
 
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / "models/local-speech/faster-whisper-small"
 ESPEAK = Path(os.environ.get("WORKBENCH_ESPEAK_EXE", str(ROOT / "models/local-speech/espeak/eSpeak NG/espeak-ng.exe")))
-os.environ["ESPEAK_DATA_PATH"] = str(ESPEAK.parent / "espeak-ng-data")
+os.environ.setdefault("ESPEAK_DATA_PATH", str(ESPEAK.parent / "espeak-ng-data"))
 LANGUAGES = {"en": "en-us", "hi": "hi", "ta": "ta"}
 lock = Lock()
 model = None
@@ -75,21 +75,13 @@ def health():
 
 @app.post("/stt")
 def stt(body: STTRequest):
-    if body.language not in LANGUAGES or body.mime_type != "audio/wav":
-        raise HTTPException(422, "This runtime supports en/hi/ta PCM WAV only")
-    try:
-        raw = base64.b64decode(body.audio_base64, validate=True)
-        if not 0 < len(raw) <= 4 * 1024 * 1024:
-            raise ValueError()
-        with wave.open(io.BytesIO(raw)) as wav:
-            if wav.getnframes() / wav.getframerate() > 60 or wav.getnchannels() not in (1, 2):
-                raise ValueError()
-    except (ValueError, wave.Error, EOFError):
-        raise HTTPException(422, "Invalid PCM WAV or duration over 60 seconds") from None
+    if body.language not in LANGUAGES:
+        raise HTTPException(422, "Unsupported language; use text fallback")
     if not lock.acquire(blocking=False):
         raise HTTPException(503, "Speech runtime busy; use text fallback")
     try:
-        segments, info = model.transcribe(io.BytesIO(raw), language=body.language, beam_size=3,
+        audio = decode_audio(body)
+        segments, info = model.transcribe(audio, language=body.language, beam_size=3,
                                          word_timestamps=True, condition_on_previous_text=False,
                                          vad_filter=False, initial_prompt=None, hotwords=None)
         segments = list(segments)
@@ -97,6 +89,42 @@ def stt(body: STTRequest):
         return {"text": "".join(s.text for s in segments).strip(), "language": info.language, "words": words}
     finally:
         lock.release()
+
+
+def decode_audio(body):
+    """Decode bounded, memory-only audio; never open media URLs or external tracks."""
+    import av
+    import numpy as np
+
+    formats = {"audio/wav": "wav", "audio/webm": "matroska", "audio/ogg": "ogg",
+               "audio/mp4": "mov", "audio/mpeg": "mp3"}
+    if body.mime_type not in formats:
+        raise HTTPException(415, "unsupported_audio_format")
+    try:
+        raw = base64.b64decode(body.audio_base64, validate=True)
+        if not 0 < len(raw) <= 4 * 1024 * 1024:
+            raise ValueError("Audio must be between 1 byte and 4 MiB")
+        samples, duration = [], Fraction(0)
+        resampler = av.AudioResampler(format="flt", layout="mono", rate=16000)
+        with av.open(io.BytesIO(raw), format=formats[body.mime_type],
+                     options={"protocol_whitelist": "", "enable_drefs": "0"}) as container:
+            if not container.streams.audio:
+                raise HTTPException(415, "unsupported_audio_format")
+            for frame in container.decode(container.streams.audio[0]):
+                if not frame.sample_rate or len(frame.layout.channels) not in (1, 2):
+                    raise HTTPException(415, "unsupported_audio_format")
+                duration += Fraction(frame.samples, frame.sample_rate)
+                if duration > 60:
+                    raise HTTPException(422, "audio_duration_exceeded")
+                samples.extend(f.to_ndarray().reshape(-1) for f in resampler.resample(frame))
+            samples.extend(f.to_ndarray().reshape(-1) for f in resampler.resample(None))
+        if not samples:
+            raise ValueError("Empty audio")
+        return np.concatenate(samples)
+    except av.error.FFmpegError:
+        raise HTTPException(415, "unsupported_audio_format") from None
+    except ValueError:
+        raise HTTPException(422, "invalid_audio") from None
 
 
 @app.post("/tts")

@@ -3,6 +3,7 @@ and a reviewer, with known passwords, for exercising the real authenticated
 approval flow. Never run against a shared or production database."""
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.security import hash_password
 from app.db.models import User
 from app.db.session import SessionLocal
@@ -14,6 +15,8 @@ DEV_USERS = [
 
 
 def main():
+    if settings.deployment_mode != "development":
+        raise RuntimeError("Demo users require development deployment mode")
     with SessionLocal() as session:
         for username, password, role in DEV_USERS:
             user = session.execute(select(User).where(User.username == username)).scalar_one_or_none()

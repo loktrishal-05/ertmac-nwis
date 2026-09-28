@@ -1,0 +1,43 @@
+# Overlay the existing services: docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.backend.yml up -d --build
+services:
+  backend:
+    image: sovereign-workbench-backend:py311-cpu
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    env_file: ../.env
+    environment:
+      DATABASE_URL: ${BACKEND_DATABASE_URL:?Set BACKEND_DATABASE_URL with the postgres service hostname and URL-encoded credentials}
+      QDRANT_URL: http://qdrant:6333
+      MODEL_BASE_URL: http://host.docker.internal:11434
+      MODEL_ALLOWED_HOSTS: host.docker.internal
+      MODEL_RUNTIME: ollama
+      WORKBENCH_DATA_ROOT: /workbench/data
+      WORKBENCH_MODEL_ROOT: /workbench/models
+      WORKBENCH_GOVERNMENT_RESOURCES_ENABLED: "false"
+      WORKBENCH_BHASHINI_ENABLED: "false"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      LANGCHAIN_TRACING_V2: "false"
+      LANGSMITH_TRACING: "false"
+    ports:
+      - "127.0.0.1:8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../data:/workbench/data
+      - ../models:/workbench/models:ro
+      - ../frontend/dist:/workbench/frontend/dist:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+  speech:
+    image: sovereign-workbench-backend:py311-cpu
+    profiles: [speech]
+    # Share loopback with the backend; the speech port is never published.
+    network_mode: service:backend
+    command: [python, -m, scripts.local_speech_runtime]
+    volumes:
+      - ../models:/workbench/models:ro

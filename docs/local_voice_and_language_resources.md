@@ -255,7 +255,8 @@ $env:WORKBENCH_TTS_URL = 'http://127.0.0.1:8765/tts'
 
 These two URL settings were also saved in the existing ignored root `.env`.
 The existing 30-second speech timeout remains unchanged. This wrapper accepts
-PCM WAV only, up to 4 MiB/60 seconds, and TTS text up to 2000 characters including
+WAV, WebM/Opus, Ogg/Opus and MP4/AAC (when available in the provisioned PyAV build),
+up to 4 MiB/60 decoded seconds, and TTS text up to 2000 characters including
 the application's advisory prefix. Other containers or longer text fail to the
 existing editable-text/text fallback. The browser's WebM path is not validated.
 
