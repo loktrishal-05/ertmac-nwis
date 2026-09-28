@@ -95,6 +95,11 @@ class Settings(BaseSettings):
     stt_identifier_min_confidence: float = Field(default=0.85, ge=0, le=1)
     # PUBLIC_EXTERNAL_OPTIONAL resource: off by default and never eligible for confidential data.
     bhashini_enabled: bool = False
+    deployment_mode: Literal["development", "confidential", "public"] = "development"
+    government_resources_enabled: bool = False
+    government_resource_registry: str = ""
+    release_min_free_gib: int = Field(default=10, ge=1)
+    release_model_digests: dict[str, str] = Field(default_factory=dict)
     # Operator-reviewed JSON registry of downloadable language resources (e.g. from AIKosh).
     language_resource_registry: str = ""
     automation_secret: str = Field(default="", repr=False)

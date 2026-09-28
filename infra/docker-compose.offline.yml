@@ -1,0 +1,12 @@
+# Overlay the existing Compose; never pull in the disconnected environment.
+services:
+  postgres:
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in protected root .env}
+  qdrant:
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"

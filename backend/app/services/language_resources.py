@@ -71,12 +71,14 @@ def registry(config=None):
     return entries
 
 
-def permitted(resource, data_class: DataClass, config=None):
+def permitted(resource, data_class: DataClass, config=None, *, external_enabled=False):
     config = config or settings
     if resource.classification == "LOCAL_APPROVED":
         return True
     if resource.classification == "PUBLIC_EXTERNAL_OPTIONAL":
-        enabled = config.bhashini_enabled if resource.provider == "BHASHINI" else False
+        if getattr(config, "deployment_mode", "development") == "confidential":
+            return False
+        enabled = config.bhashini_enabled if resource.provider == "BHASHINI" else external_enabled
         return data_class == "PUBLIC" and enabled
     return False  # DISABLED_FOR_CONFIDENTIAL_DATA, including every unreviewed entry.
 

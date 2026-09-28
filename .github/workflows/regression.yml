@@ -1,0 +1,78 @@
+name: Offline product regression
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      live_nonblind:
+        description: Run explicit non-BLIND inference on an approved on-premise runner
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: workbench_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-disposable-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d workbench_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      MODEL_NAME: qwen3.5:9b
+      DATABASE_URL: postgresql+psycopg://postgres:ci-disposable-only@127.0.0.1:5432/workbench_ci
+      PYTHONPATH: .:backend:backend/tests
+      WORKBENCH_TEST_POSTGRES: "1"
+      WORKBENCH_LIVE_REGRESSION: "0"
+      HF_HUB_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r backend/requirements.txt
+      - run: python -m scripts.frozen_integrity
+      - run: python -m scripts.validate_migrations
+      - run: python -m unittest discover -s backend/tests -v
+      - run: python -m scripts.nonblind_regression
+      - run: python -m scripts.frozen_integrity
+      - run: git diff --exit-code -- benchmark
+      - run: git diff --check
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: node --test src/*.test.js src/services/*.test.js
+      - run: npm run build
+  live_nonblind:
+    if: github.event_name == 'workflow_dispatch' && inputs.live_nonblind == true
+    runs-on: [self-hosted, sovereign-regression]
+    environment: approved-local-regression
+    env:
+      WORKBENCH_LIVE_REGRESSION: "1"
+      MODEL_NAME: qwen3.5:9b
+      PYTHONPATH: .:backend
+    steps:
+      - uses: actions/checkout@v4
+      # Dedicated Linux runner: preprovisioned Python dependencies and both local Ollama models.
+      # Never attach this runner to production data; protect the environment with required reviewers.
+      - run: python -m scripts.nonblind_regression --execute
