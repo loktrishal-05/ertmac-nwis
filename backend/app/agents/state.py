@@ -81,3 +81,5 @@ class WorkbenchState(TypedDict):
     actor_id: str | None
     gap_requests: list[dict]
     operational_events: list[str]
+    response: dict
+    approval_outcome: str

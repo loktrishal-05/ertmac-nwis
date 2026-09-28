@@ -5,9 +5,8 @@ and service in this repository is sync. graph.invoke(), never ainvoke() —
 introducing one async layer into an otherwise sync stack buys nothing and
 risks a blocking call inside an event loop somewhere.
 
-No checkpointer in 4B: runs are single-shot, and app/agents/tracing.py's own
-tables are the auditable record — they must not be conflated with LangGraph's
-own (unused) persistence mechanism.
+Durable execution supplies a SQL checkpointer and receipt wrappers. Existing
+AgentRun tracing remains an audit record, separate from recovery state.
 
 Built once behind the same lazy-singleton pattern as get_model_gateway()."""
 from datetime import datetime, timezone
@@ -96,7 +95,7 @@ class GraphExecutionError(RuntimeError):
         self.state = state
 
 
-def build_graph(session=None, *, knowledge_only=False, mgs=False):
+def build_graph(session=None, *, knowledge_only=False, mgs=False, checkpointer=None, durable=None):
     """session=None preserves 4B's exact behaviour (every route a stub; no DB
     access). Phase 4C/4D's real nodes need a per-request SQLAlchemy session
     for their read-only tool calls, which a process-wide cached singleton
@@ -107,12 +106,21 @@ def build_graph(session=None, *, knowledge_only=False, mgs=False):
     docs/phase4-decisions.md D-008 for the alternatives considered."""
     gateway = get_model_gateway()
     builder = StateGraph(WorkbenchState)
+    def traced(name, fn):
+        node = _traced(name, fn)
+        return durable.wrap(name, node) if durable else node
+    terminal = "governance" if durable else END
+    if durable:
+        builder.add_node("governance", durable.wrap("governance", durable.governance))
+        builder.add_node("approval", durable.wrap("approval", durable.approval))
+        builder.add_edge("governance", "approval")
+        builder.add_edge("approval", END)
     if knowledge_only or mgs:
-        builder.add_node("knowledge", _traced("knowledge", lambda state: knowledge_node(state, gateway=gateway, session=session, mgs=mgs)))
+        builder.add_node("knowledge", traced("knowledge", lambda state: knowledge_node(state, gateway=gateway, session=session, mgs=mgs)))
         builder.add_edge(START, "knowledge")
-        builder.add_edge("knowledge", END)
-        return builder.compile()
-    builder.add_node("router", _traced("router", lambda state: router_node(state, gateway=gateway)))
+        builder.add_edge("knowledge", terminal)
+        return builder.compile(checkpointer=checkpointer)
+    builder.add_node("router", traced("router", lambda state: router_node(state, gateway=gateway)))
     route_nodes = {
         "shift_handover": lambda state: operational_node(state, session),
         "environmental_compliance": lambda state: operational_node(state, session),
@@ -125,12 +133,12 @@ def build_graph(session=None, *, knowledge_only=False, mgs=False):
         "clarification": clarification_node,
     }
     for route in ROUTE_NAMES + OPERATIONAL_ROUTES:
-        builder.add_node(route, _traced(route, route_nodes.get(route, make_stub_node(route))))
+        builder.add_node(route, traced(route, route_nodes.get(route, make_stub_node(route))))
     builder.add_edge(START, "router")
     builder.add_conditional_edges("router", _route_selector, {route: route for route in ROUTE_NAMES + OPERATIONAL_ROUTES})
     for route in ROUTE_NAMES + OPERATIONAL_ROUTES:
-        builder.add_edge(route, END)
-    return builder.compile()
+        builder.add_edge(route, terminal)
+    return builder.compile(checkpointer=checkpointer)
 
 
 @lru_cache(maxsize=1)

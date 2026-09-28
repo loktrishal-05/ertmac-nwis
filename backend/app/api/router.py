@@ -24,3 +24,6 @@ api_router.include_router(operational.router)
 
 from app.api.routes import product
 api_router.include_router(product.router)
+
+from app.api.routes import executions
+api_router.include_router(executions.router)
