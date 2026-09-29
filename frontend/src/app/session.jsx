@@ -19,6 +19,8 @@ async function fetchSession(signal) {
 
 export function SessionProvider({ children }) {
   const [state, setState] = useState({ status: 'loading', user: null, error: null })
+  // Short-lived reset capability stays in memory, never URL/history or browser storage.
+  const [recovery, setRecovery] = useState(null)
   const load = useCallback(async () => {
     const next = await fetchSession()
     setState(next)
@@ -29,14 +31,28 @@ export function SessionProvider({ children }) {
     fetchSession(controller.signal).then(next => { if (!controller.signal.aborted) setState(next) })
     return () => controller.abort()
   }, [])
+  useEffect(() => {
+    const expired = () => setState({ status: 'anonymous', user: null, error: null })
+    window.addEventListener('workbench-session-expired', expired)
+    return () => window.removeEventListener('workbench-session-expired', expired)
+  }, [])
   const signIn = useCallback(async (username, password) => {
     await apiRequest('/auth/login', { method: 'POST', body: { username, password }, timeout: 15000 })
-    return load()
+    const user = await load()
+    if (!user) throw new Error('Your session could not be confirmed. Please try signing in again.')
+    return user
   }, [load])
   const signOut = useCallback(async () => {
-    try { await apiRequest('/auth/logout', { method: 'POST' }) } finally { setState({ status: 'anonymous', user: null, error: null }) }
+    try {
+      await apiRequest('/auth/logout', { method: 'POST' })
+      setState({ status: 'anonymous', user: null, error: null })
+      return true
+    } catch (error) {
+      setState(value => ({ ...value, error }))
+      return false
+    }
   }, [])
-  const value = useMemo(() => ({ ...state, reload: () => load(), signIn, signOut }), [state, load, signIn, signOut])
+  const value = useMemo(() => ({ ...state, recovery, setRecovery, reload: load, signIn, signOut }), [state, recovery, load, signIn, signOut])
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }
 

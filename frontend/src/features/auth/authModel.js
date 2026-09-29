@@ -1,4 +1,4 @@
-// Auth media and validation rules. Pure; mirrored server-side when the account API lands.
+// Auth media and form validation. The account API remains authoritative.
 
 // Only the three approved videos, and only on authentication routes.
 const MEDIA = { login: ['01', 'center'], signup: ['03', 'upper'], recovery: ['02', 'center'] }
@@ -43,7 +43,7 @@ export function validateEmail(value) {
   return null
 }
 
-// A short sample only; the server checks a full common-password list.
+// Matches the backend's small common-password denylist.
 const COMMON = new Set(['password', 'password123', 'password1234', '123456789012', 'qwertyuiopas', 'administrator', 'welcome12345', 'letmein12345', 'iloveyou1234', 'sovereign123'])
 
 export function passwordChecks(password = '', { email = '', name = '' } = {}) {
@@ -64,6 +64,11 @@ export const validateOtp = code => (/^\d{6}$/.test(code || '') ? null : 'Enter t
 export const NO_CAPABILITIES = { signup: false, email_recovery: false, admin_recovery: false, google: false }
 export function capabilitiesFrom(data) {
   if (!data || typeof data !== 'object') return NO_CAPABILITIES
-  return { signup: data.signup_mode === 'open' || data.signup_mode === 'approval', signup_mode: data.signup_mode,
+  return { signup: data.signup === true && ['open', 'approval'].includes(data.signup_mode), signup_mode: data.signup_mode,
     email_recovery: data.email_recovery === true, admin_recovery: data.admin_recovery === true, google: data.google === true }
+}
+
+export function recoveryIdentifier(value) {
+  const identifier = value.trim()
+  return identifier.includes('@') ? { email: normalizeEmail(identifier) } : { username: identifier }
 }

@@ -5,7 +5,7 @@ import { REVIEWERS } from './navigation.js'
 import { AgentAvatar, EmptyState, NotFound, PageHeader, PlannedCapability } from '../components/ui.jsx'
 import { ApiState, Audit, DataView, Knowledge, QueryConsole, Sovereignty } from '../WorkspacePages.jsx'
 import { OperationalWorkspace } from '../OperationalPages.jsx'
-import { AutomationStatus, BIReport, LanguageSelector } from '../ProductPages.jsx'
+import { AutomationStatus, BIReport } from '../ProductPages.jsx'
 import { useRequest, useResource } from '../hooks/useApi.js'
 import { useBackendHealth } from '../hooks/useBackendHealth.js'
 import { DashboardView, GovernanceActivity } from '../features/dashboard/DashboardView.jsx'
@@ -134,19 +134,4 @@ export function ResourcesPage() {
       {status.data && <AutomationStatus data={status.data} />}</section></>
 }
 
-export function AdminPage() {
-  return <><PageHeader title="Administration" />
-    <PlannedCapability title="User and account administration" phase="Phase F7"
-      planned="Create and deactivate users, change roles, approve sign-ups, issue recovery codes and revoke sessions."
-      requires="Account migration 0017 and the audited admin API." /></>
-}
-
-export function ProfilePage() {
-  const { user, signOut } = useSession()
-  const navigate = useNavigate()
-  return <><PageHeader title="Profile" />
-    <section className="panel"><DataView value={{ username: user?.username, server_role: user?.role }} />
-      <p className="muted">Roles are assigned by an administrator on the server. Password change and linked accounts arrive with the account migration.</p>
-      <div className="toolbar"><LanguageSelector /><button type="button" onClick={async () => { await signOut(); navigate('/login', { replace: true }) }}>Sign out</button></div>
-    </section></>
-}
+export { AdminPage, ProfilePage } from '../features/auth/AccountPages.jsx'

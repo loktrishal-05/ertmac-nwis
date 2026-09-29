@@ -50,8 +50,9 @@ export function guardDecision(session, roles) {
 
 // Post-login redirect: only same-app paths, never protocol-relative or external URLs.
 export function safeNext(next) {
-  if (typeof next !== 'string' || !next.startsWith('/app') || next.startsWith('//') || next.includes('\\')) return '/app/dashboard'
-  return next
+  if (typeof next !== 'string' || !/^\/app(?:\/|\?|#|$)/.test(next) || next.includes('\\')) return '/app/dashboard'
+  const url = new URL(next, 'http://workbench.local')
+  return url.pathname === '/app' || url.pathname.startsWith('/app/') ? url.pathname + url.search + url.hash : '/app/dashboard'
 }
 
 export function sessionFromError(error) {

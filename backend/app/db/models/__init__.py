@@ -17,6 +17,7 @@ from app.db.models.agent_run import AgentRun
 from app.db.models.agent_run_step import AgentRunStep
 from app.db.models.action_revision import GovernanceRequest, ActionRevision
 from app.db.models.auth_session import AuthSession
+from app.db.models.account_auth import AuthIdentity, AuthChallenge, ResetCapability, AuthAttempt, OIDCFlow
 from app.db.models.approval_decision import ApprovalDecision
 from app.db.models.audit_event import AuditEvent, AuditChainHead, AuditCheckpoint
 from app.db.models.evidence_manifest import EvidenceManifest, EvidenceManifestItem

@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
 import { createServer } from 'vite'
-import { authMediaSources, capabilitiesFrom, passwordValid, playbackMode, readMediaEnvironment, validateEmail, validateName, validateOtp } from './authModel.js'
+import { authMediaSources, capabilitiesFrom, passwordValid, playbackMode, readMediaEnvironment, recoveryIdentifier, validateEmail, validateName, validateOtp } from './authModel.js'
 
 const vite = () => createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true, entries: [] }, esbuild: { jsx: 'automatic' } })
 
@@ -41,6 +41,10 @@ test('account form validation and capability defaults are honest', () => {
   assert.notEqual(validateOtp('12345a'), null)
   assert.deepEqual(capabilitiesFrom(null), { signup: false, email_recovery: false, admin_recovery: false, google: false })
   assert.equal(capabilitiesFrom({ signup_mode: 'disabled', google: 'yes' }).google, false)
+  assert.equal(capabilitiesFrom({ signup: false, signup_mode: 'open' }).signup, false)
+  assert.equal(capabilitiesFrom({ signup: true, signup_mode: 'approval' }).signup, true)
+  assert.deepEqual(recoveryIdentifier(' Alice@Example.com '), { email: 'alice@example.com' })
+  assert.deepEqual(recoveryIdentifier(' legacy_user '), { username: 'legacy_user' })
 })
 
 test('backdrop renders poster-only fallback and a silent decorative video; sign-up stays disabled without the backend', async () => {

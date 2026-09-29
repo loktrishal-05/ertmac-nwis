@@ -16,10 +16,11 @@ export async function apiRequest(path, { signal, method = 'GET', body, timeout =
     const data = await response.json().catch(() => null)
     if (!response.ok) {
       const detail = data?.detail
-      const message = typeof detail === 'string' ? detail : detail ? JSON.stringify(detail) : `Request failed (${response.status})`
+      const message = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(item => item.msg).join(' ') : `Request failed (${response.status})`
       const error = new Error(message)
       error.status = response.status
       error.data = data
+      if (response.status === 401 && !['/auth/login', '/auth/me'].includes(path)) globalThis.window?.dispatchEvent(new Event('workbench-session-expired'))
       throw error
     }
     if (data === null) throw new Error('Backend returned an empty or invalid JSON response.')

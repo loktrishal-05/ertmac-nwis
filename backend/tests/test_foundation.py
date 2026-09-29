@@ -158,7 +158,7 @@ class FoundationTests(unittest.TestCase):
     def test_metadata_and_offline_migration(self):
         configure_mappers()
         self.assertEqual(len(models.__all__), 23)
-        self.assertEqual(len(Base.metadata.tables), 32)
+        self.assertEqual(len(Base.metadata.tables), 37)
         self.assertEqual(engine.dialect.name, "postgresql")
         self.assertEqual(engine.dialect.driver, "psycopg")
         self.assertIn("/health", app.openapi()["paths"])
@@ -167,6 +167,7 @@ class FoundationTests(unittest.TestCase):
         command.upgrade(config, "head", sql=True)
         sql = output.getvalue()
         recovery_keys = {
+            "auth_attempts": ["key"],
             "graph_checkpoints": ["execution_id", "namespace", "checkpoint_id"],
             "graph_writes": ["execution_id", "namespace", "checkpoint_id", "task_id", "idx"],
             "execution_operations": ["execution_id", "key"],

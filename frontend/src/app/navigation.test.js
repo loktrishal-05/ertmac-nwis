@@ -27,7 +27,7 @@ test('guards decide from the server session, never from client state', () => {
 
 test('post-login redirects stay inside the app', () => {
   assert.equal(safeNext('/app/approvals?id=1'), '/app/approvals?id=1')
-  for (const next of [null, '', '/login', 'https://evil.example/app', '//evil.example/app', '/app\\..\\x', '/\\evil']) assert.equal(safeNext(next), '/app/dashboard')
+  for (const next of [null, '', '/login', '/application', '/app/../login', '/app/%2e%2e/login', 'https://evil.example/app', '//evil.example/app', '/app\\..\\x', '/\\evil']) assert.equal(safeNext(next), '/app/dashboard')
 })
 
 test('navigation hides role-restricted areas and the API base defaults to the same-origin proxy', () => {

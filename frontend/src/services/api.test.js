@@ -26,6 +26,11 @@ test('non-JSON errors do not crash parsing or produce fake success', async (t) =
   await assert.rejects(apiRequest('/ready'), error => error.status === 503)
 })
 
+test('auth validation shows safe field messages without serializing the response', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ detail: [{ msg: 'Enter a valid email address', loc: ['body', 'email'], type: 'value_error' }] }), { status: 422 }))
+  await assert.rejects(apiRequest('/auth/signup'), error => error.message === 'Enter a valid email address' && error.status === 422)
+})
+
 test('empty successful response is rejected', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response(''))
   await assert.rejects(apiRequest('/query'), /empty or invalid JSON/)

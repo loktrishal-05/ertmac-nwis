@@ -66,8 +66,7 @@ export default function AppShell() {
   }, [navOpen])
 
   async function signOut() {
-    await session.signOut()
-    navigate('/login', { replace: true })
+    if (await session.signOut()) navigate('/login', { replace: true })
   }
 
   // ⌘K / Ctrl+K opens the jump list from anywhere in the workbench.
@@ -110,6 +109,7 @@ export default function AppShell() {
             <p><strong>{session.user?.username}</strong><br /><span className="muted">Server role: {role}</span></p>
             <Link to="/app/profile">Profile</Link>
             <button type="button" onClick={signOut}>Sign out</button>
+            {session.error && <p role="alert">Sign-out failed. {session.error.message}</p>}
           </div>
         </details>
       </div>
