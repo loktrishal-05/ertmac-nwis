@@ -67,12 +67,14 @@ class NWISTests(unittest.TestCase):
         self.assertEqual(nearest[0][0].id,'OFF-01')
         scores=nwis.offsets(self.db,self.active,self.actor)
         ids=[m.offset_well_id for m in scores]
+        self.assertNotEqual(ids[0],nearest[0][0].id)
         self.assertLess(ids.index('OFF-04'),ids.index('OFF-01'))
         self.assertLess(ids.index('OFF-09'),ids.index('OFF-01'))
         self.assertTrue(all(d<=1000 for _,d in nwis.nearby(self.db,self.active,1,self.actor)))
         self.assertEqual(nwis.nearby(self.db,self.active,.001,self.actor),[])
 
     def test_score_components(self):
+        self.assertEqual(nwis.offsets(self.db,self.active,self.actor),nwis.offsets(self.db,self.active,self.actor))
         for m in nwis.offsets(self.db,self.active,self.actor):
             expected=sum(w*(getattr(m,k+'_score') or 0) for k,w in m.weights.items())
             self.assertAlmostEqual(expected,m.total_score)
@@ -98,8 +100,13 @@ class NWISTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/wells?limit=101').status_code,422)
 
     def test_risk_determinism_and_evidence(self):
-        a=self.get('/api/wells/ACTIVE-01/risk'); b=self.get('/api/wells/ACTIVE-01/risk')
-        self.assertEqual(a,b)
+        for distance in (50,100,150):
+            a=self.get('/api/wells/ACTIVE-01/risk',lookahead_m=distance)
+            b=self.get('/api/wells/ACTIVE-01/risk',lookahead_m=distance)
+            self.assertEqual(a,b)
+            self.assertEqual(a['lookahead_m'],distance)
+            self.assertEqual({h['type'] for h in a['hazards']},set(HAZARDS))
+        self.assertEqual(self.client.get('/api/wells/ACTIVE-01/risk?lookahead_m=75').status_code,422)
         h=next(h for h in a['hazards'] if h['type']=='stuck_pipe')
         self.assertIn('OFF-04',h['supporting_offset_wells']); self.assertIn('OFF-09',h['supporting_offset_wells'])
         self.assertGreater(h['probability'],0)
@@ -136,10 +143,12 @@ class NWISTests(unittest.TestCase):
         self.assertFalse(nwis.alert_transition(s,h,AT)); self.assertFalse(nwis.alert_transition(s,h,AT))
         self.assertFalse(nwis.alert_transition(s,h,AT+timedelta(minutes=1)))
         self.assertTrue(nwis.alert_transition(s,h,AT+timedelta(minutes=2)))
-        self.assertFalse(nwis.alert_transition(s,h,AT+timedelta(minutes=3)))
+        self.assertFalse(nwis.alert_transition(s,h.model_copy(update={'probability':.5}),AT+timedelta(minutes=3)))
+        self.assertTrue(s.active)
         self.assertFalse(nwis.alert_transition(s,h.model_copy(update={'probability':.3}),AT+timedelta(minutes=4)))
         self.assertFalse(s.active)
-        for i in (5,6,7): self.assertFalse(nwis.alert_transition(s,h,AT+timedelta(minutes=i)))
+        for i in (5,6,7,30,31): self.assertFalse(nwis.alert_transition(s,h,AT+timedelta(minutes=i)))
+        self.assertTrue(nwis.alert_transition(s,h,AT+timedelta(minutes=32)))
 
     def test_confidence_floor(self):
         h=nwis.risk(self.db,self.active,self.actor)[0].hazards[1].model_copy(update={'probability':.9,'confidence':.1})

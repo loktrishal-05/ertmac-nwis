@@ -15,7 +15,7 @@ from app.services.ranking import fuse
 from app.services.sparse import encode
 from app.core.config import settings
 
-PARSER='nwis-rules-v1'
+PARSER='nwis-rules-v2'
 COLLECTION='nwis_evidence_v1'
 SYNONYMS={
     'mud_loss':r'\b(mud.loss|lost circulation|losses)\b',
@@ -39,12 +39,12 @@ def extract_event(text, *, well_id, report_id, page, origin, span=None):
     uncertain=bool(INJECTION.search(text))
     for basis in ('MD','TVD','TVDSS'):
         raw=field(text,basis)
-        match=re.fullmatch(r'(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?\s*(m|ft)',raw or '',re.I)
+        match=re.fullmatch(r'(-?\d+(?:\.\d+)?)(?:\s*[-–]\s*(-?\d+(?:\.\d+)?))?\s*(m|ft)',raw or '',re.I)
         if raw and not match: uncertain=True
         if match:
             factor=.3048 if match[3].lower()=='ft' else 1
             a,b=float(match[1])*factor,float(match[2] or match[1])*factor
-            if a>b or b>15000: uncertain=True
+            if a>b or max(abs(a),abs(b))>15000 or (basis!='TVDSS' and a<0): uncertain=True
             else: depth[basis]=(a,b)
     if 'MD' not in depth: uncertain=True
     if field(text,'Well') not in (None,well_id): uncertain=True
@@ -127,7 +127,7 @@ def query_filters(request):
     form=request.formation
     m=re.search(r'\b(TIPAM_A|TIPAM_B|BARAIL_SYN|DHEKIA_SYN)\b',request.query,re.I)
     if form is None and m: form=m[1].upper()
-    if form is None and re.search(r'\bTipam\b',request.query,re.I): form='TIPAM_A'
+    if form is None and re.search(r'\bTipam\b',request.query,re.I): form=['TIPAM_A','TIPAM_B']
     lo,hi,basis=request.depth_min,request.depth_max,request.depth_basis
     m=re.search(r'\b(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*m\s*(TVDSS|TVD|MD)\b',request.query,re.I)
     if m and lo is None and hi is None: lo,hi,basis=float(m[1]),float(m[2]),m[3].lower()
@@ -135,7 +135,9 @@ def query_filters(request):
 
 def evidence_search(session, request, user, ranked):
     form,kind,lo,hi,basis=query_filters(request)
-    ids=[m.offset_well_id for m in ranked]
+    comparison=re.search(r'\bcompare events in the (three|[1-9]|10) most relevant offsets\b',request.query,re.I)
+    count=request.offset_limit or (3 if comparison and comparison[1].lower()=='three' else int(comparison[1]) if comparison else None)
+    ids=[m.offset_well_id for m in ranked[:count]]
     if not ids: return [],[]
     q=nwis.event_query(user,formation=form,kind=kind,depth_min=lo,depth_max=hi,basis=basis)
     rows=session.scalars(q.where(DrillingEvent.well_id.in_(ids),DrillingEvent.verification_state!='rejected').limit(501)).all()
@@ -148,7 +150,11 @@ def evidence_search(session, request, user, ranked):
     else:
         terms=set(re.findall(r'\w+',request.query.lower()))-{'show','what','the','in','and','m','near','this','well'}
         rows=sorted(rows,key=lambda e:(-len(terms & set(re.findall(r'\w+',e.raw_phrase.lower()))),e.id))
-        rows=[e for e in rows if kind or form or terms & set(re.findall(r'\w+',e.raw_phrase.lower()))]
+        rows=[e for e in rows if comparison or kind or form or terms & set(re.findall(r'\w+',e.raw_phrase.lower()))]
+    if comparison:
+        # Round-robin cited events keeps the requested offsets represented within top_k.
+        groups_by_well=[[e for e in rows if e.well_id==ident] for ident in ids]
+        rows=[group[i] for i in range(max(map(len,groups_by_well),default=0)) for group in groups_by_well if i<len(group)]
     groups={}
     for e in rows:
         key=(e.well_id,e.event_type,e.start_depth_md)

@@ -258,5 +258,41 @@
     "expected_md": null,
     "expected_state": "review_needed",
     "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-041",
+    "kind": "unittest",
+    "test": "test_nwis_b2.B2Tests.test_correlation_tracks_align_tvd_not_md",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-042",
+    "kind": "unittest",
+    "test": "test_nwis_b2.B2Tests.test_telemetry_channel_freshness_is_not_page_dependent",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-043",
+    "kind": "unittest",
+    "test": "test_nwis_b2.B2Tests.test_explicit_query_mode_citations_and_legacy_separation",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-044",
+    "kind": "unittest",
+    "test": "test_nwis_b2.B2Tests.test_complete_assessment_evidence_advisory_audit_chain",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-045",
+    "kind": "unittest",
+    "test": "test_nwis_b2.B2Tests.test_offset_explanations_are_deterministic_and_justify_ranking",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-046",
+    "kind": "unittest",
+    "test": "test_nwis_b2.B2Tests.test_equal_scores_break_ties_by_well_id",
+    "dataset_origin": "synthetic_demo"
   }
 ]

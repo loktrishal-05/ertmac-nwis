@@ -5,14 +5,14 @@ import math
 import os
 from datetime import datetime, timedelta, timezone
 from statistics import mean, median, pstdev
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from fastapi import HTTPException
 from app.db.models.nwis import (Well, WellTrajectoryPoint, FormationInterval, DrillingEvent, TelemetrySample,
-    OffsetWellMatch, RiskAssessment, RiskEvidence, DrillingAdvisory, AlertState, HAZARDS)
+    OffsetWellMatch, RiskAssessment, RiskEvidence, DrillingAdvisory, DrillingReport, AlertState, HAZARDS)
 from app.schemas.nwis import EventOut, HazardOut, MatchOut, RiskOut
 from app.services.audit import append_event
 
-VERSION = 'nwis-hybrid-v1'
+VERSION = 'nwis-hybrid-v2'
 DEFAULT_WEIGHTS = dict(geographic=.15, formation=.30, depth=.20, trajectory=.15, program=.10, data_quality=.10)
 
 def now():
@@ -129,7 +129,21 @@ def score_offset(session, active, candidate, distance, radius_km, lookahead=100)
     total = sum(ws[k]*(v if v is not None else 0) for k,v in components.items())
     return MatchOut(offset_well_id=candidate.id,distance_m=distance,distance_km=distance/1000,
         **{k+'_score':v for k,v in components.items()},total_score=total,depth_basis=basis,weights=ws,
-        algorithm_version=VERSION,dataset_origin=candidate.dataset_origin)
+        algorithm_version=VERSION,dataset_origin=candidate.dataset_origin,
+        explanation=explain(components,distance,basis,lookahead,af.formation if af else None))
+
+def explain(c, distance, basis, lookahead, formation):
+    """Deterministic reasons from the computed components only; unknowns are stated, never guessed."""
+    reasons = [f'{distance/1000:.1f} km from the active well (geographic {c["geographic"]:.2f})']
+    if c['formation'] is None: reasons.append('formation data unavailable')
+    elif c['formation'] == 1: reasons.append(f'penetrated the active formation {formation}')
+    else: reasons.append(f'active formation {formation} not matched at a single interval')
+    reasons.append('depth overlap unavailable' if c['depth'] is None
+        else f'{c["depth"]*100:.0f}% overlap with the next {lookahead} m on {basis.upper()}')
+    reasons.append('trajectory comparison unavailable' if c['trajectory'] is None else f'trajectory similarity {c["trajectory"]:.2f}')
+    reasons.append('program context unavailable' if c['program'] is None else f'program context similarity {c["program"]:.2f}')
+    reasons.append(f'data quality {c["data_quality"]:.2f}')
+    return reasons
 
 def offsets(session, active, user, radius=10, lookahead=100):
     candidates = nearby(session,active,radius,user,limit=501)
@@ -138,11 +152,13 @@ def offsets(session, active, user, radius=10, lookahead=100):
     return sorted([score_offset(session,active,w,d,radius,lookahead) for w,d in candidates],key=lambda x:(-x.total_score,x.offset_well_id))
 
 def event_query(user, well_id=None, formation=None, kind=None, depth_min=None, depth_max=None, basis='md'):
+    if basis!='tvdss' and any(v is not None and v<0 for v in (depth_min,depth_max)):
+        raise HTTPException(422,'Negative depth is supported only for TVDSS')
     if depth_min is not None and depth_max is not None and depth_min>depth_max:
         raise HTTPException(422,'depth_min exceeds depth_max')
     query=select(DrillingEvent).join(Well).where(Well.access_scope.in_(visible(user)))
     for col,value in ((DrillingEvent.well_id,well_id),(DrillingEvent.formation,formation),(DrillingEvent.event_type,kind)):
-        if value is not None: query=query.where(col==value)
+        if value is not None: query=query.where(col.in_(value) if isinstance(value,(list,tuple)) else col==value)
     lo = DrillingEvent.start_depth_md if basis=='md' else getattr(DrillingEvent,basis)
     hi = DrillingEvent.end_depth_md if basis=='md' else lo
     if depth_min is not None: query=query.where(hi>=depth_min)
@@ -160,7 +176,13 @@ def telemetry(session, active, channels=None, start=None, end=None, limit=1000, 
     return session.scalars(query.order_by(TelemetrySample.timestamp,TelemetrySample.channel).offset(offset).limit(limit)).all()
 
 def features(samples):
-    good=[s for s in samples if s.value is not None and s.quality=='good' and math.isfinite(s.value)]
+    good=[]
+    for sample in samples:
+        if sample.value is None or sample.quality!='good' or not math.isfinite(sample.value):
+            good=[]
+            continue
+        if good and utc(sample.timestamp)-utc(good[-1].timestamp)>timedelta(minutes=5): good=[]
+        good.append(sample)
     if len(good)<6: return None
     values=[s.value for s in good]
     baseline=values[:-3]
@@ -257,13 +279,17 @@ def persist_assessment(session, active, result, matches, user):
     for m in matches:
         ident=digest([active.id,m.model_dump(),result.current_md_m,result.lookahead_m])
         if session.get(OffsetWellMatch,ident) is None:
-            session.add(OffsetWellMatch(id=ident,active_well_id=active.id,**m.model_dump(exclude={'distance_m','distance_km','depth_basis','weights'})))
+            session.add(OffsetWellMatch(id=ident,active_well_id=active.id,**m.model_dump(exclude={'distance_m','distance_km','depth_basis','weights','explanation'})))
     created=[]
     for h in result.hazards:
         if session.get(RiskAssessment,h.assessment_id) is not None: continue
         session.add(RiskAssessment(id=h.assessment_id,well_id=active.id,as_of=result.as_of,current_md=result.current_md_m,
             formation=result.formation,lookahead_m=result.lookahead_m,hazard_type=h.type,probability=h.probability,
-            confidence=h.confidence,trend=h.trend,model_version=VERSION,snapshot=h.model_dump(mode='json'),dataset_origin=active.dataset_origin))
+            confidence=h.confidence,trend=h.trend,model_version=VERSION,
+            snapshot=h.model_dump(mode='json') | {
+                'event_snapshots':{eid:EventOut.model_validate(session.get(DrillingEvent,eid)).model_dump(mode='json') for eid in h.evidence_ids},
+                'source_hashes':{eid:session.get(DrillingReport,session.get(DrillingEvent,eid).source_report_id).file_hash for eid in h.evidence_ids}},
+            dataset_origin=active.dataset_origin))
         session.flush()
         for eid in h.evidence_ids:
             e=session.get(DrillingEvent,eid)
@@ -284,3 +310,54 @@ def persist_assessment(session, active, result, matches, user):
     audit(session,'risk_assessed',user,well_id=active.id,assessment_ids=[h.assessment_id for h in result.hazards])
     session.flush()
     return created
+
+
+def depth_values(session, active, md):
+    return dict(md=md,tvd=interpolate(session,active.id,md),tvdss=interpolate(session,active.id,md,'tvdss'))
+
+
+def correlation_context(session, active, matches, formations, events, lookahead):
+    """One explicit depth axis across tracks; missing markers stay null on that axis."""
+    wells=[active]+[session.get(Well,m.offset_well_id) for m in matches]
+    by_well={w.id:[f for f in formations if f.well_id==w.id] for w in wells}
+    basis='md'
+    for candidate in ('tvdss','tvd'):
+        complete=lambda fs: bool(fs) and all(getattr(f,'top_'+candidate) is not None and getattr(f,'bottom_'+candidate) is not None for f in fs)
+        if complete(by_well[active.id]) and any(complete(by_well[w.id]) for w in wells[1:]):
+            basis=candidate
+            break
+    start=depth_values(session,active,active.current_md)
+    end=depth_values(session,active,None if active.current_md is None else active.current_md+lookahead)
+    tracks=[]
+    for w in wells:
+        intervals=[]
+        for f in by_well[w.id]:
+            top,base=getattr(f,'top_'+basis),getattr(f,'bottom_'+basis)
+            intervals.append(dict(interval_id=f.id,formation=f.formation,top=top,base=base,
+                confidence=f.confidence,source=f.source,alignment_available=top is not None and base is not None))
+        tracks.append(dict(well=w,is_active=w.id==active.id,formations=intervals,
+            events=[e for e in events if e.well_id==w.id],casing_points=(w.program or {}).get('casing_points')))
+    return dict(alignment_basis=basis,current_bit_depth=start,
+        lookahead_window=dict(lookahead_m=lookahead,start=start,end=end),tracks=tracks)
+
+
+def telemetry_channel_states(session, active, channels, start, end):
+    """Summarize the entire bounded window, independent of sample pagination."""
+    from app.db.models.nwis import TelemetrySample as T
+    names=session.scalars(select(T.channel).where(T.well_id==active.id).distinct().order_by(T.channel).limit(21)).all() if not channels else channels
+    if len(names)>20: raise HTTPException(422,'Select at most 20 telemetry channels')
+    output=[]
+    for channel in names:
+        base=select(T).where(T.well_id==active.id,T.channel==channel)
+        known=session.scalar(base.order_by(T.timestamp.desc()).limit(1))
+        window=base.where(T.timestamp>=start,T.timestamp<=end)
+        counts=session.execute(select(func.count(),func.count(T.value)).select_from(T).where(
+            T.well_id==active.id,T.channel==channel,T.timestamp>=start,T.timestamp<=end)).one()
+        latest=session.scalar(window.order_by(T.timestamp.desc()).limit(1))
+        valid=session.scalar(window.where(T.value.is_not(None),T.quality=='good').order_by(T.timestamp.desc()).limit(1))
+        if valid is not None and not math.isfinite(valid.value): valid=None
+        stamp=utc(valid.timestamp) if valid else None
+        output.append(dict(channel=channel,known=known is not None,unit=known.unit if known else None,
+            sample_count=counts[0],value_count=counts[1],latest_timestamp=latest.timestamp if latest else None,
+            latest_valid_timestamp=stamp,state='unavailable' if stamp is None else ('fresh' if end-stamp<=timedelta(minutes=5) else 'stale')))
+    return output

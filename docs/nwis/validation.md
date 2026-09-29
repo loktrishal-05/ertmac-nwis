@@ -23,3 +23,19 @@ The seed reproducibility/provenance test verifies stable PDF bytes, source hashe
 All historical migration files and frozen old benchmark files remain unchanged. The new benchmark has 40 development and eight held-out cases. Git attributes pin the checksum-bound JSON to LF. Main was inspected read-only; its staged/unstaged changes were not modified. No frontend files were changed, and no push or merge was performed.
 
 Known limits and reproducible commands are in [the runbook](README.md). The earlier NWIS-B1 prompt was not available in this resumed conversation; implementation was checked against the user's current explicit scope and the complete authorized PDF.
+
+## B2 validation (offset explanations, aligned correlation, telemetry freshness, query mode, evidence chain)
+
+Run on 2026-09-30 in the same isolated `ertmac-nwis-backend` Compose project (PostgreSQL 17 / PostGIS 3.5, Qdrant 1.17.0, local BGE artifacts mounted read-only).
+
+| Check | Result |
+| --- | --- |
+| NWIS SQLite domain/API suite (`test_nwis`, `test_nwis_b2`) | 39 passed |
+| NWIS suite with `NWIS_TEST_POSTGRES=1` (all `test_nwis*.py`) | 51 run: 50 passed, 1 skipped (real-model test, run separately) |
+| Real local BGE + sparse + Qdrant RRF + BGE reranking | 1 passed |
+| NWIS development benchmark | 46 passed, zero errors/failures/skips; blind subset not run |
+| Alembic model drift | No new upgrade operations |
+| Durable/auth/security regression subset (SQLite form) | 172 run: 128 passed, 44 skipped (PostgreSQL-gated legacy cases; B2 does not change auth) |
+| `git diff --check` | Passed |
+
+B2 adds no migration. `MatchOut.explanation` is response-only (not persisted). Checksum-bound benchmark JSON is committed with LF endings and the manifest hash is computed on those bytes. These remain functional checks, not field calibration, AUROC/PR-AUC or NPT measurements.

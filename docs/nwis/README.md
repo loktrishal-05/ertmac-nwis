@@ -94,7 +94,7 @@ docker compose -f infra/docker-compose.nwis.yml run --rm --no-deps backend pytho
 docker compose -f infra/docker-compose.nwis.yml run --rm --no-deps backend python -m alembic -c backend/alembic.ini check
 ```
 
-PostGIS tests create/drop a uniquely named validation database only through the dedicated `nwis` target. They exercise upgrade/downgrade, the spatial index, exact radius boundaries, real login, replay/assessment/review and audit. See [validation results](validation.md) for the checks performed on this change. The 40 development benchmark cases and eight held-out cases live in `benchmark/nwis/`; old benchmark files remain frozen. Held-out cases are not used for tuning.
+PostGIS tests create/drop a uniquely named validation database only through the dedicated `nwis` target. They exercise upgrade/downgrade, the spatial index, exact radius boundaries, real login, replay/assessment/review and audit. See [validation results](validation.md) for the checks performed on this change. The 46 development benchmark cases and eight held-out cases live in `benchmark/nwis/`; old benchmark files remain frozen. Held-out cases are not used for tuning.
 
 ## Explicit prototype limits
 

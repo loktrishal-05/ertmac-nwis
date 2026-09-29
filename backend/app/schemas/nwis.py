@@ -74,6 +74,8 @@ class MatchOut(Schema):
     weights: dict[str, float]
     algorithm_version: str
     dataset_origin: str
+    # Deterministic plain-language reasons derived only from the component scores above (never an LLM).
+    explanation: list[str] = []
 
 class TelemetryOut(Schema):
     well_id: str
@@ -132,6 +134,59 @@ class Page(Schema, Generic[T]):
     has_more: bool
     as_of: datetime
 
+class DepthValues(Schema):
+    md: float | None
+    tvd: float | None
+    tvdss: float | None
+
+class DepthWindow(Schema):
+    lookahead_m: int
+    start: DepthValues
+    end: DepthValues
+
+class AlignedFormation(Schema):
+    interval_id: str
+    formation: str
+    top: float | None
+    base: float | None
+    confidence: float
+    source: str
+    alignment_available: bool
+
+class CasingPoint(Schema):
+    md: float = Field(ge=0)
+    tvd: float | None = None
+    tvdss: float | None = None
+    size_in: float | None = Field(default=None,gt=0)
+    source: str
+    confidence: float | None = Field(default=None,ge=0,le=1)
+
+class CorrelationTrack(Schema):
+    well: WellOut
+    is_active: bool
+    formations: list[AlignedFormation]
+    events: list[EventOut]
+    casing_points: list[CasingPoint] | None
+
+class ChannelState(Schema):
+    channel: str
+    known: bool
+    unit: str | None
+    sample_count: int
+    value_count: int
+    latest_timestamp: datetime | None
+    latest_valid_timestamp: datetime | None
+    state: Literal['fresh','stale','unavailable']
+
+class TelemetryPage(Page[TelemetryOut]):
+    dataset_origin: str
+    source_mode: Literal['replay','historical']
+    window_start: datetime
+    window_end: datetime
+    freshness_reference: datetime
+    stale_after_seconds: int = 300
+    channels: list[ChannelState]
+
 class CorrelationOut(Schema):
     well_id: str
     as_of: datetime
@@ -140,15 +195,21 @@ class CorrelationOut(Schema):
     offset_formations: list[FormationOut]
     events: list[EventOut]
     offsets: list[MatchOut]
+    alignment_basis: Literal['md','tvd','tvdss']
+    current_bit_depth: DepthValues
+    lookahead_window: DepthWindow
+    tracks: list[CorrelationTrack]
     warning: str = 'Formation analogs do not establish geological continuity. Missing datums remain unavailable.'
 
 class QueryIn(Schema):
+    mode: Literal['nwis_evidence'] = 'nwis_evidence'
+    offset_limit: int | None = Field(default=None,ge=1,le=10)
     query: str = Field(min_length=1, max_length=2000)
     well_id: str = Field(default='ACTIVE-01', min_length=1, max_length=80)
     formation: str | None = Field(default=None, max_length=100)
     type: Hazard | None = None
-    depth_min: float | None = Field(default=None, ge=0, le=15000)
-    depth_max: float | None = Field(default=None, ge=0, le=15000)
+    depth_min: float | None = Field(default=None, ge=-15000, le=15000)
+    depth_max: float | None = Field(default=None, ge=-15000, le=15000)
     depth_basis: Literal['md','tvd','tvdss'] = 'tvd'
     lookahead_m: Literal[50,100,150] = 100
     radius_km: float = Field(default=10, gt=0, le=100)
@@ -157,11 +218,14 @@ class QueryIn(Schema):
     request_id: UUID
     @model_validator(mode='after')
     def ranges(self):
+        if self.depth_basis!='tvdss' and any(v is not None and v<0 for v in (self.depth_min,self.depth_max)):
+            raise ValueError('Negative depth is supported only for TVDSS')
         if self.depth_min is not None and self.depth_max is not None and self.depth_min > self.depth_max:
             raise ValueError('depth_min exceeds depth_max')
         return self
 
 class QueryOut(Schema):
+    mode: Literal['nwis_evidence'] = 'nwis_evidence'
     execution_id: UUID
     status: str
     answer: str
@@ -196,3 +260,25 @@ class IngestOut(Schema):
     events: list[EventOut]
     warnings: list[str]
     dataset_origin: str
+
+class RiskEvidenceOut(Schema):
+    event: EventOut
+    event_at_assessment: EventOut | None
+    evidence_chunk_id: str | None
+    contribution: float
+    reason: str
+    source_sha256: str
+    source_sha256_at_assessment: str | None
+    source_url: str
+
+class AssessmentDetail(Schema):
+    assessment_id: str
+    well_id: str
+    as_of: datetime
+    current_md_m: float | None
+    formation: str | None
+    lookahead_m: int
+    model_version: str
+    dataset_origin: str
+    hazard: HazardOut
+    evidence: list[RiskEvidenceOut]

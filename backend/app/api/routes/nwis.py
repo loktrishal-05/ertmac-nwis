@@ -1,5 +1,5 @@
 """Authenticated SIH26121 API, isolated from legacy product semantics."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import Field
@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.db.models import AuditEvent, User
-from app.db.models.nwis import Well, FormationInterval, DrillingEvent, DrillingAdvisory, RiskAssessment, TermsAcceptance, DrillingReport
+from app.db.models.nwis import Well, FormationInterval, DrillingEvent, DrillingAdvisory, RiskAssessment, TermsAcceptance, DrillingReport, RiskEvidence
 from app.schemas.nwis import (Page, WellOut, EventOut, MatchOut, CorrelationOut, FormationOut, RiskOut, TelemetryOut,
-    QueryIn, QueryOut, ReviewIn, AdvisoryOut, TermsIn, TermsOut, AssessmentOut, IngestOut, Schema, Hazard)
+    QueryIn, QueryOut, ReviewIn, AdvisoryOut, TermsIn, TermsOut, AssessmentOut, IngestOut, Schema, Hazard, TelemetryPage, AssessmentDetail, HazardOut)
 from app.schemas.audit import AuditEventResponse
 from app.services import nwis as service
 from app.services import nwis_knowledge
@@ -88,33 +88,34 @@ def report_source(report_id:str,user=Depends(access),session:Session=Depends(get
 
 @router.get('/events',response_model=Page[EventOut])
 def events(well_id:str|None=None,formation:str|None=Query(None,max_length=100),type:Hazard|None=None,
-    depth_min:float|None=Query(None,ge=0,le=15000),depth_max:float|None=Query(None,ge=0,le=15000),
+    depth_min:float|None=Query(None,ge=-15000,le=15000),depth_max:float|None=Query(None,ge=-15000,le=15000),
     depth_basis:Literal['md','tvd','tvdss']='md',limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0,le=10000),
     user=Depends(access),session:Session=Depends(get_db)):
     q=service.event_query(user,well_id,formation,type,depth_min,depth_max,depth_basis)
     return page(session.scalars(q.offset(offset).limit(limit+1)).all(),limit,offset)
 
 @router.get('/wells/{well_id}/correlation',response_model=CorrelationOut)
-def correlation(well_id:str,radius_km:float=Query(10,gt=0,le=100),user=Depends(access),session:Session=Depends(get_db)):
-    active=service.well(session,well_id,user); matches=service.offsets(session,active,user,radius_km)[:10]
+def correlation(well_id:str,radius_km:float=Query(10,gt=0,le=100),lookahead_m:int=Query(100,ge=50,le=150,multiple_of=50),user=Depends(access),session:Session=Depends(get_db)):
+    active=service.well(session,well_id,user); matches=service.offsets(session,active,user,radius_km,lookahead_m)[:10]
     ids=[m.offset_well_id for m in matches]
     formations=session.scalars(select(FormationInterval).where(FormationInterval.well_id.in_([well_id,*ids]))
         .order_by(FormationInterval.well_id,FormationInterval.top_md,FormationInterval.id).limit(201)).all()
     if len(formations)>200: raise HTTPException(422,'Correlation exceeds 200 formation intervals')
-    ev=session.scalars(service.event_query(user).where(DrillingEvent.well_id.in_(ids)).limit(501)).all()
+    ev=session.scalars(service.event_query(user).where(DrillingEvent.well_id.in_([well_id,*ids])).limit(501)).all()
     if len(ev)>500: raise HTTPException(422,'Correlation exceeds 500 events; reduce radius')
     return CorrelationOut(well_id=well_id,as_of=active.as_of or service.now(),dataset_origin=active.dataset_origin,
         formations=[FormationOut.model_validate(f) for f in formations if f.well_id==well_id],
         offset_formations=[FormationOut.model_validate(f) for f in formations if f.well_id!=well_id],
-        events=[EventOut.model_validate(e) for e in ev],offsets=matches)
+        events=[EventOut.model_validate(e) for e in ev],offsets=matches,
+        **service.correlation_context(session,active,matches,formations,ev,lookahead_m))
 
 @router.get('/wells/{well_id}/risk',response_model=RiskOut)
-def risk(well_id:str,lookahead_m:Literal[50,100,150]=100,radius_km:float=Query(10,gt=0,le=100),
+def risk(well_id:str,lookahead_m:int=Query(100,ge=50,le=150,multiple_of=50),radius_km:float=Query(10,gt=0,le=100),
          user=Depends(access),session:Session=Depends(get_db)):
     return service.risk(session,service.well(session,well_id,user),user,lookahead_m,radius_km)[0]
 
 @router.post('/wells/{well_id}/assess',response_model=AssessmentOut)
-def assess(well_id:str,lookahead_m:Literal[50,100,150]=100,radius_km:float=Query(10,gt=0,le=100),
+def assess(well_id:str,lookahead_m:int=Query(100,ge=50,le=150,multiple_of=50),radius_km:float=Query(10,gt=0,le=100),
            user=Depends(access),session:Session=Depends(get_db)):
     active=service.well(session,well_id,user)
     session.execute(select(Well).where(Well.id==well_id).with_for_update()).scalar_one()
@@ -122,15 +123,20 @@ def assess(well_id:str,lookahead_m:Literal[50,100,150]=100,radius_km:float=Query
     advisories=service.persist_assessment(session,active,result,matches,user); session.commit()
     return AssessmentOut(risk=result,advisories=[AdvisoryOut.model_validate(a) for a in advisories])
 
-@router.get('/wells/{well_id}/telemetry',response_model=Page[TelemetryOut])
+@router.get('/wells/{well_id}/telemetry',response_model=TelemetryPage)
 def telemetry(well_id:str,channels:str|None=Query(None,max_length=300),start:datetime|None=Query(None,alias='from'),
     end:datetime|None=Query(None,alias='to'),limit:int=Query(500,ge=1,le=1000),offset:int=Query(0,ge=0,le=10000),
     user=Depends(access),session:Session=Depends(get_db)):
-    selected=channels.split(',') if channels else None
-    if selected and len(selected)>20: raise HTTPException(422,'At most 20 channels')
+    selected=list(dict.fromkeys(c.strip() for c in channels.split(','))) if channels is not None else None
+    if selected and (len(selected)>20 or any(not c or len(c)>50 for c in selected)): raise HTTPException(422,'Select 1 to 20 nonempty channel names of at most 50 characters')
     active=service.well(session,well_id,user)
+    end=service.utc(end or active.as_of or service.now())
+    start=service.utc(start or end-timedelta(hours=1))
     rows=service.telemetry(session,active,selected,start,end,limit+1,offset)
-    return page(rows,limit,offset) | {'as_of':active.as_of or service.now()}
+    return page(rows,limit,offset) | dict(as_of=end,dataset_origin=active.dataset_origin,
+        source_mode='replay' if active.dataset_origin=='synthetic_demo' else 'historical',
+        window_start=start,window_end=end,freshness_reference=end,
+        channels=service.telemetry_channel_states(session,active,selected,start,end))
 
 class ReplayIn(Schema):
     as_of: datetime
@@ -151,6 +157,27 @@ def query(body:QueryIn,user=Depends(access),session:Session=Depends(get_db)):
     except HTTPException: raise
     except ValueError as e: raise HTTPException(422,'Query evidence or filters are invalid; inspect source data') from e
     except Exception as e: raise HTTPException(503,'NWIS retrieval unavailable; retry this request ID after checking local dependencies') from e
+
+@router.get('/assessments/{ident}',response_model=AssessmentDetail)
+def assessment_detail(ident:str,user=Depends(access),session:Session=Depends(get_db)):
+    assessment=session.get(RiskAssessment,ident)
+    if assessment is None: raise HTTPException(404,'Assessment unavailable')
+    service.well(session,assessment.well_id,user)
+    links=session.scalars(select(RiskEvidence).where(RiskEvidence.assessment_id==ident)
+        .order_by(RiskEvidence.drilling_event_id)).all()
+    evidence=[]
+    for link in links:
+        event=session.get(DrillingEvent,link.drilling_event_id)
+        service.well(session,event.well_id,user)
+        report=session.get(DrillingReport,event.source_report_id)
+        service.well(session,report.well_id,user)
+        evidence.append(dict(event=event,event_at_assessment=assessment.snapshot.get('event_snapshots',{}).get(event.id),
+            evidence_chunk_id=link.evidence_chunk_id,contribution=link.contribution,reason=link.reason,
+            source_sha256=report.file_hash,source_sha256_at_assessment=assessment.snapshot.get('source_hashes',{}).get(event.id),
+            source_url=f'/api/reports/{report.id}/source#page={event.source_page}'))
+    return dict(assessment_id=ident,well_id=assessment.well_id,as_of=assessment.as_of,current_md_m=assessment.current_md,
+        formation=assessment.formation,lookahead_m=assessment.lookahead_m,model_version=assessment.model_version,
+        dataset_origin=assessment.dataset_origin,hazard={k:assessment.snapshot[k] for k in HazardOut.model_fields},evidence=evidence)
 
 @router.get('/advisories',response_model=Page[AdvisoryOut])
 def advisories(limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0,le=10000),

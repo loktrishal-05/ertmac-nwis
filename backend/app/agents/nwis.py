@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from langgraph.graph import StateGraph, START, END
 from app.agents.checkpoint import SQLCheckpointSaver, config_for
 from app.db.models.durable_execution import DurableExecution
-from app.schemas.nwis import QueryOut, EventOut
+from app.schemas.nwis import QueryIn, QueryOut, EventOut
 from app.services import nwis, nwis_knowledge
 from app.services.durable_execution import execution_lock, RecoveryConflict
 
@@ -49,7 +49,7 @@ def run(session,request,user):
         with execution_lock(session.get_bind(),request.request_id):
             row=session.get(DurableExecution,request.request_id)
             payload=request.model_dump(mode='json')
-            if row and (row.user_id!=user.id or row.request!=payload or row.execution_path!='NWIS'):
+            if row and (row.user_id!=user.id or row.execution_path!='NWIS' or QueryIn.model_validate(row.request).model_dump(mode='json')!=payload):
                 raise HTTPException(409,'Request identity is unavailable or has different inputs')
             if row is None:
                 row=DurableExecution(id=request.request_id,user_id=user.id,request=payload,status='RUNNING',

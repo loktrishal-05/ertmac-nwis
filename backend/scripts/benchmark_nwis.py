@@ -1,4 +1,4 @@
-"""Run the 40 development cases only. Reserved blind scenarios are never loaded."""
+"""Run the NWIS development cases only. Reserved blind scenarios are never loaded."""
 import hashlib
 import json
 import unittest
