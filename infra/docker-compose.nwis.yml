@@ -1,0 +1,49 @@
+# Isolated NWIS development/validation stack. Never attaches legacy database volumes.
+name: ertmac-nwis-backend
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: nwis
+      POSTGRES_PASSWORD: ${NWIS_DB_PASSWORD:-synthetic-local-only}
+      POSTGRES_DB: nwis
+    volumes:
+      - nwis_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U nwis -d nwis']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    volumes:
+      - nwis_qdrant:/qdrant/storage
+  backend:
+    image: ertmac-nwis-backend:local
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    working_dir: /workspace
+    environment:
+      DATABASE_URL: postgresql+psycopg://nwis:${NWIS_DB_PASSWORD:-synthetic-local-only}@postgres:5432/nwis
+      QDRANT_URL: http://qdrant:6333
+      MODEL_NAME: qwen3.5:9b
+      PYTHONPATH: /workspace/backend:/workspace/backend/tests
+      WORKBENCH_DATA_ROOT: /workspace/data
+      MODEL_ROOT: /workspace/models
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      GOOGLE_ENABLED: 'false'
+      SMTP_HOST: ''
+    volumes:
+      - ..:/workspace
+      - ${NWIS_MODEL_DIR:-../models}:/workspace/models:ro
+    ports:
+      - '127.0.0.1:8011:8000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: [python, -m, uvicorn, app.main:app, --host, 0.0.0.0, --port, '8000']
+volumes:
+  nwis_postgres:
+  nwis_qdrant:

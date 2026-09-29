@@ -1,3 +1,9 @@
+# eRTMAC-NWIS backend - SIH26121
+
+The active backend pivot is documented in [docs/nwis/README.md](docs/nwis/README.md).
+Its specification is the authorized [SIH26121 master PDF](docs/nwis/reference/eRTMAC_NWIS_Master_Report_SIH26121.pdf).
+The older Sovereign/SIH26117 documentation below is historical platform reference, not NWIS product requirements.
+
 # Sovereign On-Premise Agentic AI Workbench
 
 Current local deployment and runtime validation: [Phase 7 PowerShell guide](docs/phase7.md).

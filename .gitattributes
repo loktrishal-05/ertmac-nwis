@@ -1,0 +1,3 @@
+# Preserve checksum-bound NWIS fixtures across Windows/Linux checkouts.
+benchmark/nwis/*.json text eol=lf
+data/nwis_demo/dataset.json text eol=lf

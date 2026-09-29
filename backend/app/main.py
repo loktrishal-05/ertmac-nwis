@@ -9,12 +9,12 @@ from urllib.parse import urlsplit
 from app.core.config import settings
 from app.api.router import api_router
 
-app = FastAPI(title="Sovereign On-Premise Agentic AI Workbench")
+app = FastAPI(title="eRTMAC-NWIS | SIH26121")
 
 
 @app.middleware("http")
 async def browser_origin_guard(request, call_next):
-    sensitive = request.url.path.startswith(("/auth/", "/admin/", "/executions", "/approvals", "/audit/",
+    sensitive = request.url.path.startswith(("/api/", "/auth/", "/admin/", "/executions", "/approvals", "/audit/",
         "/bi/", "/documents/pid", "/equipment", "/sensors/", "/maintenance/", "/verified-knowledge", "/knowledge-gaps"))
     mutation = request.method not in {"GET", "HEAD", "OPTIONS"} or (
         request.url.path.startswith("/approvals/") and request.url.path.endswith("/release"))

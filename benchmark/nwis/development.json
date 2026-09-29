@@ -1,0 +1,262 @@
+[
+  {
+    "id": "DEV-001",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_seed_idempotent_and_origin",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-002",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_seed_rejects_real_data_collision",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-003",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_radius_and_ranking",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-004",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_score_components",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-005",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_bad_weights_rejected",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-006",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_tvd_correlation",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-007",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_event_filters_and_bounds",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-008",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_risk_determinism_and_evidence",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-009",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_missing_trajectory_reduces_confidence",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-010",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_no_offsets_no_fabricated_probability",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-011",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_missing_channels_and_window",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-012",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_telemetry_features_spike_persistence",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-013",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_alert_hysteresis_cooldown_dedupe",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-014",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_confidence_floor",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-015",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_extraction_bad_ocr_null",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-016",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_extraction_units_cause",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-017",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_extraction_impossible_range_review",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-018",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_injection_source_is_untrusted",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-019",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_query_durable_and_no_private_reasoning",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-020",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_query_no_evidence_refusal",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-021",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_query_injection_refusal",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-022",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_rbac_terms_and_origin",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-023",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_restricted_well_not_exposed",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-024",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_assess_idempotent_audit",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-025",
+    "kind": "unittest",
+    "test": "test_nwis.NWISTests.test_upload_validation",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-026",
+    "kind": "unittest",
+    "test": "test_nwis_retrieval.RetrievalTests.test_hybrid_metadata_filters_and_stale_rejection",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-027",
+    "kind": "unittest",
+    "test": "test_nwis_retrieval.RetrievalTests.test_contradiction_reduces_confidence",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-028",
+    "kind": "unittest",
+    "test": "test_nwis_retrieval.RetrievalTests.test_native_pdf_ingest_hash_page_date_idempotency",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-029",
+    "kind": "unittest",
+    "test": "test_nwis_retrieval.RetrievalTests.test_ocr_number_review_gate",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-030",
+    "kind": "unittest",
+    "test": "test_nwis_retrieval.RetrievalTests.test_validation_role_and_audit",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-031",
+    "kind": "extraction",
+    "source": "Event: stuck_pipe; MD: 2500 m",
+    "expected_md": 2500,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-032",
+    "kind": "extraction",
+    "source": "Event: mud_loss; MD: 8200 ft",
+    "expected_md": 2499.36,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-033",
+    "kind": "extraction",
+    "source": "Event: kick_or_overpressure; MD: 2460 m",
+    "expected_md": 2460,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-034",
+    "kind": "extraction",
+    "source": "Event: torque_drag; MD: 2490 m",
+    "expected_md": 2490,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-035",
+    "kind": "extraction",
+    "source": "Event: cementing_issue; MD: 2300 m",
+    "expected_md": 2300,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-036",
+    "kind": "extraction",
+    "source": "Event: fishing; MD: 2400 m",
+    "expected_md": 2400,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-037",
+    "kind": "extraction",
+    "source": "Event: npt; MD: 2455 m",
+    "expected_md": 2455,
+    "expected_state": "unverified",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-038",
+    "kind": "extraction",
+    "source": "Event: mud_loss; MD: 24?0 m",
+    "expected_md": null,
+    "expected_state": "review_needed",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-039",
+    "kind": "extraction",
+    "source": "Event: stuck_pipe; MD: 2600-2500 m",
+    "expected_md": null,
+    "expected_state": "review_needed",
+    "dataset_origin": "synthetic_demo"
+  },
+  {
+    "id": "DEV-040",
+    "kind": "extraction",
+    "source": "Event: fishing; TVD: 2400 m",
+    "expected_md": null,
+    "expected_state": "review_needed",
+    "dataset_origin": "synthetic_demo"
+  }
+]

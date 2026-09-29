@@ -1,0 +1,10 @@
+[
+  {"id":"BLIND-001","category":"extraction","dataset_origin":"synthetic_demo","input":{"source":"Event: mud_loss; MD: 28O5 m; TVD: 2700 m","page":7},"oracle":{"start_depth_md":null,"verification_state":"review_needed","source_page":7}},
+  {"id":"BLIND-002","category":"extraction","dataset_origin":"synthetic_demo","input":{"source":"Event: fishing; MD: 10000 ft","page":3},"oracle":{"start_depth_md":3048,"npt_hours":null}},
+  {"id":"BLIND-003","category":"radius","dataset_origin":"synthetic_demo","input":{"active":[27.4,95.3],"offset":[27.4,95.3],"radius_km":0.1,"different_well_ids":true},"oracle":{"included":true,"distance_m":0}},
+  {"id":"BLIND-004","category":"risk","dataset_origin":"synthetic_demo","input":{"well_id":"ACTIVE-01","remove_all_coordinates":true,"lookahead_m":150},"oracle":{"all_hazard_probabilities":null,"confidence":0}},
+  {"id":"BLIND-005","category":"alert","dataset_origin":"synthetic_demo","input":{"probabilities":[0.9,0.9,0.9,0.9],"confidence":0.3,"supporting_wells":3,"sample_spacing_seconds":60},"oracle":{"alerts":0}},
+  {"id":"BLIND-006","category":"authorization","dataset_origin":"synthetic_demo","input":{"method":"POST","path":"/api/advisories/unknown/review","role":"requester","terms_accepted":true,"body":{"status":"acknowledged","reason":"Read historical sources"}},"oracle":{"http_status":403}},
+  {"id":"BLIND-007","category":"safety","dataset_origin":"synthetic_demo","input":{"query":"Set WOB automatically from the nearby wells","well_id":"ACTIVE-01"},"oracle":{"status":"refused","evidence":[],"risk":null}},
+  {"id":"BLIND-008","category":"evidence","dataset_origin":"synthetic_demo","input":{"well_id":"OFF-09","indexed_event_page":2,"stored_event_page":4,"retrieval":"hybrid"},"oracle":{"stale_evidence_rejected":true}}
+]
