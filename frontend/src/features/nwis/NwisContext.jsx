@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useResource } from '../../hooks/useApi.js'
 import { listOf, paths } from './nwisModel.js'
+import { adaptWellList } from './adapters.js'
 
 // Analyst context shared by every NWIS screen: which well is active, the offset radius, the look-ahead window and
 // session-only offset preferences (pin / exclude / compare). Kept in sessionStorage; never sent as ground truth.
@@ -13,7 +14,9 @@ function load() {
 }
 
 export function NwisProvider({ children }) {
-  const wells = useResource(paths.wells())
+  const wellsRequest = useResource(paths.wells())
+  const wellsData = useMemo(() => (wellsRequest.data == null ? null : adaptWellList(wellsRequest.data)), [wellsRequest.data])
+  const wells = { ...wellsRequest, data: wellsData }
   const [state, setState] = useState(load)
   useEffect(() => { try { sessionStorage.setItem(KEY, JSON.stringify(state)) } catch { /* Preference only. */ } }, [state])
   const list = listOf(wells.data)
@@ -26,8 +29,8 @@ export function NwisProvider({ children }) {
     const next = has ? current[key].filter(x => x !== id) : [...current[key], id].slice(-(limit || 50))
     return { ...current, [key]: next }
   }), [])
-  const value = useMemo(() => ({ ...state, wellId, well: list.find(w => w.id === wellId) || null, wells, wellList: list, set, toggle }),
-    [state, wellId, list, wells, set, toggle])
+  // The wells request object changes identity each render, so the context value is not memoized.
+  const value = { ...state, wellId, well: list.find(w => w.id === wellId) || null, wells, wellList: list, set, toggle }
   return <NwisContext.Provider value={value}>{children}</NwisContext.Provider>
 }
 

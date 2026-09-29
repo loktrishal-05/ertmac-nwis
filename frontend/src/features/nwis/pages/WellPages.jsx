@@ -1,10 +1,10 @@
 import { Fragment, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { Icon, PageHeader } from '../../../components/ui.jsx'
-import { useResource } from '../../../hooks/useApi.js'
-import { PRIMARY_HAZARDS, SCORE_COMPONENTS, closestExplanation, fmtKm, fmtM, fmtPct, fmtScore, humanize, listOf, paths, telemetrySeries } from '../nwisModel.js'
+import { PRIMARY_HAZARDS, SCORE_COMPONENTS, closestExplanation, fmtKm, fmtM, fmtPct, fmtScore, humanize, listOf, paths } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
-import { useEventsFor, useNearby, useRisk } from '../hooks.js'
+import { useEventsFor, useNearby, useNwisResource, useRisk } from '../hooks.js'
+import { adaptCorrelation, adaptTelemetry, adaptWell, adaptWellList } from '../adapters.js'
 import CorrelationTracks from '../CorrelationTracks.jsx'
 import { DataQualityBadge, DrillingEventChip, EventDots, EvidenceDrawer, LookaheadControl, NwisState, OffsetScoreBreakdown, RiskCard, ScoreBar, Sparkline, SyntheticDataBadge, VerificationBadge, WellContextBar } from '../components.jsx'
 import { Panel } from './OverviewPages.jsx'
@@ -16,7 +16,7 @@ export function WellsPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
-  const wells = useResource(paths.wells({ q: q.trim() || undefined, status: status || undefined }))
+  const wells = useNwisResource(paths.wells({ q: q.trim() || undefined, status: status || undefined }), adaptWellList)
   const list = listOf(wells.data)
   return <>
     <PageHeader title="Well catalogue" description="Wells known to NWIS with location, trajectory class and record quality. Filtering happens on the server." />
@@ -38,8 +38,8 @@ export function WellsPage() {
 }
 
 function TelemetryStrip({ wellId }) {
-  const telemetry = useResource(paths.telemetry(wellId, { window_s: 1800 }))
-  const series = telemetrySeries(telemetry.data)
+  const telemetry = useNwisResource(paths.telemetry(wellId, { window_s: 1800 }), adaptTelemetry)
+  const series = telemetry.data?.series ?? []
   if (!telemetry.data) return <NwisState request={telemetry} what="telemetry" />
   return <>
     <p className="nw-live-flag"><span className="nw-badge nw-replay">{telemetry.data.mode === 'live' ? 'LIVE' : 'SIMULATED / REPLAY DATA'}</span><span className="muted small">Latest value per channel the backend provides · <Link to="/app/live">Live drilling</Link></span></p>
@@ -80,13 +80,14 @@ function ActiveCockpit({ well }) {
   const nearby = useNearby({ wellId: well.id })
   const [why, setWhy] = useState(null)
   const hazards = PRIMARY_HAZARDS.map(t => risk.hazards.find(h => h.type === t)).filter(Boolean).concat(risk.hazards.filter(h => !PRIMARY_HAZARDS.includes(h.type)))
-  const evidenceTotal = hazards.reduce((n, h) => n + h.evidenceCount, 0)
+  const counts = hazards.map(h => h.evidenceCount).filter(n => n != null)
+  const evidenceTotal = counts.length ? counts.reduce((a, b) => a + b, 0) : null
   return <>
     <Panel title="Telemetry" data={well}><TelemetryStrip wellId={well.id} /></Panel>
     <Panel title={`Current hazards · next ${lookahead} m`} data={risk.request.data} action={<LookaheadControl />}>
       <NwisState request={risk.request} what="the risk look-ahead" />
       {hazards.length > 0 && <>
-        <p className="muted small">{evidenceTotal} evidence records across {hazards.length} hazards · model {risk.request.data?.model_version || 'not reported'}</p>
+        <p className="muted small">{evidenceTotal == null ? 'Evidence count not reported' : `${evidenceTotal} evidence records`} across {hazards.length} hazards · model {risk.request.data?.model_version || 'not reported'}</p>
         <div className="nw-risk-grid">{hazards.map(h => <RiskCard key={h.type} hazard={h} lookahead={lookahead} onWhy={setWhy} compact />)}</div></>}
     </Panel>
     <div className="nw-dash-grid">
@@ -108,7 +109,7 @@ function ActiveCockpit({ well }) {
 export function WellCockpitPage() {
   const { id } = useParams()
   const { wellId, set } = useNwis()
-  const well = useResource(paths.well(id))
+  const well = useNwisResource(paths.well(id), adaptWell)
   const w = well.data
   return <>
     <PageHeader title={w?.name || id} description={w ? `${w.field || 'Field not recorded'} · ${humanize(w.status)} · ${humanize(w.well_type)} · ${w.trajectory_type || 'trajectory unknown'}` : 'Well record'}
@@ -186,7 +187,7 @@ export function OffsetAnalysisPage() {
 export function CorrelationPage() {
   const { wellId, lookahead, compare, toggle } = useNwis()
   const nearby = useNearby({ radiusKm: 20 })
-  const correlation = useResource(wellId ? paths.correlation(wellId, { offsets: compare, lookahead_m: lookahead, depth_ref: 'tvd' }) : null)
+  const correlation = useNwisResource(wellId ? paths.correlation(wellId, { offsets: compare, lookahead_m: lookahead, depth_ref: 'tvd' }) : null, adaptCorrelation)
   const shown = (correlation.data?.tracks || []).filter(t => t.role !== 'active').map(t => t.well_id)
   return <>
     <PageHeader title="Formation correlation" description="Active well and selected offsets on one TVD axis, with formation intervals, drilling events, casing points and the look-ahead window. Interpreted intervals are hatched; unknown tops are marked." />

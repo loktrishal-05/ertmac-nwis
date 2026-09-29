@@ -10,6 +10,7 @@ export function NwisState({ request, what = 'this data', empty }) {
   if (request.error) {
     const { status, message } = request.error
     if (status === 404) return <div className="state state-empty"><strong>Not available</strong><p>{message}</p></div>
+    if (status === 409) return <ErrorState title="The record changed" message={`${message} Refresh to see the current state before acting again.`} onRetry={request.refresh} />
     if (status === 401 || status === 403) return <ErrorState title="Access restricted" message={message} />
     return <ErrorState title={`NWIS backend unavailable for ${what}`} onRetry={request.refresh}
       message={`${message} No values are shown until the NWIS API responds (integration dependency).`} />
@@ -120,9 +121,10 @@ export function TrendBadge({ trend }) {
 
 export function ContributionSplit({ historical, telemetry }) {
   if (historical == null && telemetry == null) return null
-  const h = Math.round((historical ?? 0) * 100), t = Math.round((telemetry ?? 0) * 100)
-  return <div className="nw-split"><span className="nw-split-bar" aria-hidden="true"><span style={{ width: `${h}%` }} /><span style={{ width: `${t}%` }} /></span>
-    <span className="nw-split-legend"><span><i data-k="h" />Historical offsets {h}%</span><span><i data-k="t" />Live telemetry {t}%</span></span></div>
+  const pct = v => (v == null ? null : Math.round(v * 100))
+  const h = pct(historical), t = pct(telemetry)
+  return <div className="nw-split"><span className="nw-split-bar" aria-hidden="true"><span style={{ width: `${h ?? 0}%` }} /><span style={{ width: `${t ?? 0}%` }} /></span>
+    <span className="nw-split-legend"><span><i data-k="h" />Historical offsets {h == null ? 'not reported' : `${h}%`}</span><span><i data-k="t" />Live telemetry {t == null ? 'not reported' : `${t}%`}</span></span></div>
 }
 
 export function RiskCard({ hazard, lookahead, onWhy, compact = false }) {
@@ -135,7 +137,7 @@ export function RiskCard({ hazard, lookahead, onWhy, compact = false }) {
     {!compact && hazard.series.length > 1 && <Sparkline values={hazard.series.map(p => p.probability)} label={`${hazardLabel(hazard.type)} probability trend: ${hazard.series.map(p => fmtPct(p.probability)).join(', ')}`} />}
     <dl className="nw-risk-facts">
       <div><dt>Supporting wells</dt><dd>{hazard.wells.length ? hazard.wells.join(', ') : 'None'}</dd></div>
-      <div><dt>Evidence</dt><dd>{hazard.evidenceCount} record{hazard.evidenceCount === 1 ? '' : 's'}</dd></div>
+      <div><dt>Evidence</dt><dd>{hazard.evidenceCount == null ? 'Not reported' : `${hazard.evidenceCount} record${hazard.evidenceCount === 1 ? '' : 's'}`}</dd></div>
       {!compact && <div><dt>Top factors</dt><dd>{hazard.factors.length ? hazard.factors.map(humanize).join(' · ') : '—'}</dd></div>}
       <div><dt>Telemetry freshness</dt><dd>{hazard.freshnessS == null ? 'Historical only' : fmtAge(hazard.freshnessS)}</dd></div>
     </dl>
@@ -175,7 +177,7 @@ export function EvidenceDrawer({ hazard, risk, offsets = [], onClose }) {
           <div className="nw-evidence-top"><DrillingEventChip type={e.type} severity={e.severity} /><strong>{e.well_id}</strong><span>{fmtM(e.depth_tvd_m)} TVD · {fmtM(e.depth_md_m)} MD</span><span>{e.formation || 'Formation unknown'}</span><VerificationBadge state={e.verification} /></div>
           <blockquote>“{e.raw_observation}”</blockquote>
           <p className="nw-cite"><Icon name="book" size={14} />{e.source?.report_id} · page {e.source?.page ?? '—'} · extraction confidence {fmtPct(e.confidence)}</p></li>)}</ol>
-          : <p className="muted">{hazard.evidenceCount ? `${hazard.evidenceCount} evidence IDs returned without detail: ${hazard.evidenceIds.join(', ')}` : 'No evidence records returned.'}</p>}
+          : <p className="muted">{hazard.evidenceIds.length ? `${hazard.evidenceIds.length} evidence IDs returned without detail: ${hazard.evidenceIds.join(', ')}` : 'No evidence records returned.'}</p>}
       </section>
       <section><h3>Live telemetry features</h3>
         {hazard.telemetryFeatures.length ? <ul>{hazard.telemetryFeatures.map(f => <li key={f}>{f}</li>)}</ul> : <p className="muted">No telemetry contribution to this assessment.</p>}

@@ -38,3 +38,14 @@ Unknown paths (for example `/health`) fall through to the real backend, so backe
 
 Nothing in the fixtures is Oil India data. The values mirror the master report's synthetic demo design (§42) and exist only so the
 screens can be built and browser-tested before the Codex backend lands.
+
+## Dev fixtures vs schema samples vs production
+
+| | Dev fixtures (`fixtures.js`) | Schema samples (`contractSamples.js`) |
+|---|---|---|
+| Purpose | click through the UI before the backend exists | contract/render tests (full + sparse/null variants) |
+| Loaded by | `services/api.js`, only when `DEV && VITE_NWIS_FIXTURES=1` | tests only |
+| In production bundle | never (`npm run verify:dist` fails the check if they appear) | never |
+
+If a production API call fails, the screen shows an unavailable/error state; there is no fixture fallback
+(`services/api.test.js` pins the gate and the no-fallback behaviour; `contract.test.js` keeps fixtures in sync with the contract).

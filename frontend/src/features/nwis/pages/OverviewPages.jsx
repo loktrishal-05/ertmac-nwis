@@ -1,10 +1,10 @@
 import { Suspense, lazy, useState } from 'react'
 import { Link } from 'react-router'
 import { PageHeader } from '../../../components/ui.jsx'
-import { useResource } from '../../../hooks/useApi.js'
 import { HAZARDS, PRIMARY_HAZARDS, eventMatrix, fmtAge, fmtKm, fmtM, fmtPct, fmtScore, freshness, hazardLabel, humanize, listOf, paths } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
-import { useEventsFor, useNearby, useNow, useRisk } from '../hooks.js'
+import { useEventsFor, useNearby, useNow, useNwisResource, useRisk } from '../hooks.js'
+import { adaptAdvisoryList, adaptTelemetry } from '../adapters.js'
 import { DataQualityBadge, DrillingEventChip, NwisState, OffsetScoreBreakdown, RiskCard, SyntheticDataBadge, WellContextBar } from '../components.jsx'
 
 const NearbyMap = lazy(() => import('../NearbyMap.jsx'))
@@ -22,8 +22,8 @@ export function DashboardPage() {
   const { well, wellId, lookahead, radiusKm, wells } = useNwis()
   const risk = useRisk()
   const nearby = useNearby()
-  const advisories = useResource(wellId ? paths.advisories({ well_id: wellId }) : null)
-  const telemetry = useResource(wellId ? paths.telemetry(wellId, { window_s: 600 }) : null)
+  const advisories = useNwisResource(wellId ? paths.advisories({ well_id: wellId }) : null, adaptAdvisoryList)
+  const telemetry = useNwisResource(wellId ? paths.telemetry(wellId, { window_s: 600 }) : null, adaptTelemetry)
   const offsetIds = nearby.offsets.map(o => o.id)
   const history = useEventsFor(offsetIds.length ? offsetIds : null, { limit: 500 })
   const usable = nearby.offsets.filter(o => (o.total ?? 0) >= 0.55)

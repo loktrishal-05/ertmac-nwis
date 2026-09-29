@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router'
 import { Icon, PageHeader } from '../../../components/ui.jsx'
 import { apiRequest } from '../../../services/api.js'
 import { useRequest, useResource } from '../../../hooks/useApi.js'
+import { useNwisResource } from '../hooks.js'
+import { adaptAdvisoryList, adaptAuditList, adaptEventList } from '../adapters.js'
 import { auditLabel, fmtM, fmtPct, hazardLabel, humanize, isNwisAudit, listOf, paths, safeDetails } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
 import { DrillingEventChip, NwisState, SyntheticDataBadge } from '../components.jsx'
@@ -46,7 +48,7 @@ function AdvisoryReview({ advisory, onDone }) {
 }
 
 function AdvisoryDetail({ advisory, onDone }) {
-  const evidence = useResource(advisory.evidence_ids?.length ? paths.events({ ids: advisory.evidence_ids.join(',') }) : null)
+  const evidence = useNwisResource(advisory.evidence_ids.length ? paths.events({ ids: advisory.evidence_ids.join(',') }) : null, adaptEventList)
   const interval = advisory.interval_md_m
   return <article className="nw-advisory" aria-labelledby="adv-h">
     <header><p className="nw-eyebrow">{advisory.id} · {advisory.well_id}</p><h2 id="adv-h">{hazardLabel(advisory.hazard)}</h2>
@@ -70,7 +72,7 @@ export function AdvisoriesPage() {
   const { wellId } = useNwis()
   const [params, setParams] = useSearchParams()
   const [status, setStatus] = useState('')
-  const advisories = useResource(paths.advisories({ well_id: wellId || undefined, status: status || undefined }))
+  const advisories = useNwisResource(paths.advisories({ well_id: wellId || undefined, status: status || undefined }), adaptAdvisoryList)
   const list = listOf(advisories.data)
   const selected = list.find(a => a.id === params.get('id')) || list[0] || null
   return <>
@@ -89,7 +91,7 @@ export function AdvisoriesPage() {
 
 // ── Audit: existing tamper-evident chain, with NWIS event types made readable. Paths and secrets are never shown. ──
 export function NwisAuditPage() {
-  const log = useResource(paths.audit())
+  const log = useNwisResource(paths.audit(), adaptAuditList)
   const verify = useResource('/audit/verify')
   const all = listOf(log.data)
   const hasNwis = all.some(e => isNwisAudit(e.event_type))

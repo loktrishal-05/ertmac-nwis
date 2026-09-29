@@ -43,9 +43,12 @@ export async function apiRequest(path, { signal, method = 'GET', body, timeout =
   }
 }
 
+const HEALTHY_STATUS = new Set(['ok', 'healthy', 'up'])
+
 export async function getBackendHealth(signal) {
   const health = await apiRequest('/health', { signal, timeout: 5000 })
-  if (health.status !== 'ok' || health.service !== 'sovereign-agentic-workbench-backend') {
+  // Healthy = HTTP success + a healthy status field. The service name is not checked, so a rebrand to eRTMAC-NWIS is safe.
+  if (!HEALTHY_STATUS.has(String(health?.status ?? '').toLowerCase())) {
     throw new Error('Unexpected backend health response')
   }
   return health

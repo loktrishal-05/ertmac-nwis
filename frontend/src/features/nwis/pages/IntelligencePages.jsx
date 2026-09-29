@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Icon, PageHeader } from '../../../components/ui.jsx'
 import { TimeSeriesChart } from '../../../components/charts.jsx'
-import { useRequest, useResource } from '../../../hooks/useApi.js'
-import { HAZARDS, LOOKAHEAD_M, PRIMARY_HAZARDS, fmtAge, fmtM, fmtPct, freshness, groupResults, hazardLabel, humanize, listOf, normalizeHazard, paths, riskLevel, telemetrySeries } from '../nwisModel.js'
+import { useRequest } from '../../../hooks/useApi.js'
+import { HAZARDS, LOOKAHEAD_M, PRIMARY_HAZARDS, fmtAge, fmtM, fmtPct, freshness, hazardLabel, humanize, listOf, paths, riskLevel } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
-import { useNearby, useNow, usePolling, useRisk } from '../hooks.js'
+import { useNearby, useNow, useNwisResource, usePolling, useRisk } from '../hooks.js'
+import { adaptEventList, adaptQuery, adaptRisk, adaptTelemetry, groupResults } from '../adapters.js'
 import { DrillingEventChip, EvidenceDrawer, NwisState, RiskCard, SyntheticDataBadge, VerificationBadge, WellContextBar } from '../components.jsx'
 import { Panel } from './OverviewPages.jsx'
 
@@ -32,7 +33,7 @@ export function EventsPage() {
   const { wellList } = useNwis()
   const [params, setParams] = useSearchParams()
   const [f, setF] = useState({ well_id: params.get('well') || '', formation: '', type: '', severity: '', depth_min: '', depth_max: '' })
-  const events = useResource(paths.events({ ...f, limit: 100 }))
+  const events = useNwisResource(paths.events({ ...f, limit: 100 }), adaptEventList)
   const list = listOf(events.data)
   const formations = [...new Set(wellList.flatMap(w => (w.formations || []).map(x => x.name)))]
   const update = (key, value) => { setF(current => ({ ...current, [key]: value })); if (key === 'well_id') setParams(value ? { well: value } : {}, { replace: true }) }
@@ -55,12 +56,12 @@ export function EventsPage() {
 
 // ── Risk look-ahead (flagship) ──
 function LookaheadProfile({ wellId }) {
-  const r50 = useResource(wellId ? paths.risk(wellId, 50) : null)
-  const r100 = useResource(wellId ? paths.risk(wellId, 100) : null)
-  const r150 = useResource(wellId ? paths.risk(wellId, 150) : null)
+  const r50 = useNwisResource(wellId ? paths.risk(wellId, 50) : null, adaptRisk)
+  const r100 = useNwisResource(wellId ? paths.risk(wellId, 100) : null, adaptRisk)
+  const r150 = useNwisResource(wellId ? paths.risk(wellId, 150) : null, adaptRisk)
   const all = [r50, r100, r150]
   if (all.some(r => !r.data)) return all.some(r => r.error) ? <p className="muted small">Look-ahead profile unavailable.</p> : null
-  const byWindow = all.map(r => Object.fromEntries((r.data.hazards || []).map(normalizeHazard).map(h => [h.type, h])))
+  const byWindow = all.map(r => Object.fromEntries(r.data.hazards.map(h => [h.type, h])))
   const types = PRIMARY_HAZARDS.filter(t => byWindow.some(w => w[t]))
   return <div className="table-scroll" tabIndex={0} role="region" aria-label="Risk by look-ahead distance"><table className="nw-profile">
     <caption>Probability (confidence) by look-ahead distance</caption>
@@ -97,13 +98,13 @@ export function RiskPage() {
 const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)']
 export function LivePage() {
   const { wellId } = useNwis()
-  const telemetry = useResource(wellId ? paths.telemetry(wellId, { window_s: 7200 }) : null)
+  const telemetry = useNwisResource(wellId ? paths.telemetry(wellId, { window_s: 7200 }) : null, adaptTelemetry)
   const [last, setLast] = useState(null)
   if (telemetry.data && telemetry.data !== last) setLast(telemetry.data) // keep the previous frame while refreshing
   usePolling(telemetry.refresh, 15000)
   const data = telemetry.data || last
-  const series = telemetrySeries(data)
-  const missing = (data?.channels || []).filter(c => !series.some(s => s.id === c.mnemonic))
+  const series = data?.series ?? []
+  const missing = data?.missing ?? []
   const now = useNow(5000)
   const fresh = freshness(data?.as_of, now, data?.stale_after_s || 120)
   const live = data?.mode === 'live'
@@ -138,13 +139,13 @@ const EXAMPLES = [
 ]
 function ResultItem({ item }) {
   const depth = item.depth_tvd_m != null ? `${fmtM(item.depth_tvd_m)} TVD` : item.depth_md_m != null ? `${fmtM(item.depth_md_m)} MD` : null
-  const page = item.page ?? item.source?.page
+  const page = item.page
   return <li className="nw-result">
     <header><strong>{item.title || item.event_id || item.report_id || item.well_id}</strong>
       <VerificationBadge state={item.verification} />{item.confidence != null && <span className="nw-badge">confidence {fmtPct(item.confidence)}</span>}</header>
     {item.excerpt && <blockquote>“{item.excerpt}”</blockquote>}
     {item.mitigation && <p className="small"><strong>Mitigation:</strong> {item.mitigation}</p>}
-    <p className="nw-cite"><Icon name="book" size={14} />{[item.source?.report_id || item.report_id, page != null ? `page ${page}` : null, item.well_id, depth, item.formation].filter(Boolean).join(' · ') || 'No source metadata returned'}</p>
+    <p className="nw-cite"><Icon name="book" size={14} />{[item.report_id, page != null ? `page ${page}` : null, item.well_id, depth, item.formation].filter(Boolean).join(' · ') || 'No source metadata returned'}</p>
   </li>
 }
 
@@ -153,7 +154,8 @@ export function KnowledgeSearchPage() {
   const [query, setQuery] = useState('')
   const [scoped, setScoped] = useState(true)
   const search = useRequest()
-  const groups = groupResults(search.data)
+  const result = search.data ? adaptQuery(search.data) : null
+  const groups = groupResults(result)
   const total = groups.well.length + groups.event.length + groups.report.length
   const run = text => search.run(paths.query, { method: 'POST', timeout: 120000, body: { query: text, well_id: scoped ? wellId : undefined, mode: 'nwis_evidence', request_id: crypto.randomUUID() } })
   return <>
@@ -167,9 +169,10 @@ export function KnowledgeSearchPage() {
       <div className="nw-examples"><span className="muted small">Try:</span>{EXAMPLES.map(x => <button key={x} type="button" className="ghost" onClick={() => { setQuery(x); run(x) }}>{x}</button>)}</div>
     </section>
     <NwisState request={search} what="knowledge search" />
-    {search.data && <>
-      <p className="nw-result-summary">{total} results{search.data.mode ? ` · ${search.data.mode}` : ''} <SyntheticDataBadge data={search.data} /></p>
-      {search.data.summary && <section className="panel nw-panel"><h2>Cited summary</h2><p>{search.data.summary}</p>{!search.data.citations?.length && <p className="api-error">No citations were returned with this summary; treat it as unsupported.</p>}</section>}
+    {result && !result.recognized && <div className="state state-error" role="alert"><strong>Unrecognised search response</strong><p>The backend answered, but not in the NWIS evidence format (no results list). Nothing is shown rather than guessing (integration dependency).</p></div>}
+    {result?.recognized && <>
+      <p className="nw-result-summary">{total} results{result.mode ? ` · ${result.mode}` : ''} <SyntheticDataBadge data={result} /></p>
+      {result.summary && <section className="panel nw-panel"><h2>Cited summary</h2><p>{result.summary}</p>{!result.citations.length && <p className="api-error">No citations were returned with this summary; treat it as unsupported.</p>}</section>}
       {!total && <div className="state state-empty"><strong>No matching evidence</strong><p>NWIS returned no cited records. It will not answer without evidence.</p></div>}
       <div className="nw-result-groups">{[['well', 'Wells'], ['event', 'Events'], ['report', 'Reports']].map(([key, label]) => groups[key].length > 0 && <section key={key} className="panel nw-panel" aria-labelledby={`rg-${key}`}>
         <h2 id={`rg-${key}`}>{label} <span className="muted small">{groups[key].length}</span></h2><ul className="nw-results">{groups[key].map((item, i) => <ResultItem key={`${key}-${i}`} item={item} />)}</ul></section>)}</div>

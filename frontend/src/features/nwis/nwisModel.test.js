@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { closestExplanation, freshness, groupResults, isSynthetic, listOf, normalizeHazard, paths, rankedOffsets, riskLevel, safeDetails, telemetrySeries } from './nwisModel.js'
+import { closestExplanation, freshness, isSynthetic, listOf, paths, riskLevel, safeDetails } from './nwisModel.js'
+import { adaptQuery, groupResults, normalizeHazard, rankedOffsets, telemetrySeries } from './adapters.js'
 import { fixtureResponse } from './fixtures.js'
 
 test('API paths are same-origin relative, encoded and never hard-code a host', () => {
@@ -33,6 +34,7 @@ test('risk levels never turn red without a backend-declared critical severity', 
   assert.equal(riskLevel(normalizeHazard({ type: 'kick_or_overpressure', probability: 0.2, severity: 'critical' })), 'critical')
   assert.equal(riskLevel(normalizeHazard({ type: 'mud_loss' })), 'unknown')
   assert.equal(normalizeHazard({ type: 'x', evidence_ids: ['a', 'b'] }).evidenceCount, 2)
+  assert.equal(normalizeHazard({ type: 'x' }).evidenceCount, null)
 })
 
 test('telemetry freshness and channels are never faked', () => {
@@ -48,7 +50,7 @@ test('telemetry freshness and channels are never faked', () => {
 })
 
 test('knowledge results group by well, event and report', () => {
-  const groups = groupResults({ results: [{ kind: 'well' }, { kind: 'event' }, { kind: 'event' }, { kind: 'mystery' }] })
+  const groups = groupResults(adaptQuery({ results: [{ kind: 'well' }, { kind: 'event' }, { kind: 'event' }, { kind: 'mystery' }] }))
   assert.deepEqual([groups.well.length, groups.event.length, groups.report.length], [1, 2, 1])
   assert.deepEqual(listOf(null), [])
 })

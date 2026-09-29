@@ -84,27 +84,7 @@ export const listOf = data => (Array.isArray(data) ? data : data?.items ?? data?
 export const num = value => (typeof value === 'number' && Number.isFinite(value) ? value : null)
 export const isSynthetic = data => data?.dataset_origin === SYNTHETIC || listOf(data).some(item => item?.dataset_origin === SYNTHETIC)
 
-export function normalizeOffset(item) {
-  const well = item.well || item
-  const components = item.components || item.component_scores || {}
-  return {
-    id: well.id ?? item.well_id,
-    name: well.name ?? well.id ?? item.well_id,
-    well,
-    distanceKm: num(item.distance_km),
-    total: num(item.total_score ?? item.score),
-    rank: num(item.rank),
-    components: Object.fromEntries(SCORE_COMPONENTS.map(([key]) => [key, num(components[key])])),
-    eventCounts: item.event_counts || {},
-    formationAtDepth: item.formation_at_depth ?? null,
-    note: item.note ?? null,
-  }
-}
 
-// Backend order is authoritative; `rank` falls back to it.
-export function rankedOffsets(data) {
-  return listOf(data).map(normalizeOffset).map((offset, index) => ({ ...offset, rank: offset.rank ?? index + 1 }))
-}
 
 // "Why is the closest well not the best analog?" Uses only backend distances and scores.
 export function closestExplanation(offsets) {
@@ -118,28 +98,6 @@ export function closestExplanation(offsets) {
   return { closest, top: offsets.find(o => o.rank === 1) || offsets[0], weakest }
 }
 
-export function normalizeHazard(h) {
-  const probability = num(h.probability)
-  return {
-    type: h.type ?? h.hazard,
-    probability,
-    confidence: num(h.confidence),
-    trend: h.trend ?? null,
-    severity: h.severity ?? null,
-    series: Array.isArray(h.trend_series) ? h.trend_series.filter(p => num(p?.probability) != null) : [],
-    wells: h.supporting_offset_wells || [],
-    factors: h.top_factors || [],
-    evidenceIds: h.evidence_ids || [],
-    evidenceCount: num(h.evidence_count) ?? (h.evidence_ids?.length || 0),
-    historical: num(h.historical_contribution),
-    telemetry: num(h.telemetry_contribution),
-    freshnessS: num(h.data_freshness_s),
-    telemetryFeatures: h.telemetry_features || [],
-    missing: h.missing_evidence || [],
-    confidenceNote: h.confidence_explanation ?? null,
-    advisoryId: h.advisory_id ?? null,
-  }
-}
 
 // Level describes probability only. Red is reserved for backend-declared critical severity.
 export function riskLevel(hazard) {
@@ -155,27 +113,7 @@ export function freshness(asOf, now = Date.now(), staleAfterS = 120) {
   return { state: ageS > staleAfterS ? 'stale' : 'fresh', ageS }
 }
 
-// Telemetry: one series per channel the backend declares AND actually has values for. Never fabricate channels.
-export function telemetrySeries(data) {
-  const samples = data?.samples || []
-  return (data?.channels || []).map(channel => ({
-    id: channel.mnemonic,
-    label: channel.label || channel.mnemonic,
-    unit: channel.unit || '',
-    quality: channel.quality ?? null,
-    points: samples.map(s => ({ t: Date.parse(s.t ?? s.time), v: s.values?.[channel.mnemonic], md: num(s.md_m) }))
-      .filter(p => Number.isFinite(p.t) && typeof p.v === 'number' && Number.isFinite(p.v)),
-  })).filter(series => series.points.length)
-}
 
-export function groupResults(data) {
-  const groups = { well: [], event: [], report: [] }
-  for (const item of listOf(data?.results ? data.results : data)) {
-    const kind = item.kind in groups ? item.kind : 'report'
-    groups[kind].push(item)
-  }
-  return groups
-}
 
 // Count events by formation × hazard for the dashboard distribution.
 export function eventMatrix(events) {

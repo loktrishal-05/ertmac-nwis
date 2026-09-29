@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "node --test \"src/**/*.test.js\""
+    "test": "node --test \"src/**/*.test.js\"",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "contract:check": "node scripts/nwis-contract-check.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

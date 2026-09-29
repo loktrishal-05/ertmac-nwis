@@ -1,29 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useResource } from '../../hooks/useApi.js'
-import { listOf, normalizeHazard, paths, rankedOffsets } from './nwisModel.js'
+import { paths } from './nwisModel.js'
+import { adaptEventList, adaptNearby, adaptRisk } from './adapters.js'
 import { useNwis } from './NwisContext.jsx'
+
+// Every NWIS read goes through an adapter: `data` is the canonical domain shape, never the raw response.
+// `adapt` must be a stable module-level function.
+export function useNwisResource(path, adapt) {
+  const request = useResource(path)
+  const data = useMemo(() => (request.data == null ? null : adapt(request.data)), [request.data, adapt])
+  return { ...request, data }
+}
 
 // Radius query for a well (default: the active context well). The backend filters and scores; we only pass parameters.
 export function useNearby({ filters = {}, radiusKm, wellId } = {}) {
   const context = useNwis()
   const id = wellId ?? context.wellId
-  const request = useResource(id ? paths.nearby(id, { radius_km: radiusKm ?? context.radiusKm, ...filters }) : null)
-  const offsets = useMemo(() => rankedOffsets(request.data), [request.data])
-  return { request, offsets }
+  const request = useNwisResource(id ? paths.nearby(id, { radius_km: radiusKm ?? context.radiusKm, ...filters }) : null, adaptNearby)
+  return { request, offsets: request.data?.items ?? [] }
 }
 
-export function useRisk(wellId) {
+export function useRisk(wellId, lookaheadOverride) {
   const context = useNwis()
   const id = wellId ?? context.wellId
-  const request = useResource(id ? paths.risk(id, context.lookahead) : null)
-  const hazards = useMemo(() => (request.data?.hazards || []).map(normalizeHazard), [request.data])
-  return { request, hazards }
+  const request = useNwisResource(id ? paths.risk(id, lookaheadOverride ?? context.lookahead) : null, adaptRisk)
+  return { request, hazards: request.data?.hazards ?? [] }
 }
 
 export function useEventsFor(wellIds, extra = {}) {
   const key = wellIds?.join(',')
-  const request = useResource(key ? paths.events({ well_id: key, ...extra }) : null)
-  return { request, events: listOf(request.data) }
+  const request = useNwisResource(key ? paths.events({ well_id: key, ...extra }) : null, adaptEventList)
+  return { request, events: request.data?.items ?? [] }
 }
 
 // Refresh while the tab is visible (live/replay telemetry). Bounded interval; no work in hidden tabs.

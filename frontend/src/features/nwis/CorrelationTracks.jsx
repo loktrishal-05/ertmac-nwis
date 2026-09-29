@@ -64,7 +64,7 @@ export default function CorrelationTracks({ data, height = 620 }) {
         {tracks.map((track, i) => <g key={track.well_id} className="nw-corr-track" data-role={track.role}>
           <text className="nw-corr-name" x={x(i) + trackW / 2} y={20} textAnchor="middle">{track.name || track.well_id}</text>
           <rect className="nw-corr-frame" x={x(i)} y={top} width={trackW} height={plotH} />
-          {(track.formations || []).filter(f => f.base > range[0] && f.top < range[1]).map(f => <g key={f.name}>
+          {(track.formations || []).filter(f => f.top != null && f.base != null && f.base > range[0] && f.top < range[1]).map(f => <g key={f.name}>
             <rect x={x(i)} y={y(f.top)} width={trackW} height={Math.max(1, y(f.base) - y(f.top))} fill={tone(f.name, names)} />
             {f.interpreted && <rect x={x(i)} y={y(f.top)} width={trackW} height={Math.max(1, y(f.base) - y(f.top))} fill="url(#nw-hatch)" />}
             {inRange(f.top) && <line className={`nw-corr-top${f.interpreted ? ' is-interpreted' : ''}`} x1={x(i)} x2={x(i) + trackW} y1={y(f.top)} y2={y(f.top)} />}
@@ -90,7 +90,7 @@ export default function CorrelationTracks({ data, height = 620 }) {
     <p className="nw-corr-legend muted small"><span className="lg-window" />Look-ahead window <span className="lg-bit" />Current bit depth <span className="lg-hatch" />Interpreted / low-confidence interval <span className="lg-td" />Below TD (no data) · ◣ casing shoe · “?” formation top unknown · hollow marker = unverified event</p>
     <details className="chart-data"><summary>View correlation as a table</summary>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="Correlation data"><table><thead><tr><th>Well</th><th>Formation</th><th>Top ({unit})</th><th>Base ({unit})</th><th>Confidence</th><th>Events in interval</th></tr></thead>
-        <tbody>{tracks.flatMap(t => (t.formations || []).map(f => <tr key={`${t.well_id}-${f.name}`}><td>{t.well_id}</td><td>{f.name}{f.interpreted ? ' (interpreted)' : ''}</td><td className="num">{Math.round(f.top)}</td><td className="num">{Math.round(f.base)}</td><td className="num">{f.confidence == null ? 'unknown' : fmtPct(f.confidence)}</td>
+        <tbody>{tracks.flatMap(t => (t.formations || []).map(f => <tr key={`${t.well_id}-${f.name}`}><td>{t.well_id}</td><td>{f.name}{f.interpreted ? ' (interpreted)' : ''}</td><td className="num">{f.top == null ? 'unknown' : Math.round(f.top)}</td><td className="num">{f.base == null ? 'unknown' : Math.round(f.base)}</td><td className="num">{f.confidence == null ? 'unknown' : fmtPct(f.confidence)}</td>
           <td>{(t.events || []).filter(e => e.depth >= f.top && e.depth < f.base).map(e => `${hazardLabel(e.type)} @ ${Math.round(e.depth)}`).join('; ') || '—'}</td></tr>))}</tbody></table></div>
     </details>
   </figure>
