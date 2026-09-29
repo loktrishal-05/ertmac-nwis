@@ -77,8 +77,8 @@ export function LoginPage() {
     } finally { setBusy(false) }
   }
   return <>
-    <AuthHeading title="Sign in">Local account on this Workbench. Your role is assigned by the server.</AuthHeading>
-    {session.status === 'unavailable' && <Notice>The Workbench backend is not responding. Sign-in will work once it is available.</Notice>}
+    <AuthHeading title="Sign in">Local account on this NWIS deployment. Your role is assigned by the server.</AuthHeading>
+    {session.status === 'unavailable' && <Notice>The NWIS backend is not responding. Sign-in will work once it is available.</Notice>}
     {location.state?.passwordReset && <p role="status">Password updated. All existing sessions were signed out. Sign in with your new password.</p>}
     <form onSubmit={submit}>
       <Field id="login-username" label="Email or username" value={username} onChange={event => setUsername(event.target.value)} autoComplete="username" required maxLength={254} />
@@ -125,7 +125,7 @@ export function SignUpPage() {
   )
   return <>
     <AuthHeading title="Create an account">New accounts always start with the requester role. Reviewer and admin roles are granted only by an administrator.</AuthHeading>
-    {!caps.loading && !caps.signup && <Notice>Self-service sign-up is not enabled on this Workbench. Ask your administrator to create an account for you.</Notice>}
+    {!caps.loading && !caps.signup && <Notice>Self-service sign-up is not enabled on this NWIS deployment. Ask your administrator to create an account for you.</Notice>}
     {/* Until the backend enables sign-up, the form stays a preview so nobody fills in fields that cannot be submitted. */}
     {caps.signup ? signupForm : <details className="auth-preview"><summary>Preview what sign-up will ask for</summary>{signupForm}</details>}
     {status && <p role="status">{status}</p>}
@@ -153,7 +153,7 @@ export function ForgotPasswordPage() {
   }
   return <>
     <AuthHeading title="Forgot your password?" />
-    {!caps.loading && !caps.email_recovery && <Notice>Email recovery is not available on this Workbench. {caps.admin_recovery ? <>Contact your Workbench administrator for a one-time recovery code, then <Link to="/verify-otp">enter it here</Link> with your email or legacy username.</> : 'Contact your Workbench administrator to restore access.'}</Notice>}
+    {!caps.loading && !caps.email_recovery && <Notice>Email recovery is not available on this NWIS deployment. {caps.admin_recovery ? <>Contact your NWIS administrator for a one-time recovery code, then <Link to="/verify-otp">enter it here</Link> with your email or legacy username.</> : 'Contact your NWIS administrator to restore access.'}</Notice>}
     {sent ? <p role="status">If this address belongs to an eligible verified account, recovery instructions will be sent. Codes expire after 10 minutes. <Link to="/verify-otp" state={{ identifier: normalizeEmail(email), resendAt }}>Enter recovery code</Link></p>
       : <form onSubmit={submit}><fieldset disabled={!caps.email_recovery || busy}>
         <Field id="forgot-email" label="Work email" type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required />
@@ -200,7 +200,7 @@ export function VerifyOtpPage() {
   }
   return <>
     <AuthHeading title="Enter your recovery code">Use the 6-digit code from your administrator or recovery email.</AuthHeading>
-    {!caps.loading && !enabled && <Notice>Recovery codes are not enabled on this Workbench yet. Your administrator can reset your access.</Notice>}
+    {!caps.loading && !enabled && <Notice>Recovery codes are not enabled on this NWIS deployment yet. Your administrator can reset your access.</Notice>}
     <form onSubmit={submit}><fieldset disabled={!enabled || busy}>
       <Field id="otp-email" label="Email or username" value={email} onChange={event => setEmail(event.target.value)} autoComplete="username" maxLength={254} required />
       <Field id="otp-code" label="6-digit code" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -269,7 +269,7 @@ export function OAuthCallbackPage() {
   }, [caps.google, status, reload, navigate])
   return <>
     <AuthHeading title="Google sign-in" />
-    {caps.loading ? <p role="status">Checking sign-in options…</p> : !caps.google ? <Notice>Google sign-in is not enabled on this Workbench. Confidential and offline deployments use local accounts only.</Notice>
+    {caps.loading ? <p role="status">Checking sign-in options…</p> : !caps.google ? <Notice>Google sign-in is not enabled on this NWIS deployment. Confidential and offline deployments use local accounts only.</Notice>
       : <p role="status">{error || (status === 'success' ? 'Confirming your session…' : status === 'pending_or_inactive' ? 'Your account requires administrator approval or activation.' : 'Google sign-in could not be completed. Please try again.')}</p>}
     <div className="auth-links"><Link to="/login">Sign in with a local account</Link></div>
   </>

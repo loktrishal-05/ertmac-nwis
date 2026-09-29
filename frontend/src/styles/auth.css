@@ -113,3 +113,10 @@
 .auth-preview { margin-top: var(--space-4); }
 .auth-preview > summary { color: #9fb2c9; font-size: var(--fs-sm); }
 .auth-preview[open] > summary { margin-bottom: var(--space-2); }
+
+/* eRTMAC-NWIS: procedural subsurface scene replaces the old footage; the brand is an inline SVG wordmark. */
+.auth-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.auth-shell { background: radial-gradient(110% 70% at 70% 20%, #06244a 0%, #01060f 60%); }
+.auth-brand { color: #f2f7fc; text-decoration: none; }
+.auth-brand .brand-sub { color: #9fb2c9; }
+@media (max-width: 640px) { .auth-brand .brand-sub { display: none; } }

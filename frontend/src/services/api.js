@@ -1,7 +1,16 @@
 // Same-origin by default (Vite proxy in development, site reverse proxy in production).
 export const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
 
+// Development-only NWIS fixtures (synthetic_demo). Both conditions are required, and Vite folds `DEV` to false in
+// production builds, so the fixture module is never bundled or reachable there. The shell shows a banner when on.
+export const FIXTURE_MODE = !!(import.meta.env?.DEV && import.meta.env?.VITE_NWIS_FIXTURES === '1')
+
 export async function apiRequest(path, { signal, method = 'GET', body, timeout = 30000 } = {}) {
+  if (FIXTURE_MODE) {
+    const { fixtureResponse } = await import('../features/nwis/fixtures.js')
+    const data = fixtureResponse(path, { method, body })
+    if (data !== undefined) return structuredClone(data)
+  }
   const controller = new AbortController()
   const abort = () => controller.abort()
   signal?.addEventListener('abort', abort, { once: true })

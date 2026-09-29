@@ -291,3 +291,9 @@ button.danger:hover:not(:disabled) { border-color: var(--danger); background: co
 .shell, .shell * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-faint) 45%, transparent) transparent; }
 .shell ::selection { background: color-mix(in srgb, var(--ai) 22%, transparent); color: var(--text); }
 .shell a { text-underline-offset: 3px; }
+
+/* ── eRTMAC-NWIS shell notices: dev fixture mode and legacy SIH26117 screens ── */
+.shell-banner { margin: calc(-1 * var(--space-3)) 0 var(--space-5); padding: var(--space-2) var(--space-4); border: 1px solid var(--line-strong); border-left: 5px solid var(--text-faint); border-radius: var(--radius-md); background: var(--surface-2); color: var(--text-muted); font-size: var(--fs-sm); }
+.shell-banner.is-fixture { border-left-color: var(--human); background: color-mix(in srgb, var(--human) 8%, var(--surface-1)); color: var(--text); }
+.shell-banner + .shell-banner { margin-top: 0; }
+.pill-fixture { border-color: var(--human); color: var(--human); font-weight: 800; letter-spacing: 0.06em; }

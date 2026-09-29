@@ -4,6 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
 import { createServer } from 'vite'
+import { readFileSync } from 'node:fs'
 import { authMediaSources, capabilitiesFrom, passwordValid, playbackMode, readMediaEnvironment, recoveryIdentifier, validateEmail, validateName, validateOtp } from './authModel.js'
 
 const vite = () => createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true, entries: [] }, esbuild: { jsx: 'automatic' } })
@@ -47,16 +48,15 @@ test('account form validation and capability defaults are honest', () => {
   assert.deepEqual(recoveryIdentifier(' legacy_user '), { username: 'legacy_user' })
 })
 
-test('backdrop renders poster-only fallback and a silent decorative video; sign-up stays disabled without the backend', async () => {
+test('auth backdrop is a decorative subsurface canvas (no footage); sign-up stays disabled without the backend', async () => {
   const server = await vite()
   try {
-    const { AuthBackdrop } = await server.ssrLoadModule('/src/features/auth/AuthLayout.jsx')
-    const media = authMediaSources('login')
-    const poster = renderToStaticMarkup(createElement(AuthBackdrop, { media, mode: 'poster' }))
-    assert.ok(poster.includes('auth-bg-01-poster.webp') && !poster.includes('<video'))
-    assert.match(poster, /aria-hidden="true"/)
-    const video = renderToStaticMarkup(createElement(AuthBackdrop, { media, mode: 'video' })).toLowerCase()
-    for (const attribute of ['autoplay', 'muted', 'loop', 'playsinline', 'poster="/assets/auth/auth-bg-01-poster.webp"']) assert.ok(video.includes(attribute), attribute)
+    const { default: SubsurfaceCanvas } = await server.ssrLoadModule('/src/features/landing/SubsurfaceCanvas.jsx')
+    const scene = renderToStaticMarkup(createElement(SubsurfaceCanvas, { className: 'auth-scene' }))
+    assert.match(scene, /<canvas class="auth-scene" aria-hidden="true">/)
+    const layout = readFileSync(new URL('./AuthLayout.jsx', import.meta.url), 'utf8')
+    assert.ok(!layout.includes('<video') && !layout.includes('/assets/auth/'), 'auth no longer ships the old footage')
+    assert.match(layout, /Pause background animation/)
 
     const { SignUpPage, OAuthCallbackPage } = await server.ssrLoadModule('/src/features/auth/AuthPages.jsx')
     const page = component => renderToStaticMarkup(createElement(MemoryRouter, null, createElement(component)))
@@ -67,14 +67,17 @@ test('backdrop renders poster-only fallback and a silent decorative video; sign-
   } finally { await server.close() }
 })
 
-test('landing tells the honest story without video and starts without motion', async () => {
+test('landing tells the honest NWIS story without video and starts without motion', async () => {
   const server = await vite()
   try {
     const { default: LandingPage } = await server.ssrLoadModule('/src/features/landing/LandingPage.jsx')
     const html = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(LandingPage)))
-    for (const id of ['hero', 'scattered', 'unify', 'workflow', 'reveal', 'pid', 'maintenance', 'governance', 'voice', 'sovereignty', 'ecosystem', 'enter']) assert.ok(html.includes(`id="${id}"`), id)
+    for (const id of ['hero', 'reports', 'nearby', 'correlation', 'telemetry', 'lookahead', 'evidence', 'architecture', 'enter']) assert.ok(html.includes(`id="${id}"`), id)
     assert.ok(!html.includes('<video'))
-    assert.match(html, /not automatically air-gapped/)
+    assert.match(html, /eRTMAC sees the live well/)
+    assert.ok(html.includes("Designed for Oil India / eRTMAC workflows"))
+    assert.equal(html.replaceAll('not deployed at Oil India', '').includes('deployed at Oil India'), false, 'never claims deployment')
+    assert.match(html, /synthetic/i)
     assert.equal(html.replaceAll('not tamper-proof', '').toLowerCase().includes('tamper-proof'), false)
     // Static, fully readable markup; animation is added client-side only when reduced motion is off.
     assert.match(html, /<div class="landing" data-theme="dark">/)

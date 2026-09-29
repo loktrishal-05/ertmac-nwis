@@ -7,7 +7,8 @@ import { CommandPalette } from '../features/command/CommandPalette.jsx'
 import '../styles/workbench.css'
 import { LanguageSelector } from '../ProductPages.jsx'
 import { useBackendHealth } from '../hooks/useBackendHealth.js'
-import { useResource } from '../hooks/useApi.js'
+import { FIXTURE_MODE } from '../services/api.js'
+import { NwisProvider } from '../features/nwis/NwisContext.jsx'
 import { useLanguage } from '../language.js'
 
 const THEME_KEY = 'workbench-theme'
@@ -28,19 +29,19 @@ export default function AppShell() {
   const matches = useMatches()
   const { t } = useLanguage()
   const { status } = useBackendHealth()
-  const proof = useResource('/sovereignty/proof')
   const [navOpen, setNavOpen] = useState(false)
   const [theme, toggleTheme] = useTheme()
   const main = useRef(null)
   const toggle = useRef(null)
   const menu = useRef(null)
-  const title = [...matches].reverse().find(match => match.handle?.title)?.handle.title || 'Workbench'
+  const title = [...matches].reverse().find(match => match.handle?.title)?.handle.title || 'eRTMAC-NWIS'
+  const legacy = matches.some(match => match.handle?.legacy)
 
   // Route change: announce the page and move focus to its heading. Links close the drawer themselves.
   useEffect(() => {
     // Title follows what actually rendered, so a guarded route reads "Access restricted", not its own name.
     const heading = main.current?.querySelector('[data-page-title]')
-    document.title = `${heading?.textContent || title} · Sovereign AI Workbench`
+    document.title = `${heading?.textContent || title} · eRTMAC-NWIS`
     ;(heading || main.current)?.focus({ preventScroll: true })
     if (menu.current) menu.current.open = false
   }, [location.pathname, title])
@@ -92,12 +93,12 @@ export default function AppShell() {
       <button type="button" ref={toggle} className="icon-button nav-toggle" aria-expanded={navOpen} aria-controls="shell-nav"
         aria-label={navOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setNavOpen(value => !value)}>
         <Icon name={navOpen ? 'close' : 'menu'} /></button>
-      <Link to="/app/dashboard" className="shell-brand" aria-label="Sovereign AI Workbench dashboard"><Logo variant="horizontal" decorative /></Link>
+      <Link to="/app/dashboard" className="shell-brand" aria-label="eRTMAC-NWIS dashboard"><Logo variant="horizontal" decorative /></Link>
       <button type="button" className="search-trigger" onClick={() => setPaletteOpen(true)} aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}>
         <Icon name="search" size={17} /><span>Jump to…</span><kbd>{isMac ? '⌘' : 'Ctrl'} K</kbd></button>
       <div className="topbar-status">
         <span className={`pill health-${status.toLowerCase()}`} role="status"><span className="dot" aria-hidden="true" />Backend {status.toLowerCase()}</span>
-        <span className="pill" title="Hosted AI calls observed by this backend process"><strong>{proof.data?.external_ai_calls ?? '—'}</strong> hosted AI calls</span>
+        {FIXTURE_MODE && <span className="pill pill-fixture" title="Development fixtures: synthetic_demo responses served by the frontend">DEV FIXTURES</span>}
       </div>
       <div className="topbar-actions">
         <LanguageSelector />
@@ -114,17 +115,21 @@ export default function AppShell() {
         </details>
       </div>
     </header>
-    <nav id="shell-nav" className="shell-nav" aria-label="Workbench">
+    <nav id="shell-nav" className="shell-nav" aria-label="eRTMAC-NWIS">
       {navigationFor(role).map(section => <div className="nav-group" key={section.group}>
         <p className="nav-label">{section.group}</p>
         <ul>{section.items.map(item => <li key={item.path}>
-          <NavLink to={`/app/${item.path}`} end={item.path === 'workspace'} className="nav-link" viewTransition onClick={() => setNavOpen(false)}><Icon name={item.icon} />{t(item.label)}</NavLink>
+          <NavLink to={`/app/${item.path}`} end={!!item.end} className="nav-link" viewTransition onClick={() => setNavOpen(false)}><Icon name={item.icon} />{t(item.label)}</NavLink>
         </li>)}</ul>
       </div>)}
-      <div className="nav-note"><Icon name="shield" /><p><strong>On-premise by design.</strong> Local inference; recommendations are advisory and never operate equipment.</p></div>
+      <div className="nav-note"><Icon name="shield" /><p><strong>Decision support only.</strong> NWIS advisories never operate rig equipment or change drilling parameters; engineers decide.</p></div>
     </nav>
     <button type="button" className="nav-scrim" aria-hidden="true" tabIndex={-1} onClick={() => setNavOpen(false)} />
-    <main id="main" ref={main} tabIndex={-1} className="shell-main"><Outlet /></main>
+    <main id="main" ref={main} tabIndex={-1} className="shell-main">
+      {FIXTURE_MODE && <p className="shell-banner is-fixture" role="note"><strong>DEV FIXTURE MODE.</strong> NWIS data on these screens comes from frontend development fixtures (synthetic_demo), not from the NWIS backend. Production builds never include fixtures.</p>}
+      {legacy && <p className="shell-banner" role="note"><strong>Legacy SIH26117 screen.</strong> Retained for regression only; not part of eRTMAC-NWIS. <Link to="/app/dashboard">Back to the NWIS dashboard</Link></p>}
+      <NwisProvider><Outlet /></NwisProvider>
+    </main>
     <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
   </div>
 }
