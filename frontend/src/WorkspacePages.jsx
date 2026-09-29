@@ -59,30 +59,6 @@ export function Result({ data }) {
   </div>
 }
 
-export function Dashboard({ proof, health, user }) {
-  const ready = useResource('/ready')
-  const agents = useResource('/agents/status')
-  const reviewer = ['reviewer', 'admin'].includes(user?.role)
-  const approvals = useResource(reviewer ? '/approvals' : null)
-  const metrics = [
-    ['Backend', health, 'Process liveness'], ['Readiness', ready.data?.status || ready.error?.data?.status, 'Dependencies checked without inference', ready],
-    ['Implemented routes', agents.data?.routes?.filter(r => r.status === 'implemented').length, 'Running-agent count unavailable', agents],
-    ['Pending approvals', approvals.data?.length, reviewer ? 'Current review queue' : 'Reviewer sign-in required', reviewer && approvals],
-    ['Indexed documents', null, 'No inventory-count API available'], ['External AI calls', proof.data?.external_ai_calls, 'Current backend process only', proof],
-  ]
-  // A request with no answer yet is "Checking", never "Unavailable"; green is reserved for verified healthy values.
-  const state = (value, loading) => loading && value == null ? 'loading' : value == null ? 'missing' : ['Connected', 'ready'].includes(value) ? 'ok' : 'value'
-  return <><section className="metrics">{metrics.map(([label, value, caption, request]) => {
-    const loading = !!request && (request.loading || (request.data == null && request.error == null))
-    return <article className="metric" key={label}><div className="metric-label">{label}</div>
-    <div className="metric-value" data-state={state(value, loading)}>{value ?? (loading ? 'Checking…' : 'Unavailable')}</div><p>{caption}</p></article>
-  })}</section>
-    <section className="panel"><div className="section-heading"><h2>Runtime overview</h2><button onClick={() => { ready.refresh(); agents.refresh(); approvals.refresh(); proof.refresh() }}>Refresh overview</button></div>
-      <ApiState request={ready} />{ready.error?.data && <DataView value={ready.error.data} />}<ApiState request={agents} />{reviewer && <ApiState request={approvals} />}<ApiState request={proof} />
-      <DataView value={{ sovereignty: proof.data?.status, model: proof.data?.local_model, ready: ready.data?.checks }} />
-      <p>Agent execution activity is not reported by the status API. This view shows configured capabilities.</p></section></>
-}
-
 export function QueryConsole({ user, voiceFocus = false }) {
   const { language, t } = useLanguage()
   const [channel, setChannel] = useState('text')
@@ -117,42 +93,6 @@ export function QueryConsole({ user, voiceFocus = false }) {
     <QueryForm query={query} onChange={edit} onSubmit={submit} gate={gate} loading={request.loading}
       label={t('Question')} submitLabel={t('Submit query')} reviewing={!!review} />
     {request.loading && <p>Local inference may take several minutes. Keep this page open.</p>}<ApiState request={request} /><Result data={request.data} />
-  </section>
-}
-
-export function Agents() {
-  const request = useResource('/agents/status')
-  return <section className="panel"><div className="section-heading"><h2>Agent capabilities</h2><button disabled={request.loading} onClick={request.refresh}>Refresh agents</button></div><ApiState request={request} />
-    {request.data && <><p>Configured routes, not a live activity feed.</p>{!request.data.routes?.length && <p>No agent routes returned.</p>}<div className="agent-grid">{request.data.routes?.map(route => <article className="agent-card" key={route.route}><h3>{route.route.replaceAll('_', ' ')}</h3><p>{route.description}</p><div className="agent-footer" data-status={route.status}>{route.status}</div></article>)}</div><details><summary>Read-only tools and model runtime</summary><DataView value={{ tools: request.data.tools, gateway: request.data.gateway }} /></details></>}
-  </section>
-}
-
-export function Approvals({ user }) {
-  const queue = useResource('/approvals')
-  const detail = useRequest()
-  const action = useRequest()
-  const [revision, setRevision] = useState('')
-  const [comment, setComment] = useState('')
-  const reviewer = ['reviewer', 'admin'].includes(user?.role)
-  const current = detail.data
-  const busy = detail.loading || action.loading
-  async function open(id) { action.reset(); setComment(''); setRevision(id); await detail.run(`/approvals/${encodeURIComponent(id)}`) }
-  async function decide(decision) {
-    const id = current.action_revision_id
-    const result = await action.run(`/approvals/${id}/decision`, { method: 'POST', body: { decision, expected_revision_id: id, reviewer_comment: comment || null } })
-    if (result) { await detail.run(`/approvals/${id}`); queue.refresh() }
-  }
-  return <section className="panel"><div className="section-heading"><h2>Advisory review queue</h2><button onClick={queue.refresh} disabled={queue.loading}>Refresh queue</button></div><p>Human approval releases only an advisory recommendation. No equipment-control action exists here.</p><ApiState request={queue} empty="No pending revisions returned." />
-    <ul className="data-list">{queue.data?.map(row => <li key={row.action_revision_id}><button disabled={busy} onClick={() => open(row.action_revision_id)}>Review {row.action_revision_id}</button><span> {row.route} · {new Date(row.created_at).toLocaleString()}</span></li>)}</ul>
-    <form className="toolbar" onSubmit={e => { e.preventDefault(); open(revision) }}><label>Revision ID (including previously decided revisions)<input required value={revision} onChange={e => setRevision(e.target.value)} /></label><button disabled={busy || !revision.trim()}>Load revision</button></form>
-    <ApiState request={detail} />
-    {current && <><h3>Exact revision</h3><DataView value={{ revision: current.action_revision_id, status: current.governance_status, requester: current.requester_user_id, request_hash: current.canonical_request_hash, proposal_hash: current.canonical_proposal_hash, evidence_status: current.evidence_binding_status, manifest_hash: current.evidence_manifest_hash }} /><Result data={current} />
-      <DataView value={{ decisions: current.decisions }} /><label>Reviewer comment<textarea maxLength={2000} value={comment} onChange={e => setComment(e.target.value)} /></label>
-      <div className="toolbar">{reviewer && current.governance_status === 'PENDING_REVIEW' && <><button disabled={busy || current.requester_user_id === user.id} onClick={() => decide('approve')}>Approve advisory</button><button disabled={busy || current.requester_user_id === user.id} onClick={() => decide('reject')}>Reject advisory</button></>}
-        {reviewer && current.governance_status === 'APPROVED' && <button disabled={busy} onClick={() => decide('revoke')}>Revoke approval</button>}
-        {user && current.governance_status === 'APPROVED' && <button disabled={busy} onClick={() => action.run(`/approvals/${current.action_revision_id}/release`)}>View approved advisory</button>}</div>
-      {current.requester_user_id === user?.id && <p>Self-approval is prohibited by the backend.</p>}</>}
-    <ApiState request={action} />{action.data && <details open><summary>Latest server action result — {action.data.action_revision_id}</summary><DataView value={action.data} /></details>}
   </section>
 }
 

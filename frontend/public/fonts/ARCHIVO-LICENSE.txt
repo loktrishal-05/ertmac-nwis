@@ -1,0 +1,4 @@
+Archivo (variable: wdth 62-125, wght 100-900), latin subset.
+Copyright 2020 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo).
+Licensed under the SIL Open Font License 1.1 (https://openfontlicense.org).
+Source: Google Fonts, https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2

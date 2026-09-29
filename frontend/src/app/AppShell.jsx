@@ -3,6 +3,8 @@ import { Link, NavLink, Outlet, useLocation, useMatches, useNavigate } from 'rea
 import { useSession } from './session.jsx'
 import { navigationFor } from './navigation.js'
 import { Icon, Logo } from '../components/ui.jsx'
+import { CommandPalette } from '../features/command/CommandPalette.jsx'
+import '../styles/workbench.css'
 import { LanguageSelector } from '../ProductPages.jsx'
 import { useBackendHealth } from '../hooks/useBackendHealth.js'
 import { useResource } from '../hooks/useApi.js'
@@ -68,7 +70,23 @@ export default function AppShell() {
     navigate('/login', { replace: true })
   }
 
+  // ⌘K / Ctrl+K opens the jump list from anywhere in the workbench.
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  useEffect(() => {
+    const onKey = event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setPaletteOpen(value => !value) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const role = session.user?.role
+  const commands = [
+    ...navigationFor(role).flatMap(section => section.items.map(item => ({ id: item.path, label: t(item.label), group: section.group, icon: item.icon,
+      run: () => navigate(`/app/${item.path}`, { viewTransition: true }) }))),
+    { id: 'profile', label: 'Profile', group: 'Account', icon: 'user', run: () => navigate('/app/profile', { viewTransition: true }) },
+    { id: 'theme', label: `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`, group: 'Action', icon: theme === 'dark' ? 'sun' : 'moon', keywords: 'appearance mode', run: toggleTheme },
+    { id: 'home', label: 'Public landing page', group: 'Action', icon: 'home', run: () => navigate('/') },
+    { id: 'signout', label: 'Sign out', group: 'Action', icon: 'logout', keywords: 'log out exit', run: signOut },
+  ]
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   return <div className="shell" data-nav-open={navOpen || undefined}>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="shell-topbar">
@@ -76,9 +94,11 @@ export default function AppShell() {
         aria-label={navOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setNavOpen(value => !value)}>
         <Icon name={navOpen ? 'close' : 'menu'} /></button>
       <Link to="/app/dashboard" className="shell-brand" aria-label="Sovereign AI Workbench dashboard"><Logo variant="horizontal" decorative /></Link>
+      <button type="button" className="search-trigger" onClick={() => setPaletteOpen(true)} aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}>
+        <Icon name="search" size={17} /><span>Jump to…</span><kbd>{isMac ? '⌘' : 'Ctrl'} K</kbd></button>
       <div className="topbar-status">
-        <span className={`pill health-${status.toLowerCase()}`} role="status"><span className="dot" aria-hidden="true" />Backend: {status}</span>
-        <span className="pill" title="Hosted AI calls observed by this backend process">Hosted AI calls: <strong>{proof.data?.external_ai_calls ?? '—'}</strong></span>
+        <span className={`pill health-${status.toLowerCase()}`} role="status"><span className="dot" aria-hidden="true" />Backend {status.toLowerCase()}</span>
+        <span className="pill" title="Hosted AI calls observed by this backend process"><strong>{proof.data?.external_ai_calls ?? '—'}</strong> hosted AI calls</span>
       </div>
       <div className="topbar-actions">
         <LanguageSelector />
@@ -98,12 +118,13 @@ export default function AppShell() {
       {navigationFor(role).map(section => <div className="nav-group" key={section.group}>
         <p className="nav-label">{section.group}</p>
         <ul>{section.items.map(item => <li key={item.path}>
-          <NavLink to={`/app/${item.path}`} end={item.path === 'workspace'} className="nav-link" onClick={() => setNavOpen(false)}><Icon name={item.icon} />{t(item.label)}</NavLink>
+          <NavLink to={`/app/${item.path}`} end={item.path === 'workspace'} className="nav-link" viewTransition onClick={() => setNavOpen(false)}><Icon name={item.icon} />{t(item.label)}</NavLink>
         </li>)}</ul>
       </div>)}
       <div className="nav-note"><Icon name="shield" /><p><strong>On-premise by design.</strong> Local inference; recommendations are advisory and never operate equipment.</p></div>
     </nav>
     <button type="button" className="nav-scrim" aria-hidden="true" tabIndex={-1} onClick={() => setNavOpen(false)} />
     <main id="main" ref={main} tabIndex={-1} className="shell-main"><Outlet /></main>
+    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
   </div>
 }

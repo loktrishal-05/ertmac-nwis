@@ -1,3 +1,11 @@
+/* Brand display face (self-hosted, SIL OFL 1.1; see public/fonts/ARCHIVO-LICENSE.txt). Used on landing and auth only. */
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo-latin-var.woff2") format("woff2-variations"), url("/fonts/archivo-latin-var.woff2") format("woff2");
+  font-weight: 100 900; font-stretch: 62% 125%; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Design tokens. :root is dark for the cinematic landing and auth; the workbench shell defaults to the calm light theme. */
 :root, [data-theme="dark"] {
   color-scheme: dark;
@@ -25,11 +33,12 @@
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.5);
   --glow: 0 0 0 1px rgba(53, 215, 232, 0.25), 0 0 32px rgba(53, 215, 232, 0.15);
+  --chart-1: #60a5fa; --chart-2: #2dd4bf; --chart-3: #a78bfa; --chart-4: #fbbf24;
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --surface-0: #eef2f7;
+  --surface-0: #f3f5f8;
   --surface-1: #ffffff;
   --surface-2: #f4f7fb;
   --surface-3: #e6edf6;
@@ -50,6 +59,7 @@
   --shadow-2: 0 8px 24px rgba(15, 35, 65, 0.08);
   --shadow-3: 0 18px 48px rgba(15, 35, 65, 0.14);
   --glow: 0 0 0 1px rgba(29, 99, 214, 0.2);
+  --chart-1: #2563eb; --chart-2: #0f8a80; --chart-3: #7c3aed; --chart-4: #c26a00;
 }
 
 :root {
@@ -57,13 +67,14 @@
   --font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Noto Sans", "Nirmala UI", "Noto Sans Devanagari", "Noto Sans Tamil", sans-serif;
   --font-display: "Segoe UI Variable Display", "Inter", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --font-brand: "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --fs-xs: 0.75rem; --fs-sm: 0.875rem; --fs-md: 1rem; --fs-lg: 1.125rem; --fs-xl: 1.375rem;
   --fs-2xl: 1.75rem; --fs-3xl: clamp(1.9rem, 3.2vw, 2.6rem); --fs-display: clamp(2.8rem, 7.5vw, 6.2rem);
   --lh-tight: 1.1; --lh-body: 1.6;
   --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-5: 1.5rem;
   --space-6: 2rem; --space-7: 3rem; --space-8: 4rem; --space-9: 6rem;
   --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px; --radius-pill: 999px;
-  --dur-fast: 120ms; --dur: 200ms; --dur-slow: 400ms; --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms; --dur: 200ms; --dur-slow: 400ms; --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --shell-nav: 264px; --shell-top: 64px;
 }
 

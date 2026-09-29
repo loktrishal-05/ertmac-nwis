@@ -57,3 +57,19 @@ export function safeNext(next) {
 export function sessionFromError(error) {
   return error?.status === 401 ? { status: 'anonymous', user: null, error: null } : { status: 'unavailable', user: null, error }
 }
+
+// Command palette ranking: prefix match first, then substring, then initials ("kg" → Knowledge Gaps).
+export function matchCommands(commands, query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return commands
+  return commands
+    .map(command => {
+      const text = `${command.label} ${command.group} ${command.keywords || ''}`.toLowerCase()
+      const at = text.indexOf(q)
+      const initials = command.label.toLowerCase().split(/\s+/).map(w => w[0]).join('')
+      return { command, score: at === 0 ? 0 : at > 0 ? 1 + at / 100 : initials.startsWith(q) ? 2 : -1 }
+    })
+    .filter(entry => entry.score >= 0)
+    .sort((a, b) => a.score - b.score)
+    .map(entry => entry.command)
+}

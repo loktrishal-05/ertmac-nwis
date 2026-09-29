@@ -27,6 +27,10 @@ const ICONS = {
   arrow: 'M5 12h14 M13 6l6 6-6 6',
   alert: 'M12 3 2 21h20z M12 10v5 M12 18h.01',
   lock: 'M6 11h12v10H6z M8 11V8a4 4 0 0 1 8 0v3',
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z m9 16-4.35-4.35',
+  home: 'M3 11 12 4l9 7 M5 10v10h14V10',
+  logout: 'M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10',
+  refresh: 'M20 11a8 8 0 0 0-14.9-3.5 M4 4v4h4 M4 13a8 8 0 0 0 14.9 3.5 M20 20v-4h-4',
 }
 
 export function Icon({ name, size = 20, ...props }) {
@@ -52,9 +56,9 @@ export function AgentAvatar({ size = 40, className = '' }) {
   return <img className={`brand-img agent-avatar ${className}`} src="/assets/branding/agent-mark.png" width={size} height={size} alt="AI agent" decoding="async" />
 }
 
-export function PageHeader({ eyebrow, title, description, actions }) {
+export function PageHeader({ title, description, actions }) {
   return <header className="page-header">
-    <div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1 tabIndex={-1} data-page-title>{title}</h1>{description && <p className="page-description">{description}</p>}</div>
+    <div><h1 tabIndex={-1} data-page-title>{title}</h1>{description && <p className="page-description">{description}</p>}</div>
     {actions && <div className="page-actions">{actions}</div>}
   </header>
 }
@@ -88,15 +92,15 @@ const useStatusTitle = text => useEffect(() => { document.title = `${text} · So
 
 export function NotFound() {
   useStatusTitle('Page not found')
-  return <div className="status-page"><p className="eyebrow">404</p><h1 tabIndex={-1} data-page-title>Page not found</h1>
-    <p>This address does not exist in the Sovereign AI Workbench.</p>
+  return <div className="status-page"><h1 tabIndex={-1} data-page-title>Page not found</h1>
+    <p>This address does not exist in the Sovereign AI Workbench (error 404).</p>
     <div className="toolbar"><Link className="button" to="/app/dashboard">Go to dashboard</Link><Link className="button ghost" to="/">Home</Link></div></div>
 }
 
 export function Forbidden() {
   useStatusTitle('Access restricted')
-  return <div className="status-page"><p className="eyebrow">403</p><h1 tabIndex={-1} data-page-title>Access restricted</h1>
-    <p>Your server-assigned role does not permit this area. Roles are granted by an administrator, never by the browser.</p>
+  return <div className="status-page"><h1 tabIndex={-1} data-page-title>Access restricted</h1>
+    <p>Your server-assigned role does not permit this area (error 403). Roles are granted by an administrator, never by the browser.</p>
     <div className="toolbar"><Link className="button" to="/app/dashboard">Back to dashboard</Link></div></div>
 }
 

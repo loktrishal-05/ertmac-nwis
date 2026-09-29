@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { SplitText } from 'gsap/SplitText'
 import { useGSAP } from '@gsap/react'
 import { useSession } from '../../app/session.jsx'
 import { Logo } from '../../components/ui.jsx'
 import { PRODUCT_FACTS as F, SOURCES, STORY, canvasSize, createParticles, particlePosition, smoothstep } from './landingModel.js'
+import { createHeroScene } from './heroScene.js'
+import { createAtmosphere } from './atmosphere.js'
 import './landing.css'
 
 // Scroll-scrubbed canvas: five evidence clusters converge into the sovereign core. No video, no WebGL.
@@ -85,15 +88,95 @@ function ConvergenceCanvas({ controllerRef }) {
   return <canvas ref={canvas} className="unify-canvas" role="img" aria-label="SOPs, P&IDs, sensors, maintenance and operator knowledge converging into one sovereign intelligence core" />
 }
 
+// The first viewport's signature: the approved mark assembled from GPU particles over a P&ID-style floor.
+// Reduced motion, Save-Data or no WebGL keep the still mark; the page is fully readable either way.
+const stillOnly = () => typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !!navigator.connection?.saveData
+function HeroScene({ apiRef }) {
+  const canvas = useRef(null)
+  const [still, setStill] = useState(stillOnly)
+  useEffect(() => {
+    const element = canvas.current
+    if (still || !element) return undefined
+    let scene = null, disposed = false, visible = true
+    const cleanups = []
+    const image = new Image()
+    image.decoding = 'async'
+    image.src = '/assets/branding/sovereign-mark.png'
+    image.onload = () => {
+      if (disposed) return
+      try { scene = createHeroScene(element, image, { particles: window.innerWidth < 760 ? 6500 : 15000 }) } catch { scene = null }
+      if (!scene) { setStill(true); return }
+      // Size from the hero section (never from the canvas itself) and clamp, so the drawing buffer can never run away.
+      const host = element.parentElement
+      const fit = () => { const rect = host.getBoundingClientRect(); scene.resize(Math.min(rect.width, 3840), Math.min(rect.height, 2400), Math.min(window.devicePixelRatio || 1, window.innerWidth < 760 ? 1.4 : 1.75)) }
+      const observer = new ResizeObserver(fit)
+      observer.observe(host)
+      fit()
+      const sync = () => (visible && !document.hidden ? scene.play() : scene.pause())
+      const io = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync() })
+      io.observe(element)
+      document.addEventListener('visibilitychange', sync)
+      const onPointer = event => { const rect = element.getBoundingClientRect(); scene.setPointer(((event.clientX - rect.left) / rect.width) * 2 - 1, -(((event.clientY - rect.top) / rect.height) * 2 - 1)) }
+      window.addEventListener('pointermove', onPointer, { passive: true })
+      const assemble = { value: 0 }
+      const tween = gsap.to(assemble, { value: 1, duration: 3.2, delay: 0.25, ease: 'power3.inOut', onUpdate: () => scene.setAssemble(assemble.value) })
+      apiRef.current = scene
+      sync()
+      cleanups.push(() => { observer.disconnect(); io.disconnect(); tween.kill(); document.removeEventListener('visibilitychange', sync); window.removeEventListener('pointermove', onPointer) })
+    }
+    return () => { disposed = true; cleanups.forEach(fn => fn()); scene?.destroy(); apiRef.current = null }
+  }, [still, apiRef])
+  if (still) return <img className="hero-mark" src="/assets/branding/sovereign-mark.png" alt="" width="458" height="458" fetchPriority="high" />
+  return <canvas ref={canvas} className="hero-canvas" aria-hidden="true" />
+}
+
+// One fixed backdrop for the whole page: smoke and beams that follow the cursor, from the hero to the footer.
+// Reduced motion draws a single still frame; Save-Data or no WebGL keep the CSS gradient.
+function Atmosphere() {
+  const canvas = useRef(null)
+  useEffect(() => {
+    const element = canvas.current
+    if (!element || navigator.connection?.saveData) return undefined
+    const scene = createAtmosphere(element, { still: !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches })
+    if (!scene) { element.hidden = true; return undefined }
+    const sync = () => (document.hidden ? scene.pause() : scene.play())
+    window.addEventListener('resize', scene.resize)
+    document.addEventListener('visibilitychange', sync)
+    sync()
+    return () => { window.removeEventListener('resize', scene.resize); document.removeEventListener('visibilitychange', sync); scene.destroy() }
+  }, [])
+  return <canvas ref={canvas} className="atmosphere" aria-hidden="true" />
+}
+
+// Glass panels lean toward the cursor, drift a few pixels after it and catch light on the edge nearest to it.
+function useMagneticGlass(root) {
+  useEffect(() => {
+    if (stillOnly() || !window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return undefined
+    const cards = [...root.current.querySelectorAll('[data-glass]')]
+    const move = event => {
+      const card = event.currentTarget, rect = card.getBoundingClientRect()
+      const x = (event.clientX - rect.left) / rect.width, y = (event.clientY - rect.top) / rect.height
+      const tilt = Math.min(8, 2400 / Math.max(rect.width, rect.height)) // big panels tilt less
+      card.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`)
+      card.style.setProperty('--my', `${(y * 100).toFixed(1)}%`)
+      card.style.rotate = `${(0.5 - y).toFixed(3)} ${(x - 0.5).toFixed(3)} 0 ${(Math.hypot(x - 0.5, y - 0.5) * tilt * 2).toFixed(2)}deg`
+      card.style.translate = `${((x - 0.5) * 12).toFixed(1)}px ${((y - 0.5) * 12).toFixed(1)}px`
+    }
+    const leave = event => { event.currentTarget.style.rotate = ''; event.currentTarget.style.translate = '' }
+    cards.forEach(card => { card.addEventListener('pointermove', move); card.addEventListener('pointerleave', leave) })
+    return () => cards.forEach(card => { card.removeEventListener('pointermove', move); card.removeEventListener('pointerleave', leave); leave({ currentTarget: card }) })
+  }, [root])
+}
+
 const Tag = ({ id }) => {
   const [code, number] = STORY.find(item => item.id === id).tag.split('-')
   return <span className="tag-bubble" aria-hidden="true"><span>{code}</span><span>{number}</span></span>
 }
 
-const Count = ({ value }) => <span className="count" data-count={value}>{value.toLocaleString()}</span>
+const Count = ({ value }) => <span className="fact-num" data-count={value}>{value.toLocaleString()}</span>
 
 function SourceCard({ source, children }) {
-  return <article className="source-card" style={{ '--accent': source.color }}><header><span className="dot" />{source.label}</header>{children}<footer>{source.detail}</footer></article>
+  return <article className="source-card" data-glass style={{ '--accent': source.color }}><header><span className="dot" />{source.label}</header>{children}<footer>{source.detail}</footer></article>
 }
 
 const STATIONS = [
@@ -115,30 +198,50 @@ const ECOSYSTEM = [
 export default function LandingPage() {
   const root = useRef(null)
   const convergence = useRef(null)
+  const heroScene = useRef(null)
   const session = useSession()
   const enter = session.status === 'authenticated' ? '/app/dashboard' : '/login'
 
+  useMagneticGlass(root)
   useEffect(() => { document.title = 'Sovereign AI Workbench · Governed industrial intelligence on your own infrastructure' }, [])
 
   useGSAP(() => {
-    gsap.registerPlugin(ScrollTrigger)
+    gsap.registerPlugin(ScrollTrigger, SplitText)
     const mm = gsap.matchMedia()
     mm.add({ motion: '(prefers-reduced-motion: no-preference)', desktop: '(min-width: 1024px)' }, ({ conditions }) => {
       const { motion, desktop } = conditions
       if (!motion) { convergence.current?.setProgress(1); return undefined }
       root.current.classList.add('motion')
-      gsap.fromTo('.spine-path', { strokeDashoffset: 1 }, { strokeDashoffset: 0, ease: 'none',
-        scrollTrigger: { trigger: root.current, start: 'top top', end: 'bottom bottom', scrub: 0.5 } })
-      gsap.from('.hero-word', { yPercent: 110, opacity: 0, stagger: 0.08, duration: 1, ease: 'power3.out' })
-      gsap.from('.hero-mark', { scale: 0.7, opacity: 0, duration: 1.4, ease: 'power2.out' })
-      gsap.to('.hero-mark', { yPercent: 22, ease: 'none', scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true } })
-      gsap.utils.toArray('[data-reveal]').forEach(element => gsap.from(element, { y: 36, opacity: 0, duration: 0.9, ease: 'power2.out',
+      root.current.style.setProperty('--flow', '0')
+      // The rail carries pulses of light that stream down as the visitor scrolls and flare with scroll speed.
+      const spine = root.current.querySelector('.spine')
+      if (spine) ScrollTrigger.create({ trigger: root.current, start: 'top top', end: 'bottom bottom', onUpdate: self => {
+        spine.style.setProperty('--off', (-window.scrollY / window.innerHeight * 0.35).toFixed(4))
+        gsap.to(spine, { '--energy': Math.min(1, Math.abs(self.getVelocity()) / 2500), duration: 0.2, overwrite: true })
+        gsap.to(spine, { '--energy': 0, duration: 1.4, delay: 0.25, ease: 'power2.out' })
+      } })
+      // Section headlines resolve word by word out of a blur, like an instrument coming into focus.
+      gsap.utils.toArray('.story h2').forEach(heading => {
+        const split = SplitText.create(heading, { type: 'words', wordsClass: 'word' })
+        gsap.from(split.words, { opacity: 0, filter: 'blur(14px)', yPercent: 35, duration: 1.1, stagger: 0.07, ease: 'expo.out', clearProps: 'filter',
+          scrollTrigger: { trigger: heading, start: 'top 88%', once: true } })
+      })
+      gsap.from('.hero-title .line', { yPercent: 105, duration: 1.3, stagger: 0.12, delay: 0.35, ease: 'expo.out' })
+      gsap.from('.hero-copy > :not(h1)', { y: 24, opacity: 0, filter: 'blur(8px)', duration: 1.1, stagger: 0.1, delay: 0.75, ease: 'expo.out', clearProps: 'filter' })
+      gsap.from('.hero-ghost', { opacity: 0, letterSpacing: '0.2em', duration: 2.4, ease: 'expo.out' })
+      if (root.current.querySelector('.hero-mark')) gsap.to('.hero-mark', { yPercent: 22, ease: 'none', scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true } })
+      ScrollTrigger.create({ trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true, onUpdate: self => heroScene.current?.setScroll(self.progress) })
+      gsap.to('.hero-copy', { yPercent: -14, opacity: 0.15, ease: 'none', scrollTrigger: { trigger: '#hero', start: '30% top', end: 'bottom top', scrub: true } })
+      gsap.to('.hero-ghost', { xPercent: -8, ease: 'none', scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true } })
+      gsap.utils.toArray('[data-reveal]').forEach(element => gsap.from(element, { y: 36, opacity: 0, filter: 'blur(10px)', duration: 1, ease: 'expo.out', clearProps: 'filter',
         scrollTrigger: { trigger: element, start: 'top 85%', once: true } }))
-      gsap.utils.toArray('[data-count]').forEach(element => {
-        const counter = { value: 0 }
-        gsap.to(counter, { value: Number(element.dataset.count), duration: 1.6, ease: 'power1.out',
-          scrollTrigger: { trigger: element, start: 'top 90%', once: true },
-          onUpdate: () => { element.textContent = Math.round(counter.value).toLocaleString() } })
+      gsap.utils.toArray('[data-count]').filter(element => Number(element.dataset.count) >= 10).forEach(element => {
+        // The true value shows until the count begins; a verified fact never reads as 0 while waiting.
+        ScrollTrigger.create({ trigger: element, start: 'top 95%', once: true, onEnter: () => {
+          const counter = { value: 0 }
+          gsap.to(counter, { value: Number(element.dataset.count), duration: 1.6, ease: 'power1.out',
+            onUpdate: () => { element.textContent = Math.round(counter.value).toLocaleString() } })
+        } })
       })
       const offsets = [[-70, -45, -7], [60, -25, 6], [-35, 40, -4], [80, 45, 7], [-55, 15, -3]]
       // Full-width cards on narrow screens scatter vertically only, so they are never clipped at the edge.
@@ -174,29 +277,35 @@ export default function LandingPage() {
       <nav aria-label="Story"><a href="#workflow">Workflow</a><a href="#governance">Governance</a><a href="#sovereignty">Sovereignty</a><a href="#ecosystem">Ecosystem</a></nav>
       <Link className="button primary" to={enter}>{session.status === 'authenticated' ? 'Open Workbench' : 'Sign in'}</Link>
     </header>
+    <Atmosphere />
     <svg className="spine" viewBox="0 0 24 1000" preserveAspectRatio="none" aria-hidden="true">
-      <path className="spine-track" d="M12 0 V1000" pathLength="1" />
-      <path className="spine-path" d="M12 0 V180 H6 V420 H18 V640 H12 V1000" pathLength="1" />
+      <path className="spine-track" d="M12 0 V1000" />
+      <path className="spine-glow" d="M12 0 V1000" pathLength="1" />
+      <path className="spine-light" d="M12 0 V1000" pathLength="1" />
     </svg>
     <main id="main">
       <section id="hero" className="hero">
         <Tag id="hero" />
-        <img className="hero-mark brand-img" src="/assets/branding/sovereign-mark.png" alt="" width="458" height="458" fetchPriority="high" />
-        <p className="eyebrow">Governed industrial intelligence · on your own infrastructure</p>
-        <h1 aria-label="Sovereign AI Workbench">{['Sovereign', 'AI', 'Workbench'].map(word => <span key={word} className="hero-word-mask" aria-hidden="true"><span className="hero-word">{word}</span></span>)}</h1>
-        <p className="lede">Ask questions of your procedures, drawings, sensors and maintenance history. Every answer cites its evidence, every operational recommendation waits for a human, and nothing leaves your site.</p>
-        <div className="hero-actions"><Link className="button primary" to={enter}>Enter Sovereign Workbench</Link><a className="button ghost" href="#scattered">See how it works</a></div>
-        <ul className="fact-strip" aria-label="Verified product facts">
-          <li><Count value={F.hostedAiCalls} /><span>hosted AI calls in the confidential path</span></li>
-          <li><Count value={F.localModels} /><span>local models, risk-routed</span></li>
-          <li><Count value={F.languages} /><span>languages: English, हिन्दी, தமிழ்</span></li>
-          <li><Count value={F.backendTests} /><span>automated backend tests ({F.asOf})</span></li>
-        </ul>
+        <p className="hero-ghost" aria-hidden="true">Sovereign</p>
+        <HeroScene apiRef={heroScene} />
+        <div className="hero-scrim" aria-hidden="true" />
+        <div className="hero-copy">
+          <h1 className="hero-title"><span className="line-mask"><span className="line">Industrial intelligence</span></span> <span className="line-mask"><span className="line">that runs inside <em>your plant.</em></span></span></h1>
+          <p className="lede">Sovereign AI Workbench answers from your procedures, drawings, sensors and maintenance history. Every answer cites its evidence, and every operational recommendation waits for a human.</p>
+          <div className="hero-actions"><Link className="button primary" to={enter}>{session.status === 'authenticated' ? 'Open the Workbench' : 'Enter the Workbench'}</Link><a className="button ghost" href="#scattered">See how it works</a></div>
+          <p className="hero-facts" aria-label="Verified product facts">
+            <span><Count value={F.hostedAiCalls} /> hosted AI calls in the confidential path</span>
+            <span><Count value={F.localModels} /> local models</span>
+            <span><Count value={F.languages} /> languages · English, हिन्दी, தமிழ்</span>
+            <span><Count value={F.backendTests} /> backend tests ({F.asOf})</span>
+          </p>
+        </div>
+        <a className="scroll-cue" href="#scattered" aria-label="Scroll to the story"><span /></a>
       </section>
 
       <section id="scattered" className="story scattered">
         <Tag id="scattered" />
-        <div className="story-copy" data-reveal><p className="eyebrow">The problem</p><h2>Industrial knowledge is scattered</h2>
+        <div className="story-copy" data-reveal><h2>Industrial knowledge is scattered</h2>
           <p>Procedures, drawings, readings, work history and shift notes live in different systems, formats and people. Answers depend on who remembers where to look.</p>
           <p className="stat"><Count value={F.evidenceSources} /> evidence sources the Workbench brings together</p></div>
         <div className="source-field">
@@ -211,39 +320,37 @@ export default function LandingPage() {
       <section id="unify" className="story unify">
         <Tag id="unify" />
         <ConvergenceCanvas controllerRef={convergence} />
-        <div className="unify-copy"><p className="eyebrow">The answer</p><h2>One sovereign intelligence layer</h2></div>
+        <div className="unify-copy"><h2>One sovereign intelligence layer</h2></div>
         <div className="unify-notes"><p className="unify-note unify-note-a">Retrieved locally. Every answer cites its source.</p>
         <p className="unify-note unify-note-b">One layer over all five sources: on your hardware, under your governance.</p></div>
       </section>
 
       <section id="workflow" className="story workflow">
         <Tag id="workflow" />
-        <div className="story-copy"><p className="eyebrow">The governed workflow</p><h2>Retrieve · Verify · Reason · Review · Approve</h2></div>
+        <div className="story-copy"><h2>Retrieve · Verify · Reason · Review · Approve</h2></div>
         <div className="flow-track" aria-hidden="true"><span className="flow-progress" /></div>
-        <ol className="stations">{STATIONS.map(([name, text], index) => <li key={name} className="station"><span className="station-index">0{index + 1}</span><h3>{name}</h3><p>{text}</p></li>)}</ol>
+        <ol className="stations">{STATIONS.map(([name, text], index) => <li key={name} className="station" data-glass><span className="station-index">0{index + 1}</span><h3>{name}</h3><p>{text}</p></li>)}</ol>
       </section>
 
       <section id="reveal" className="story reveal">
         <Tag id="reveal" />
-        <div className="story-copy" data-reveal><p className="eyebrow">The workbench</p><h2>One governed workbench</h2><p>Queries, evidence, approvals, knowledge and audit in one place. Restrained, keyboard-friendly and built for long shifts.</p></div>
-        <div className="reveal-stage"><div className="reveal-frame" data-theme="light" role="img" aria-label="Illustrative Workbench interface with synthetic values">
-          <div className="mock-nav"><span /><span /><span /><span /><span /></div>
-          <div className="mock-body">
-            <div className="mock-card"><small>Pending reviews</small><strong>—</strong></div>
-            <div className="mock-card"><small>Evidence sufficiency</small><div className="mock-bars"><i style={{ '--h': '70%' }} /><i style={{ '--h': '45%' }} /><i style={{ '--h': '20%' }} /></div></div>
-            <div className="mock-card wide"><small>Routing</small><p><code>{F.primaryModel}</code> deep reasoning · <code>{F.fastModel}</code> bounded tasks</p></div>
-            <div className="mock-card wide draft"><small>Draft · human approval required</small><p>Advisory recommendation with cited evidence.</p></div>
+        <div className="story-copy" data-reveal><h2>One governed workbench</h2><p>Queries, evidence, approvals, knowledge and audit in one place. Restrained, keyboard-friendly and built for long shifts.</p></div>
+        <figure className="reveal-stage">
+          <div className="reveal-frame">
+            <div className="reveal-chrome" aria-hidden="true"><i /><i /><i /><span>127.0.0.1 · Sovereign AI Workbench</span></div>
+            <img src="/assets/landing/workbench-dashboard.webp" width="1424" height="900" loading="lazy" decoding="async"
+              alt="The Workbench dashboard: system status, a P-204 vibration trend, the review queue, work orders and agent routes" />
           </div>
-          <p className="mock-label">Illustrative interface · synthetic values</p>
-        </div></div>
+          <figcaption>The real Workbench dashboard, captured from a local instance. Records shown are synthetic, cited test data.</figcaption>
+        </figure>
       </section>
 
       <section id="pid" className="story pid">
         <Tag id="pid" />
-        <div className="story-copy" data-reveal><p className="eyebrow">Multimodal P&ID</p><h2>P&ID evidence, never proof of plant state</h2>
+        <div className="story-copy" data-reveal><h2>P&ID evidence, never proof of plant state</h2>
           <p>Local OCR and optional local vision propose tag candidates. Registry matches need human-verified knowledge, and disagreements are flagged for review.</p>
           <p className="disclaimer">Drawings are as-drawn evidence only. They do not prove valve state, isolation, LOTO, permit status or process readiness.</p></div>
-        <figure className="pid-figure" data-reveal>
+        <figure className="pid-figure" data-reveal data-glass>
           <svg viewBox="0 0 520 280" role="img" aria-label="Synthetic P&ID with OCR regions and a flagged visual candidate">
             <g className="pid-lines"><path className="draw" pathLength="1" d="M20 150 H150 M190 150 H300 M340 150 H402 M438 150 H500 M170 130 V60 H420 V132" /><circle cx="170" cy="150" r="20" /><path d="M300 136 v28 l40-14z M340 136 v28 l-40-14z" /><circle cx="420" cy="150" r="18" /><text x="410" y="155">FT</text></g>
             <g className="ocr-box"><rect x="140" y="180" width="70" height="26" /><text x="146" y="198">P-101A</text><text className="conf" x="146" y="222">OCR 0.96</text></g>
@@ -256,8 +363,8 @@ export default function LandingPage() {
 
       <section id="maintenance" className="story maintenance">
         <Tag id="maintenance" />
-        <div className="story-copy" data-reveal><p className="eyebrow">Maintenance and sensors</p><h2>Maintenance and sensor intelligence</h2><p>Measured observations and tentative hypotheses stay visibly separate. Thresholds are supplied by people, and correlation is never presented as causation.</p></div>
-        <figure className="chart-figure" data-reveal>
+        <div className="story-copy" data-reveal><h2>Maintenance and sensor intelligence</h2><p>Measured observations and tentative hypotheses stay visibly separate. Thresholds are supplied by people, and correlation is never presented as causation.</p></div>
+        <figure className="chart-figure" data-reveal data-glass>
           <svg viewBox="0 0 520 220" role="img" aria-label="Synthetic vibration trend crossing a user-supplied threshold">
             <rect className="persist" x="345" y="20" width="110" height="170" rx="6" /><text className="persist-label" x="400" y="206" textAnchor="middle">3 readings above</text>
             <line className="threshold" x1="20" x2="500" y1="90" y2="90" /><text className="threshold-label" x="24" y="82">User-supplied threshold · 7.1 mm/s</text>
@@ -266,28 +373,29 @@ export default function LandingPage() {
           <figcaption>Synthetic illustration.</figcaption>
         </figure>
         <div className="evidence-cards">
-          <article className="evidence observation" data-reveal><small>Observation · measured</small><p>Vibration above the 7.1 mm/s threshold for three consecutive readings.</p></article>
-          <article className="evidence hypothesis" data-reveal><small>Hypothesis · tentative</small><p>Possible bearing wear. Unconfirmed; correlation is not causation.</p></article>
-          <article className="evidence verify" data-reveal><small>Recommended verification</small><p>Review maintenance history and request a field inspection.</p></article>
+          <article className="evidence observation" data-reveal data-glass><small>Observation · measured</small><p>Vibration above the 7.1 mm/s threshold for three consecutive readings.</p></article>
+          <article className="evidence hypothesis" data-reveal data-glass><small>Hypothesis · tentative</small><p>Possible bearing wear. Unconfirmed; correlation is not causation.</p></article>
+          <article className="evidence verify" data-reveal data-glass><small>Recommended verification</small><p>Review maintenance history and request a field inspection.</p></article>
         </div>
       </section>
 
       <section id="governance" className="story governance">
         <Tag id="governance" />
-        <div className="story-copy" data-reveal><p className="eyebrow">Human governance</p><h2>Humans approve. The chain remembers.</h2>
+        <div className="story-copy" data-reveal><h2>Humans approve. The chain remembers.</h2>
           <p>Reviewers see the exact proposal, its evidence and its risk before deciding. The requester can never approve their own request, and every decision joins a hash-linked audit chain.</p>
           <p className="disclaimer">Tamper-evident, not tamper-proof: modification of the recorded chain is detectable. Approval releases advisory output only.</p></div>
-        <ol className="chain" aria-label="Illustrative audit chain">
-          {['GOVERNED_REVISION_CREATED', 'EVIDENCE_MANIFEST_CREATED', 'APPROVAL_DECISION_APPROVE', 'ADVISORY_RELEASE_SUCCESS'].map((event, index) => <li key={event} className="block" data-reveal>
+        <div className="chain-figure"><ol className="chain" aria-label="Illustrative audit chain">
+          {['GOVERNED_REVISION_CREATED', 'EVIDENCE_MANIFEST_CREATED', 'APPROVAL_DECISION_APPROVE', 'ADVISORY_RELEASE_SUCCESS'].map((event, index) => <li key={event} className="block" data-reveal data-glass>
             <small>#{1040 + index}</small><strong>{event}</strong><code>prev → hash</code></li>)}
         </ol>
+        <p className="chain-caption">Illustration. The event names are real audit event types; the sequence numbers and hashes are placeholders.</p></div>
       </section>
 
       <section id="voice" className="story voice">
         <Tag id="voice" />
-        <div className="story-copy" data-reveal><p className="eyebrow">Multilingual local voice</p><h2>Speak locally. Review every identifier.</h2>
+        <div className="story-copy" data-reveal><h2>Speak locally. Review every identifier.</h2>
           <p>Speech is transcribed on your hardware. Suspicious identifiers are highlighted and must be confirmed by you. Transcripts are never corrected silently.</p></div>
-        <div className="voice-demo" data-reveal>
+        <div className="voice-demo" data-reveal data-glass>
           <p className="raw">Raw transcript: “Check vibration trend on <mark>P204A</mark> since last shift”</p>
           <p className="reason">Flag: <strong>Malformed identifier</strong>. Resembles an equipment tag but does not match the expected format.</p>
           <p className="fixed">Your correction: “Check vibration trend on <code>P-204A</code> since last shift”</p>
@@ -297,10 +405,10 @@ export default function LandingPage() {
 
       <section id="sovereignty" className="story sovereignty">
         <Tag id="sovereignty" />
-        <div className="story-copy" data-reveal><p className="eyebrow">Sovereignty</p><h2>Your hardware. Your boundary.</h2>
+        <div className="story-copy" data-reveal><h2>Your hardware. Your boundary.</h2>
           <p>Inference, retrieval, storage and speech run on local services. No hosted AI is configured for confidential work.</p>
           <p className="disclaimer">Offline-capable, not automatically air-gapped: network isolation is enforced by your site controls.</p></div>
-        <div className="topology" data-reveal role="img" aria-label="Local services inside the site boundary">
+        <div className="topology" data-reveal data-glass role="img" aria-label="Local services inside the site boundary">
           <span className="node core">Workbench API</span>
           {['Ollama · qwen3.5 9B / 4B', 'PostgreSQL', 'Qdrant', 'Local STT / TTS', 'Local files'].map(node => <span key={node} className="node">{node}</span>)}
           <span className="boundary-label">Site boundary</span>
@@ -309,8 +417,8 @@ export default function LandingPage() {
 
       <section id="ecosystem" className="story ecosystem">
         <Tag id="ecosystem" />
-        <div className="story-copy" data-reveal><p className="eyebrow">Government ecosystem</p><h2>Government ecosystem, accurately represented</h2><p>Confidential plant data may only use locally approved resources. Public services stay optional and are never sent confidential data.</p></div>
-        <ul className="eco-grid">{ECOSYSTEM.map(([name, status, note]) => <li key={name} data-reveal><strong>{name}</strong><span className="badge">{status}</span><p>{note}</p></li>)}</ul>
+        <div className="story-copy" data-reveal><h2>Government ecosystem, accurately represented</h2><p>Confidential plant data may only use locally approved resources. Public services stay optional and are never sent confidential data.</p></div>
+        <ul className="eco-grid">{ECOSYSTEM.map(([name, status, note]) => <li key={name} data-reveal data-glass><strong>{name}</strong><span className="badge">{status}</span><p>{note}</p></li>)}</ul>
       </section>
 
       <section id="enter" className="story enter">
