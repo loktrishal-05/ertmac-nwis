@@ -1,0 +1,39 @@
+# Disposable, network-isolated validation; no production volumes or services.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ui_test
+      POSTGRES_PASSWORD: synthetic-ui-test-only
+      POSTGRES_DB: ui_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ui_test -d ui_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    image: sovereign-phase-f-auth:release
+    user: root
+    working_dir: /validation/repo
+    environment:
+      DATABASE_URL: postgresql+psycopg://ui_test:synthetic-ui-test-only@postgres:5432/ui_test
+      MODEL_NAME: qwen3.5:9b
+      WORKBENCH_TEST_POSTGRES: "1"
+      WORKBENCH_DATA_ROOT: /validation/repo/data
+      PYTHONPATH: /validation/repo:/validation/repo/backend:/validation/repo/backend/tests
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      GOOGLE_ENABLED: "false"
+      SMTP_HOST: ""
+    volumes:
+      - ..:/source:ro
+      - validation:/validation
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sleep", "infinity"]
+volumes:
+  validation:
+networks:
+  default:
+    internal: true

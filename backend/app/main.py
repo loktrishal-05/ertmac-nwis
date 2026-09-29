@@ -14,7 +14,8 @@ app = FastAPI(title="Sovereign On-Premise Agentic AI Workbench")
 
 @app.middleware("http")
 async def browser_origin_guard(request, call_next):
-    sensitive = request.url.path.startswith(("/auth/", "/admin/"))
+    sensitive = request.url.path.startswith(("/auth/", "/admin/", "/executions", "/approvals", "/audit/",
+        "/bi/", "/documents/pid", "/equipment", "/sensors/", "/maintenance/", "/verified-knowledge", "/knowledge-gaps"))
     mutation = request.method not in {"GET", "HEAD", "OPTIONS"} or (
         request.url.path.startswith("/approvals/") and request.url.path.endswith("/release"))
     if mutation:
@@ -58,6 +59,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    expose_headers=["X-As-Of", "X-Sample-Size", "X-Has-More", "X-Next-Offset", "X-Scan-Limit"],
 )
 
 

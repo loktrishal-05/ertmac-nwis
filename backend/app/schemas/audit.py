@@ -21,6 +21,8 @@ class AuditEventResponse(BaseModel):
     action_revision_id: UUID | None
     decision_id: UUID | None
     payload: dict
+    canonical_payload_hash: str
+    payload_redacted: bool = True
     previous_hash: str
     event_hash: str
 

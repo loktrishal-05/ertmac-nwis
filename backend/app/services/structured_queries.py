@@ -1,8 +1,7 @@
-"""Read-only maintenance/sensor queries. Prototype scale: no pagination beyond a
-hard limit clamp, and sensor_latest fetches the full matching window in memory."""
+"""Bounded read-only maintenance/sensor queries."""
 from uuid import uuid4
 
-from sqlalchemy import select, case
+from sqlalchemy import select, case, func
 
 from app.core.config import settings
 from app.db.models.equipment import Equipment
@@ -64,7 +63,7 @@ def maintenance_history(session, equipment_tag=None, work_order_id=None, mainten
     stmt = stmt.order_by(
         case((MaintenanceRecord.maintenance_date.is_(None), 1), else_=0),
         MaintenanceRecord.maintenance_date.desc(),
-        MaintenanceRecord.created_at.desc(),
+        MaintenanceRecord.created_at.desc(), MaintenanceRecord.id.desc(),
     ).limit(_clamp(limit))
     return [maintenance_out(record, tag) for record, tag in session.execute(stmt).all()]
 
@@ -87,7 +86,7 @@ def sensor_readings_query(session, equipment_tag=None, sensor_tag=None, measurem
         stmt = stmt.where(SensorReading.timestamp >= start)
     if end:
         stmt = stmt.where(SensorReading.timestamp <= end)
-    stmt = stmt.order_by(SensorReading.timestamp.asc()).limit(_clamp(limit))
+    stmt = stmt.order_by(SensorReading.timestamp.asc(), SensorReading.id).limit(_clamp(limit))
     return [sensor_out(reading, tag) for reading, tag in session.execute(stmt).all()]
 
 
@@ -97,12 +96,13 @@ def sensor_latest(session, equipment_tag, sensor_tag=None):
     ).where(Equipment.equipment_tag == normalize_equipment_tag(equipment_tag))
     if sensor_tag:
         stmt = stmt.where(SensorReading.sensor_tag == sensor_tag)
-    stmt = stmt.order_by(SensorReading.timestamp.desc())
-    latest_by_tag = {}
-    for reading, tag in session.execute(stmt).all():
-        latest_by_tag.setdefault(reading.sensor_tag, (reading, tag))
-    ordered = sorted(latest_by_tag.values(), key=lambda pair: pair[0].sensor_tag)
-    return [sensor_out(reading, tag) for reading, tag in ordered]
+    ranked = stmt.with_only_columns(SensorReading.id, func.row_number().over(
+        partition_by=SensorReading.sensor_tag,
+        order_by=(SensorReading.timestamp.desc(), SensorReading.id.desc())).label("rank")).subquery()
+    query = select(SensorReading, Equipment.equipment_tag).join(Equipment).join(ranked, ranked.c.id == SensorReading.id)
+    rows = session.execute(query.where(ranked.c.rank == 1).order_by(SensorReading.sensor_tag, SensorReading.id)
+                           .limit(settings.structured_query_max_limit)).all()
+    return [sensor_out(reading, tag) for reading, tag in rows]
 
 
 def sensor_features_query(session, request, as_of, write_artifact=True) -> SensorFeatureResponse:
