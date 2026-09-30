@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiRequest } from '../services/api.js'
+import { capabilitiesFrom } from '../features/auth/authModel.js'
 
 export function useRequest() {
   const [state, setState] = useState({ data: null, error: null, loading: false })
@@ -32,4 +33,9 @@ export function useResource(path) {
   const [version, setVersion] = useState(0)
   useEffect(() => { if (path) run(path) }, [path, run, version])
   return { ...request, refresh: () => setVersion(v => v + 1) }
+}
+
+export function useAuthCapabilities() {
+  const request = useResource('/auth/capabilities')
+  return { ...capabilitiesFrom(request.data), loading: request.loading }
 }

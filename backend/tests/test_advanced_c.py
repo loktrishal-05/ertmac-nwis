@@ -38,6 +38,8 @@ class ProductTests(unittest.TestCase):
         self.f = test_advanced_b.OperationalTests(); self.f.setUp(); self.addCleanup(self.f.doCleanups)
         self.session = self.f.session
         AutomationReceipt.__table__.create(self.f.f.f.engine)
+        from app.db.models.durable_execution import DurableExecution
+        DurableExecution.__table__.create(self.f.f.f.engine)
         app.dependency_overrides[get_db] = lambda: self.session
         app.dependency_overrides[get_optional_current_user] = lambda: self.f.actor
         self.addCleanup(app.dependency_overrides.clear)

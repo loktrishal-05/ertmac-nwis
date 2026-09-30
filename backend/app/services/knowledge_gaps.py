@@ -52,7 +52,8 @@ def run_gaps(session):
     unique = {}
     for row in rows:
         for gap in row.usage.get("execution", {}).get("knowledge_gaps", []):
-            unique.setdefault(gap["gap_id"], {**gap, "run_id": str(row.run_id)})
+            if len(unique) < 500:
+                unique.setdefault(gap["gap_id"], {**gap, "run_id": str(row.run_id)})
     return unique
 
 
@@ -66,18 +67,24 @@ def export_gap(row):
             "resolution_note": row.resolution_note, "created_at": row.created_at, "updated_at": row.updated_at}
 
 
-def listing(session, actor, status=None):
+def listing(session, actor, status=None, limit=100, offset=0):
     from sqlalchemy import select
     from app.db.models import KnowledgeGap
     from app.services.verified_knowledge import authorize
     authorize(session, actor)
     stored = {row.id: row for row in session.scalars(select(KnowledgeGap).where(KnowledgeGap.access_scope == "internal")
-                                                     .order_by(KnowledgeGap.updated_at.desc()).limit(500))}
+                                                     .order_by(KnowledgeGap.updated_at.desc(), KnowledgeGap.id).limit(500))}
+    detected = run_gaps(session)
+    # Exact overlay prevents an old RESOLVED/DISMISSED row outside the recent sample being shown OPEN.
+    if detected:
+        stored.update({row.id: row for row in session.scalars(select(KnowledgeGap)
+            .where(KnowledgeGap.id.in_(list(detected)), KnowledgeGap.access_scope == "internal"))})
     result = [{**gap, **(export_gap(stored[key]) if key in stored else {"status": "OPEN"})}
-              for key, gap in run_gaps(session).items()]
+              for key, gap in detected.items()]
     seen = {g["gap_id"] for g in result}
     result += [export_gap(row) for key, row in stored.items() if key not in seen]
-    return [g for g in result if status is None or g["status"] == status]
+    result = sorted((g for g in result if status is None or g["status"] == status), key=lambda g: g["gap_id"])
+    return result[offset:offset + limit]
 
 
 def _audit(session, row, actor, role, previous, reason, knowledge=None):

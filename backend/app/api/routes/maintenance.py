@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.api.deps import require_role
 from app.schemas.structured import MaintenanceIngestRequest, StructuredIngestResponse, MaintenanceHistoryResponse
 from app.services.ingestion import IngestionConflict
+from app.services import ui_reads
 from app.services.maintenance_data import ingest_maintenance
 from app.services.structured_queries import maintenance_history, work_order_lookup
 
@@ -29,12 +30,13 @@ def ingest_maintenance_csv(request: MaintenanceIngestRequest, session: Session =
 
 @router.get("/maintenance/history", response_model=MaintenanceHistoryResponse)
 def get_maintenance_history(
-    equipment_tag: str | None = None, work_order_id: str | None = None,
-    maintenance_type: str | None = None, status: str | None = None,
+    equipment_tag: str | None = Query(None, max_length=100), work_order_id: str | None = Query(None, max_length=100),
+    maintenance_type: str | None = Query(None, max_length=100), status: str | None = Query(None, max_length=40),
     start: datetime | None = None, end: datetime | None = None,
     limit: int = Query(default=50, ge=1, le=2000),
     session: Session = Depends(get_db),
 ):
+    start, end = ui_reads.validate_range(start, end)
     try:
         results = maintenance_history(session, equipment_tag=equipment_tag, work_order_id=work_order_id,
                                        maintenance_type=maintenance_type, status=status, start=start, end=end, limit=limit)

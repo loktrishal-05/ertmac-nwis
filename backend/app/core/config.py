@@ -96,6 +96,19 @@ class Settings(BaseSettings):
     # PUBLIC_EXTERNAL_OPTIONAL resource: off by default and never eligible for confidential data.
     bhashini_enabled: bool = False
     deployment_mode: Literal["development", "confidential", "public"] = "development"
+    signup_mode: Literal["disabled", "approval", "open"] = "approval"
+    auth_secret: str = Field(default="", repr=False)
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_sender: str = ""
+    smtp_username: str = Field(default="", repr=False)
+    smtp_password: str = Field(default="", repr=False)
+    smtp_tls: Literal["starttls", "tls", "none"] = "starttls"
+    google_enabled: bool = False
+    google_client_id: str = ""
+    google_client_secret: str = Field(default="", repr=False)
+    google_callback_url: str = ""
+    auth_frontend_origin: str = ""
     government_resources_enabled: bool = False
     government_resource_registry: str = ""
     release_min_free_gib: int = Field(default=10, ge=1)
@@ -115,6 +128,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_pipeline(self):
+        if self.deployment_mode == "confidential" and self.signup_mode == "open":
+            raise ValueError("Confidential deployments cannot use open signup")
+        if self.auth_secret and len(self.auth_secret.encode()) < 32:
+            raise ValueError("Authentication secret requires at least 32 bytes")
+        if self.smtp_host:
+            from app.core.locality import classify_host
+            if self.deployment_mode == "confidential" and classify_host(self.smtp_host) not in {"local", "private"}:
+                raise ValueError("Confidential SMTP requires a private relay")
+            if self.smtp_tls == "none" and not (self.deployment_mode == "development" and classify_host(self.smtp_host) == "local"):
+                raise ValueError("SMTP requires verified TLS outside development loopback")
         if self.embedding_model != "BAAI/bge-base-en-v1.5" or self.embedding_dimension != 768:
             raise ValueError("Phase 3A requires BAAI/bge-base-en-v1.5 with 768 dimensions")
         if not 0 <= self.chunk_overlap_tokens < 80 <= self.chunk_target_tokens <= self.chunk_max_tokens <= 500:

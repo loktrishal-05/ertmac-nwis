@@ -1,7 +1,10 @@
 """Local P&ID OCR preparation; no retrieval or process reasoning."""
 import logging
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from app.api.deps import require_role
+from app.services import pid_reads, ui_reads
+from app.api.routes.verified_knowledge import transaction
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.pid import PIDProcessRequest, PIDProcessResponse
@@ -10,6 +13,22 @@ from app.services.pid_processing import process_pid
 from app.services.pid_indexing import index_pid
 
 router = APIRouter(tags=["documents"])
+read_router = APIRouter(prefix="/documents/pid", tags=["documents"],
+                        dependencies=[Depends(require_role("requester", "reviewer", "admin"))])
+
+@read_router.get("")
+def drawings(paging: tuple = Depends(ui_reads.page), session: Session = Depends(get_db)):
+    return pid_reads.listing(session, *paging)
+
+@read_router.get("/{version_id}")
+def drawing(version_id: UUID, page: int = Query(1, ge=1, le=10),
+            paging: tuple = Depends(ui_reads.page), session: Session = Depends(get_db)):
+    return transaction(session, lambda: pid_reads.detail(session, version_id, page, *paging))
+
+@read_router.get("/{version_id}/pages/{page}/image")
+def drawing_image(version_id: UUID, page: int = Path(ge=1, le=10), session: Session = Depends(get_db)):
+    return pid_reads.image(session, version_id, page)
+
 
 
 @router.post("/documents/pid/{version_id}/index")

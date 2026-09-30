@@ -1,9 +1,98 @@
 """Descriptive aggregates of stored records, never inferred plant state."""
 from collections import Counter
+from app.services.ui_reads import now, utc, approval_state
 from datetime import datetime, timezone
 from time import perf_counter
 from sqlalchemy import select, func
 from app.db.models import AgentRun, AgentRunStep, IncidentReport, ActionRevision, ApprovalDecision, AuditEvent, OperatorNote
+
+
+def dashboard(session, start, end):
+    """Latest 1000 rows per cohort inside a half-open UTC window; never extrapolated."""
+    # ponytail: bounded recent cohorts; use SQL time-bucket aggregates if complete high-volume history is needed.
+    from app.db.models import VerifiedKnowledge, KnowledgeGap
+    from app.db.models.durable_execution import DurableExecution
+    cap = 1000
+    at = now()
+    samples = {}
+    def sample(name, model, clock, query=None):
+        query = query if query is not None else select(model)
+        rows = session.execute(query.where(clock >= start, clock < end)
+            .order_by(clock.desc(), model.id.desc()).limit(cap + 1)).all()
+        samples[name] = {"sample_size": min(len(rows), cap), "truncated": len(rows) > cap,
+                         "limit": cap, "as_of": at}
+        return rows[:cap]
+    # Select only operational columns, never query text.
+    run_rows = sample("runs", AgentRun, AgentRun.created_at,
+        select(AgentRun.id, AgentRun.created_at, AgentRun.route, AgentRun.model))
+    runs = [r.id for r in run_rows]
+    steps = session.execute(select(AgentRunStep.run_id, AgentRunStep.usage)
+        .where(AgentRunStep.run_id.in_(runs), AgentRunStep.node_name == "execution_metadata")
+        .order_by(AgentRunStep.run_id, AgentRunStep.step_index.desc(), AgentRunStep.id.desc())
+        .limit(cap * 2 + 1)).all() if runs else []
+    metadata = {}
+    for ident, usage in steps:
+        value = (usage or {}).get("execution")
+        if isinstance(value, dict):
+            metadata.setdefault(ident, value)
+    recorded = list(metadata.values())
+    bucket = "hour" if (end - start).total_seconds() <= 86400 else "day"
+    def bucket_at(value):
+        value = utc(value).replace(minute=0, second=0, microsecond=0)
+        return value if bucket == "hour" else value.replace(hour=0)
+    volume = Counter(bucket_at(r.created_at).isoformat() for r in run_rows)
+    selected = [e.get("model_selected") or e.get("selected_model") for e in recorded]
+    selected = [m for m in selected if m]
+    escalations = [e["escalated"] for e in recorded if isinstance(e.get("escalated"), bool)]
+    evidence = [e["evidence_sufficiency"]["state"] for e in recorded
+                if isinstance(e.get("evidence_sufficiency"), dict) and e["evidence_sufficiency"].get("state")]
+    executions = sample("executions", DurableExecution, DurableExecution.created_at,
+        select(DurableExecution.id, DurableExecution.status))
+    approvals = sample("approvals", ActionRevision, ActionRevision.created_at,
+        select(ActionRevision.id, approval_state(at).label("state")))
+    decisions = sample("decisions", ApprovalDecision, ApprovalDecision.decided_at,
+        select(ApprovalDecision.id, ApprovalDecision.decision, ApprovalDecision.decided_at, ActionRevision.created_at)
+            .join(ActionRevision, ActionRevision.id == ApprovalDecision.action_revision_id))
+    latency = [(utc(d.decided_at) - utc(d.created_at)).total_seconds() for d in decisions
+               if d.decision in ("APPROVE", "REJECT") and utc(d.decided_at) >= utc(d.created_at)]
+    knowledge = sample("knowledge", VerifiedKnowledge, VerifiedKnowledge.created_at,
+        select(VerifiedKnowledge.id, VerifiedKnowledge.status).where(VerifiedKnowledge.access_scope == "internal"))
+    gaps = sample("knowledge_gaps", KnowledgeGap, KnowledgeGap.created_at,
+        select(KnowledgeGap.id, KnowledgeGap.status).where(KnowledgeGap.access_scope == "internal"))
+    audits = sample("audit", AuditEvent, AuditEvent.occurred_at,
+        select(AuditEvent.id, AuditEvent.event_type, AuditEvent.occurred_at))
+    samples["metadata"] = {"sample_size": len(recorded), "missing_runs": len(runs) - len(recorded),
+                            "truncated": len(steps) > cap * 2, "as_of": at}
+    def distribution(values):
+        return {"counts": dict(Counter(values)) if values else None, "sample_size": len(values)}
+    return {"as_of": at, "window": {"start": start, "end": end, "semantics": "[start,end)"},
+        "advisory_only": True, "samples": samples, "sample_limit": cap,
+        "query_volume": {"bucket": bucket, "points": [{"at": k, "count": v} for k, v in sorted(volume.items())],
+                         "sample_size": len(runs), "source": "persisted_agent_runs"},
+        "model_routing": distribution(selected),
+        "escalations": {"count": sum(escalations) if escalations else None, "sample_size": len(escalations)},
+        "execution_status": distribution([r.status for r in executions]),
+        "pending_approvals": {"count": sum(r.state == "PENDING_REVIEW" for r in approvals),
+                              "sample_size": len(approvals)},
+        "approval_status": distribution([r.state for r in approvals]),
+        "approval_outcomes": distribution([d.decision for d in decisions]),
+        "approval_latency_seconds": {"mean": sum(latency) / len(latency) if latency else None,
+                                     "sample_size": len(latency)},
+        "knowledge_lifecycle": distribution([r.status for r in knowledge]),
+        "knowledge_gap_status": distribution([r.status for r in gaps]),
+        "evidence_sufficiency": distribution(evidence),
+        "audit_activity": distribution([r.event_type for r in audits]),
+        "service_status": None,
+        "limitations": [
+            "Counts cover bounded stored cohorts, not all system traffic; truncated cohorts are partial.",
+            "Volume omits attempts without persisted AgentRun records; absent time buckets are not filled.",
+            "Routing is recorded selection, not proof of model calls. Missing metadata is unavailable.",
+            "Status counts are current recorded states of objects created in the window, not historical snapshots.",
+            "Knowledge statuses are last validated ledger states; inspect/revalidate to check source freshness.",
+            "Gap counts cover persisted review records; unpersisted detected gaps remain in /knowledge-gaps.",
+            "Decision outcomes use decision time; latency excludes revocations and invalid timestamp pairs.",
+            "Use existing /health, /models/status and /product/status for authoritative service probes."
+        ]}
 
 
 def snapshot(session):

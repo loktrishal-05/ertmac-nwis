@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.schemas.product import TranscriptionInput, SynthesisInput, AutomationInput, AutomationKind
 from app.services import local_voice as voice, industrial_bi as bi, product_integration as integration
 from app.services import language_resources as resources
+from app.services import ui_reads
 
 router = APIRouter(tags=["product-integration"])
 human = require_role("requester", "reviewer", "admin")
@@ -60,11 +61,10 @@ def synthesize(payload: SynthesisInput, response: Response, actor: User = Depend
 
 
 @router.get("/bi/operational")
-def operational_bi(response: Response, actor: User = Depends(reviewer), session: Session = Depends(get_db)):
+def operational_bi(response: Response, interval: tuple = Depends(ui_reads.window), actor: User = Depends(reviewer), session: Session = Depends(get_db)):
     response.headers["Cache-Control"] = "no-store"
     def run():
-        report = bi.snapshot(session)
-        integration.event(session, actor, "bi_query", latency_ms=report["bi_latency_ms"])
+        report = bi.dashboard(session, *interval)
         return report
     return transaction(session, run)
 

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useLanguage } from './language.js'
 import { VoiceControls } from './ProductPages.jsx'
 import { useRequest, useResource } from './hooks/useApi.js'
+import { isSubstantialReplacement, reviewGate } from './features/voice/identifierReview.js'
+import { QueryForm, TranscriptReview } from './features/voice/TranscriptReview.jsx'
 
 export function ApiState({ request, empty = 'No records returned.' }) {
   if (request.loading) return <p role="status">Loading…</p>
@@ -10,11 +12,17 @@ export function ApiState({ request, empty = 'No records returned.' }) {
   return null
 }
 
+const IDENTIFIER = /\b([A-Z]{1,5}-[A-Z0-9]+(?:-[A-Z0-9]+)*)\b/
+const ACRONYMS = /\b(ai|api|id|ids|ocr|rrf|stt|tts|sop|pid|ms|url|bi|llm|rag)\b/gi
+
 export function DataView({ value }) {
   if (value == null) return <span className="muted">Unavailable</span>
   if (Array.isArray(value)) return value.length ? <ul className="data-list">{value.map((item, index) => <li key={index}><DataView value={item} /></li>)}</ul> : <span className="muted">None returned</span>
-  if (typeof value === 'object') return <dl className="data-fields">{Object.entries(value).map(([key, item]) => <div key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd><DataView value={item} /></dd></div>)}</dl>
-  return <span>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</span>
+  if (typeof value === 'object') return <dl className="data-fields">{Object.entries(value).map(([key, item]) => <div key={key}><dt>{key.replaceAll('_', ' ').replace(ACRONYMS, word => word.toUpperCase())}</dt><dd><DataView value={item} /></dd></div>)}</dl>
+  // Floats are rounded for reading only; integers (sequence numbers, counts) stay exact and raw JSON stays available.
+  const shown = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : typeof value === 'number' && !Number.isInteger(value) ? String(+value.toFixed(3)) : String(value)
+  // Tags such as SOP-P204-001 or XV-2040 never wrap at their hyphens; the text itself is unchanged.
+  return <span>{shown.split(IDENTIFIER).map((part, index) => index % 2 ? <span key={index} className="identifier">{part}</span> : part)}</span>
 }
 
 function Evidence({ items = [] }) {
@@ -51,92 +59,40 @@ export function Result({ data }) {
   </div>
 }
 
-export function Auth({ auth }) {
-  const action = useRequest()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  async function login(event) {
-    event.preventDefault()
-    const result = await action.run('/auth/login', { method: 'POST', body: { username, password } })
-    setPassword('')
-    if (result) auth.refresh()
-  }
-  async function logout() {
-    if (await action.run('/auth/logout', { method: 'POST' })) auth.refresh()
-  }
-  return <section className="panel auth-panel" aria-label="Account">
-    {auth.data ? <div className="toolbar"><span>Signed in: <strong>{auth.data.username}</strong> · {auth.data.role} (server role)</span><button onClick={logout} disabled={action.loading}>Sign out</button></div> : <form className="toolbar" onSubmit={login}><label>Username<input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required maxLength={100} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required maxLength={255} /></label><button disabled={action.loading || auth.loading}>Sign in</button><span>Sign in before requesting a governed recommendation.</span></form>}
-    {auth.error?.status !== 401 && <ApiState request={auth} />}<ApiState request={action} />
-  </section>
-}
-
-export function Dashboard({ proof, health, user }) {
-  const ready = useResource('/ready')
-  const agents = useResource('/agents/status')
-  const reviewer = ['reviewer', 'admin'].includes(user?.role)
-  const approvals = useResource(reviewer ? '/approvals' : null)
-  const metrics = [
-    ['Backend', health, 'Process liveness'], ['Readiness', ready.data?.status || ready.error?.data?.status, 'Dependencies checked without inference'],
-    ['Implemented routes', agents.data?.routes?.filter(r => r.status === 'implemented').length, 'Running-agent count unavailable'],
-    ['Pending approvals', approvals.data?.length, reviewer ? 'Current review queue' : 'Reviewer sign-in required'],
-    ['Indexed documents', null, 'No inventory-count API available'], ['External AI calls', proof.data?.external_ai_calls, 'Current backend process only'],
-  ]
-  return <><section className="metrics">{metrics.map(([label, value, caption]) => <article className="metric" key={label}><div className="metric-label">{label}</div><div className="metric-value">{value ?? 'Unavailable'}</div><p>{caption}</p></article>)}</section>
-    <section className="panel"><div className="section-heading"><h2>Runtime overview</h2><button onClick={() => { ready.refresh(); agents.refresh(); approvals.refresh(); proof.refresh() }}>Refresh overview</button></div>
-      <ApiState request={ready} />{ready.error?.data && <DataView value={ready.error.data} />}<ApiState request={agents} />{reviewer && <ApiState request={approvals} />}<ApiState request={proof} />
-      <DataView value={{ sovereignty: proof.data?.status, model: proof.data?.local_model, ready: ready.data?.checks }} />
-      <p>Agent execution activity is not reported by the status API. This view shows configured capabilities.</p></section></>
-}
-
-export function QueryConsole({ user }) {
+export function QueryConsole({ user, voiceFocus = false }) {
   const { language, t } = useLanguage()
   const [channel, setChannel] = useState('text')
   const [query, setQuery] = useState('')
+  // H3: a voice transcript must be human-reviewed before it can be submitted.
+  const [review, setReview] = useState(null)
+  const [notice, setNotice] = useState('')
   const request = useRequest()
-  async function submit(event) {
-    event.preventDefault()
+  const gate = review ? reviewGate(review) : { ready: true, pending: [], total: 0 }
+  function acceptTranscript(result) {
+    setQuery(result.text); setChannel('voice'); setNotice('')
+    setReview({ result, acknowledged: [], confirmed: false })
+  }
+  function edit(value) {
+    setQuery(value)
+    if (review && isSubstantialReplacement(review.result.text, value)) {
+      setReview(null); setChannel('text')
+      setNotice('The transcript was replaced, so this question will be sent as typed text.')
+    }
+  }
+  const acknowledge = (index, checked) => setReview(current => current && ({ ...current,
+    acknowledged: checked ? [...new Set([...current.acknowledged, index])] : current.acknowledged.filter(i => i !== index) }))
+  async function submit() {
+    if (!gate.ready) return
     await request.run('/query', { method: 'POST', body: { query, request_id: crypto.randomUUID(), input_language: language, input_channel: channel }, timeout: 2100000 })
   }
-  return <section className="panel"><h2>{t('Ask the workbench')}</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
-    <VoiceControls key={request.data?.run_id || 'input'} user={user} onTranscript={text => { setQuery(text); setChannel('voice') }} result={request.data} />
-    <form onSubmit={submit}><label>{t('Question')}<textarea value={query} onChange={e => setQuery(e.target.value)} required maxLength={10000} rows={4} /></label><button disabled={request.loading || !query.trim()}>{t('Submit query')}</button></form>
+  return <section className="panel"><h2>{voiceFocus ? 'Ask by voice' : t('Ask the workbench')}</h2><p>Answers are advisory. Refusals and clarification requests are shown as returned.</p>{!user && <p className="review-notice">Anonymous queries cannot produce reviewable approvals. Sign in first for governed recommendations.</p>}
+    <VoiceControls key={request.data?.run_id || 'input'} user={user} onTranscript={acceptTranscript} result={request.data} />
+    {review && <TranscriptReview result={review.result} acknowledged={review.acknowledged} confirmed={review.confirmed}
+      onAcknowledge={acknowledge} onConfirm={confirmed => setReview(current => current && ({ ...current, confirmed }))} />}
+    {notice && <p role="status">{notice}</p>}
+    <QueryForm query={query} onChange={edit} onSubmit={submit} gate={gate} loading={request.loading}
+      label={t('Question')} submitLabel={t('Submit query')} reviewing={!!review} />
     {request.loading && <p>Local inference may take several minutes. Keep this page open.</p>}<ApiState request={request} /><Result data={request.data} />
-  </section>
-}
-
-export function Agents() {
-  const request = useResource('/agents/status')
-  return <section className="panel"><div className="section-heading"><h2>Agent capabilities</h2><button disabled={request.loading} onClick={request.refresh}>Refresh agents</button></div><ApiState request={request} />
-    {request.data && <><p>Configured routes, not a live activity feed.</p>{!request.data.routes?.length && <p>No agent routes returned.</p>}<div className="agent-grid">{request.data.routes?.map(route => <article className="agent-card" key={route.route}><h3>{route.route.replaceAll('_', ' ')}</h3><p>{route.description}</p><div className="agent-footer">{route.status}</div></article>)}</div><details><summary>Read-only tools and model runtime</summary><DataView value={{ tools: request.data.tools, gateway: request.data.gateway }} /></details></>}
-  </section>
-}
-
-export function Approvals({ user }) {
-  const queue = useResource('/approvals')
-  const detail = useRequest()
-  const action = useRequest()
-  const [revision, setRevision] = useState('')
-  const [comment, setComment] = useState('')
-  const reviewer = ['reviewer', 'admin'].includes(user?.role)
-  const current = detail.data
-  const busy = detail.loading || action.loading
-  async function open(id) { action.reset(); setComment(''); setRevision(id); await detail.run(`/approvals/${encodeURIComponent(id)}`) }
-  async function decide(decision) {
-    const id = current.action_revision_id
-    const result = await action.run(`/approvals/${id}/decision`, { method: 'POST', body: { decision, expected_revision_id: id, reviewer_comment: comment || null } })
-    if (result) { await detail.run(`/approvals/${id}`); queue.refresh() }
-  }
-  return <section className="panel"><div className="section-heading"><h2>Advisory review queue</h2><button onClick={queue.refresh} disabled={queue.loading}>Refresh queue</button></div><p>Human approval releases only an advisory recommendation. No equipment-control action exists here.</p><ApiState request={queue} empty="No pending revisions returned." />
-    <ul className="data-list">{queue.data?.map(row => <li key={row.action_revision_id}><button disabled={busy} onClick={() => open(row.action_revision_id)}>Review {row.action_revision_id}</button><span> {row.route} · {new Date(row.created_at).toLocaleString()}</span></li>)}</ul>
-    <form className="toolbar" onSubmit={e => { e.preventDefault(); open(revision) }}><label>Revision ID (including previously decided revisions)<input required value={revision} onChange={e => setRevision(e.target.value)} /></label><button disabled={busy || !revision.trim()}>Load revision</button></form>
-    <ApiState request={detail} />
-    {current && <><h3>Exact revision</h3><DataView value={{ revision: current.action_revision_id, status: current.governance_status, requester: current.requester_user_id, request_hash: current.canonical_request_hash, proposal_hash: current.canonical_proposal_hash, evidence_status: current.evidence_binding_status, manifest_hash: current.evidence_manifest_hash }} /><Result data={current} />
-      <DataView value={{ decisions: current.decisions }} /><label>Reviewer comment<textarea maxLength={2000} value={comment} onChange={e => setComment(e.target.value)} /></label>
-      <div className="toolbar">{reviewer && current.governance_status === 'PENDING_REVIEW' && <><button disabled={busy || current.requester_user_id === user.id} onClick={() => decide('approve')}>Approve advisory</button><button disabled={busy || current.requester_user_id === user.id} onClick={() => decide('reject')}>Reject advisory</button></>}
-        {reviewer && current.governance_status === 'APPROVED' && <button disabled={busy} onClick={() => decide('revoke')}>Revoke approval</button>}
-        {user && current.governance_status === 'APPROVED' && <button disabled={busy} onClick={() => action.run(`/approvals/${current.action_revision_id}/release`)}>View approved advisory</button>}</div>
-      {current.requester_user_id === user?.id && <p>Self-approval is prohibited by the backend.</p>}</>}
-    <ApiState request={action} />{action.data && <details open><summary>Latest server action result — {action.data.action_revision_id}</summary><DataView value={action.data} /></details>}
   </section>
 }
 

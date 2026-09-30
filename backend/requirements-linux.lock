@@ -10,6 +10,7 @@ anyio==4.15.1
 argon2-cffi==23.1.0
 argon2-cffi-bindings==26.1.0
 attrs==26.1.0
+Authlib==1.8.0
 av==18.1.0
 bce-python-sdk==0.9.79
 beautifulsoup4==4.15.0
@@ -26,12 +27,14 @@ ctranslate2==4.8.2
 defusedxml==0.7.1
 dill==0.4.1
 distro==1.9.0
+dnspython==2.8.0
 doclang==0.7.3
 docling==2.130.0
 docling-core==2.99.0
 docling-ibm-models==4.0.3
 docling-parse==7.22.0
 docling-slim==2.130.0
+email-validator==2.3.0
 et_xmlfile==2.0.0
 Faker==40.39.0
 fastapi==0.141.1
@@ -58,6 +61,7 @@ imagesize==2.0.1
 iniconfig==2.3.0
 Jinja2==3.1.6
 joblib==1.6.0
+joserfc==1.7.5
 jsonpatch==1.33
 jsonpointer==3.1.1
 jsonref==1.1.0

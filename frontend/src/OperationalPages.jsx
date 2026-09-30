@@ -3,9 +3,12 @@ import { useLanguage } from './language.js'
 import { useRequest, useResource } from './hooks/useApi.js'
 import { ApiState, DataView, Result } from './WorkspacePages.jsx'
 
-export function OperationalWorkspace({ user }) {
+// `view`/`onViewChange` let a URL route drive the view; without them the component keeps local state.
+export function OperationalWorkspace({ user, view: routedView, onViewChange }) {
   const { t } = useLanguage()
-  const [view, setView] = useState('Shift Handover')
+  const [localView, setLocalView] = useState('Shift Handover')
+  const view = routedView || localView
+  const setView = onViewChange || setLocalView
   const [equipment, setEquipment] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')

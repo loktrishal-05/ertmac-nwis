@@ -1,0 +1,14 @@
+# Use with docker-compose.nwis.yml; project and storage are isolated from frozen B2.
+name: ertmac-nwis-backend-c2
+services:
+  backend:
+    ports: !override
+      - '127.0.0.1:8012:8000'
+    environment:
+      MODEL_BASE_URL: http://host.docker.internal:11434
+      MODEL_ALLOWED_HOSTS: host.docker.internal
+      SIGNUP_MODE: disabled
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    volumes:
+      - ${NWIS_MODEL_DIR:?Set NWIS_MODEL_DIR to existing local BGE artifacts}:/workspace/models:ro

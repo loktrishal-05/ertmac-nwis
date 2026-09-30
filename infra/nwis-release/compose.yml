@@ -1,0 +1,120 @@
+# D2 release preflight only. No service is started by preparing this file.
+name: nwis-release
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nwis_owner
+      POSTGRES_DB: nwis
+      POSTGRES_PASSWORD: ${NWIS_DB_OWNER_PASSWORD:?Supply a unique DB-owner secret}
+      NWIS_DB_PASSWORD: ${NWIS_DB_PASSWORD:?Supply a separate application DB secret}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./grant-app.sql:/release/grant-app.sql:ro
+    networks: [storage]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U nwis_owner -d nwis']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    restart: unless-stopped
+    environment:
+      QDRANT__TELEMETRY_DISABLED: 'true'
+    volumes:
+      - qdrant:/qdrant/storage
+    networks: [storage]
+  backend:
+    image: ${NWIS_BACKEND_IMAGE:?Build and record an immutable final release backend image tag}
+    restart: unless-stopped
+    working_dir: /workbench
+    user: '10001:10001'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    environment:
+      DATABASE_URL: postgresql+psycopg://nwis_app:${NWIS_DB_PASSWORD:?Required}@postgres:5432/nwis
+      QDRANT_URL: http://qdrant:6333
+      MODEL_RUNTIME: ollama
+      MODEL_NAME: qwen3.5:9b
+      PRIMARY_MODEL: qwen3.5:9b
+      MODEL_BASE_URL: http://host.docker.internal:11434
+      MODEL_ALLOWED_HOSTS: host.docker.internal
+      WORKBENCH_DATA_ROOT: /workbench/data
+      WORKBENCH_MODEL_ROOT: /workbench/models
+      WORKBENCH_DEPLOYMENT_MODE: public
+      WORKBENCH_SIGNUP_MODE: ${NWIS_SIGNUP_MODE:-open}
+      WORKBENCH_AUTH_SECRET: ${NWIS_AUTH_SECRET:?Supply a unique 32-byte minimum OTP secret}
+      WORKBENCH_CORS_ORIGINS: '["${NWIS_PUBLIC_ORIGIN:?Supply the exact HTTPS Vercel origin}"]'
+      WORKBENCH_AUTH_FRONTEND_ORIGIN: ${NWIS_PUBLIC_ORIGIN:?Required}
+      SESSION_COOKIE_SECURE: 'true'
+      SESSION_COOKIE_NAME: workbench_session
+      SESSION_TTL_SECONDS: '28800'
+      WORKBENCH_GOOGLE_ENABLED: 'false'
+      WORKBENCH_SMTP_HOST: ${NWIS_SMTP_HOST:?Supply the production SMTP relay}
+      WORKBENCH_SMTP_PORT: ${NWIS_SMTP_PORT:-587}
+      WORKBENCH_SMTP_TLS: ${NWIS_SMTP_TLS:-starttls}
+      WORKBENCH_SMTP_SENDER: ${NWIS_SMTP_SENDER:?Supply the verified mail sender}
+      WORKBENCH_SMTP_USERNAME: ${NWIS_SMTP_USERNAME:-}
+      WORKBENCH_SMTP_PASSWORD: ${NWIS_SMTP_PASSWORD:-}
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      HF_HOME: /tmp/huggingface
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      PYTHONPATH: /workbench:/workbench/backend:/workbench/backend/tests
+    volumes:
+      - data:/workbench/data
+      - ${NWIS_MODEL_DIR:?Supply existing BGE model root}:/workbench/models:ro
+      - ../../docs/nwis/golden_demo_fixture.json:/workbench/docs/nwis/golden_demo_fixture.json:ro
+    extra_hosts: ['host.docker.internal:host-gateway']
+    networks: [application, storage]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    command: [python, -m, uvicorn, app.main:app, --host, 0.0.0.0, --port, '8000', --no-proxy-headers]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=15)"]
+      interval: 15s
+      timeout: 20s
+      start_period: 60s
+      retries: 4
+  migrate:
+    extends:
+      service: backend
+    profiles: [operator]
+    restart: 'no'
+    environment:
+      DATABASE_URL: postgresql+psycopg://nwis_owner:${NWIS_DB_OWNER_PASSWORD:?Required}@postgres:5432/nwis
+    healthcheck:
+      disable: true
+    command: [python, -m, alembic, -c, backend/alembic.ini, upgrade, head]
+  gateway:
+    image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    restart: unless-stopped
+    user: '101:101'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    entrypoint: [nginx, -g, 'daemon off;']
+    ports: ['127.0.0.1:8013:8080']
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks: [application]
+    depends_on:
+      backend:
+        condition: service_healthy
+networks:
+  application:
+  storage:
+    internal: true
+volumes:
+  postgres:
+  qdrant:
+  data:
