@@ -39,3 +39,50 @@ Run on 2026-09-30 in the same isolated `ertmac-nwis-backend` Compose project (Po
 | `git diff --check` | Passed |
 
 B2 adds no migration. `MatchOut.explanation` is response-only (not persisted). Checksum-bound benchmark JSON is committed with LF endings and the manifest hash is computed on those bytes. These remain functional checks, not field calibration, AUROC/PR-AUC or NPT measurements.
+
+## B2 completion verification and implementation audit
+
+The resumed worktree already contained committed B2 implementation `a9949c5`. Completion adds the actual backend API contract; no further backend behavior changes were necessary. The earlier B2 suite/benchmark/regression counts above are retained results, not claims that those large suites were rerun during documentation completion.
+
+Fresh completion checks on 2026-09-30: focused `test_nwis_b2.B2Tests` **12 passed**; Alembic upgrade head succeeded; running PostgreSQL returned PostGIS 3.5, migration `0018_nwis`, and **11** offsets within 10,000 m of ACTIVE-01 through actual `ST_DWithin`. No host database port is published by the isolated Compose file. The focused hybrid unit case uses local Qdrant with test embeddings; the separately recorded real BGE/server retrieval check above is distinct.
+
+Commands executed from the isolated worktree (PowerShell):
+
+```powershell
+docker compose -f infra/docker-compose.nwis.yml run --rm --no-deps backend python -m unittest test_nwis_b2.B2Tests -v
+docker compose -f infra/docker-compose.nwis.yml run --rm --no-deps backend python -m alembic -c backend/alembic.ini upgrade head
+docker compose -f infra/docker-compose.nwis.yml run --rm --no-deps backend python -m scripts.seed_nwis
+docker compose -f infra/docker-compose.nwis.yml exec -T postgres psql -U nwis -d nwis -c "SELECT PostGIS_Version(); SELECT version_num FROM alembic_version; SELECT count(*) AS nearby_count FROM nwis_wells a JOIN nwis_wells b ON a.id <> b.id AND ST_DWithin(a.location,b.location,10000) WHERE a.id='ACTIVE-01';"
+```
+
+Audit below is based on code, not report promises. I = implemented, P = partial, M = missing. B1 status was inspected before modification; final status is constrained by the explicit prototype limits. File aliases: `M` = backend/app/db/models/nwis.py; `S` = backend/app/services/nwis.py; `R` = backend/app/api/routes/nwis.py; `K` = backend/app/services/nwis_knowledge.py; `A` = backend/app/agents/nwis.py; `T` = backend/app/services/nwis_telemetry.py. Test aliases are backend/tests/test_nwis.py (`N`), test_nwis_b2.py (`B2`), test_nwis_postgres.py (`PG`), test_nwis_retrieval.py (`Q`).
+
+| Feature | B1 | Implemented (B2) | Partial | Missing | Files | Tests |
+| --- | --- | --- | --- | --- | --- | --- |
+| Wells | I | Yes | — | — | M/R | N seed/RBAC, PG HTTP |
+| PostGIS | I | Yes | — | — | M, migration 0018 | PG geography/index |
+| Nearby radius search | I | Yes | — | — | S/R | N ranking, PG radius |
+| Trajectories | I | Stored/interpolated | No standalone survey API | — | M/S | N depth, B2 correlation |
+| Formation intervals | I | Yes | — | — | M/R | N/B2 correlation |
+| Formation correlation | P | Common datum/tracks/context | Missing markers explicit | — | S/R | B2 alignment/missing markers |
+| Drilling events | I | Yes | — | — | M/R | N filters, B2 provenance |
+| WCR/DDR extraction | P | Explicit-field parsing/review | General narrative NLP not implemented | — | K | N extraction, B2 signed depth/review |
+| Synthetic dataset | I | Deterministic | — | — | scripts/seed_nwis.py | N seed, PG repeat seed |
+| Offset similarity | I | Six scores, total, explanations | — | — | S | N ranking, B2 explanation/tie |
+| Risk look-ahead | I | Deterministic 50/100/150 | Uncalibrated active-formation heuristic | — | S/R | N determinism, B2 chain |
+| Telemetry replay | P | Bounded API/freshness/seek | Synthetic historical replay | — | T/S/R | N windows, B2 freshness |
+| Telemetry anomaly features | I | Explainable window statistics | — | — | S | N persistence, B2 bad samples/gaps |
+| Alert persistence | I | Three eligible assessments | — | — | M/S | N alerts, B2 chain |
+| Hysteresis | I | .6 trigger/.4 clear | — | — | S | N alert policy |
+| Cooldown | I | 30 minutes | — | — | S | N alert policy |
+| Deduplication | I | Timestamp/assessment/interval | — | — | M/S | N alerts/idempotence |
+| Evidence links | P | Persisted detail/source snapshots | Chunk link nullable for structured risk | — | M/S/R | B2 complete chain |
+| Advisories | I | Cited template/review/feedback | — | — | M/S/A/R | B2 chain, PG HTTP |
+| NWIS RAG/query mode | P | Explicit mode + structured/hybrid | Local model artifacts required for hybrid | — | A/K/R | B2 query/citations, Q real retrieval |
+| LangGraph agents | I | Four distinct roles | — | — | A | N durable query, B2 mode |
+| Audit | I | Hash-chained, role-filtered | — | — | S/R, generic audit | N/PG/B2 chain |
+| RBAC | I | Requester/reviewer/admin + terms | Shared demo provisioning deferred | — | R, generic auth | N RBAC/scope |
+| Benchmark | I | 46 development, 8 held out | Held-out set not run | — | benchmark/nwis | benchmark runner |
+| Docker/PostGIS runtime | I | Actual migration/seed/spatial checks | No live Oil India integration | — | infra/docker-compose.nwis.yml | PG + runtime SQL above |
+
+The API freeze is [backend_api_contract.md](backend_api_contract.md). Synthetic data is not deployed at Oil India, is not live eRTMAC, and exposes only a WITSML/ETP-ready adapter boundary. No automatic drilling control or feedback learning exists. Real OIL validation/calibration is required before operational use.

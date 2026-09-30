@@ -99,3 +99,5 @@ PostGIS tests create/drop a uniquely named validation database only through the 
 ## Explicit prototype limits
 
 This implements the report's backend demonstrator, not its future production program. There is no trained/calibrated hazard classifier, live WITSML/ETP transport, OSDU service, downhole spatial query, automatic rig control, or claimed NPT reduction. The WITSML interface is a local-replay adapter boundary. Similarity/risk currently evaluates the active canonical formation; multi-formation transition forecasting and datum reconciliation need validated domain data. The API does not silently infer geological continuity. Surface radius candidates are capped at 500, correlation at 200 intervals/500 events, and retrieval at 500 events; narrower queries are required above these bounds. Deployment, frontend integration and merging are separate tasks. Historical migrations and generic auth/security infrastructure are retained.
+
+The frozen B2 frontend integration contract, including exact schemas, nullable fields, role gates and ordering, is [backend_api_contract.md](backend_api_contract.md).
