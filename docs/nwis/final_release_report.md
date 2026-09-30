@@ -1,5 +1,7 @@
 # SIH26121 eRTMAC-NWIS F1 release record
 
+F1b completed the browser blocker and made verified frontend-only responsive fixes. The F1 assembly record below is historical; see [browser_validation.md](browser_validation.md) for the current browser decision. The backend tree remains identical to the one-time blind-evaluation freeze.
+
 2026-09-30. Local assembly only. No deployment, push, or merge into main/master. **Blocked on browser verification**: connected browser inventory was empty and opening an in-app browser returned unavailable. Permission to run local Playwright tests was requested but has not been received. The requested pages, interactions and 1366×768, 1280×720 and 390px layouts therefore cannot be declared browser-verified. All independent backend, build, security and blind-evaluation gates below passed.
 
 1. **Claude takeover.** Read-only `git status`, `git diff`, `git diff --stat`, `git log -5 --oneline` showed a clean `pivot/nwis-frontend`, already committed at `2e00e83`. No reset, clean, stash, checkout over files or discarded changes. Its three post-baseline commits (`ce35709`, `ce904ee`, `2e00e83`) cover 54 changed frontend files/assets and remain in the release ancestry. Claude's backend auth commits (`20c11da`, `0bdc8ba`, `55a9964`) were also preserved. The dirty main workspace and its staged terms work were not used for assembly.
@@ -21,7 +23,7 @@
 
 ## Reproduce permitted local checks
 
-The isolated validation runtime uses `infra/docker-compose.nwis.yml` plus `infra/docker-compose.nwis-final.yml`, not the old C2 override (its published-port layout predates Claude's shared Mailpit namespace). Protected ignored `data/final-validation.env` supplies a disposable auth secret and existing model root. Ports 8014/8026 are loopback only; the built frontend preview is loopback 5175. Do not use the existing Gmail stack for disposable mail tests.
+The isolated validation runtime uses `infra/docker-compose.nwis.yml` plus `infra/docker-compose.nwis-final.yml`, not the old C2 override (its published-port layout predates Claude's shared Mailpit namespace). Protected ignored `data/final-validation.env` supplies a disposable auth secret and existing model root. Ports 8014/8026 are loopback only; the built frontend preview must use loopback 5173, which is in the local origin allowlist. Start it with `WORKBENCH_API_PROXY=http://127.0.0.1:8014` and `npm run preview -- --host 127.0.0.1 --port 5173`. Do not use the existing Gmail stack for disposable mail tests.
 
 ```powershell
 $final = @('--env-file', 'data/final-validation.env', '-f', 'infra/docker-compose.nwis.yml', '-f', 'infra/docker-compose.nwis-final.yml')
