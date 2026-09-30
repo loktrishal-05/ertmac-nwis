@@ -1,0 +1,34 @@
+# Disposable Phase F integration validation. No development database or data mounts.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: auth_test
+      POSTGRES_PASSWORD: synthetic-auth-test-only
+      POSTGRES_DB: auth_test
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U auth_test -d auth_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    image: sovereign-workbench-backend:py311-cpu
+    user: root
+    working_dir: /validation/repo
+    environment:
+      DATABASE_URL: postgresql+psycopg://auth_test:synthetic-auth-test-only@postgres:5432/auth_test
+      MODEL_NAME: qwen3.5:9b
+      WORKBENCH_TEST_POSTGRES: '1'
+      WORKBENCH_DATA_ROOT: /validation/repo/data
+      PYTHONPATH: /validation/repo:/validation/repo/backend:/validation/repo/backend/tests
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    volumes:
+      - ..:/source:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: [sleep, infinity]
+networks:
+  default:
+    internal: true

@@ -3,6 +3,10 @@ import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from app.db.models import Equipment, SensorReading
+from app.services import ui_reads
+from app.services.equipment_tags import normalize_equipment_tag
 from app.db.session import get_db
 from app.api.deps import require_role
 from app.schemas.structured import (
@@ -20,6 +24,30 @@ from app.services.structured_queries import sensor_readings_query, sensor_latest
 router = APIRouter(tags=["sensors"])
 logger = logging.getLogger(__name__)
 
+@router.get("/equipment")
+def equipment(q: str = Query("", max_length=100), paging: tuple = Depends(ui_reads.page),
+              session: Session = Depends(get_db)):
+    limit, offset = paging
+    query = select(Equipment)
+    if q:
+        query = query.where(Equipment.equipment_tag.startswith(normalize_equipment_tag(q), autoescape=True))
+    rows = session.scalars(query.order_by(Equipment.equipment_tag, Equipment.id).offset(offset).limit(limit + 1)).all()
+    return ui_reads.envelope([{k: getattr(r, k) for k in ("id", "equipment_tag", "name", "equipment_type", "location")}
+                              for r in rows], limit, offset)
+
+@router.get("/sensors/channels")
+def channels(equipment_tag: str = Query(min_length=1, max_length=100), paging: tuple = Depends(ui_reads.page),
+             session: Session = Depends(get_db)):
+    limit, offset = paging
+    rows = session.execute(select(SensorReading.sensor_tag, SensorReading.sensor_type, SensorReading.unit)
+        .join(Equipment, Equipment.id == SensorReading.equipment_id)
+        .where(Equipment.equipment_tag == normalize_equipment_tag(equipment_tag))
+        .distinct().order_by(SensorReading.sensor_tag, SensorReading.sensor_type, SensorReading.unit)
+        .offset(offset).limit(limit + 1)).all()
+    return ui_reads.envelope([{"sensor_tag": r.sensor_tag, "measurement": r.sensor_type, "unit": r.unit,
+                               "thresholds": None} for r in rows], limit, offset)
+
+
 
 @router.post("/data/sensors/ingest", response_model=StructuredIngestResponse, dependencies=[Depends(require_role("admin"))])
 def ingest_sensor_csv(request: SensorIngestRequest, session: Session = Depends(get_db)):
@@ -36,11 +64,12 @@ def ingest_sensor_csv(request: SensorIngestRequest, session: Session = Depends(g
 
 @router.get("/sensors/readings", response_model=SensorReadingsResponse)
 def get_sensor_readings(
-    equipment_tag: str | None = None, sensor_tag: str | None = None, measurement: str | None = None,
+    equipment_tag: str | None = Query(None, max_length=100), sensor_tag: str | None = Query(None, max_length=100), measurement: str | None = Query(None, max_length=100),
     start: datetime | None = None, end: datetime | None = None,
     limit: int = Query(default=200, ge=1, le=2000),
     session: Session = Depends(get_db),
 ):
+    start, end = ui_reads.validate_range(start, end)
     try:
         results = sensor_readings_query(session, equipment_tag=equipment_tag, sensor_tag=sensor_tag,
                                          measurement=measurement, start=start, end=end, limit=limit)

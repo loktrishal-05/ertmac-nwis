@@ -6,24 +6,26 @@ docs/phase5b.md, "legacy Approval handling"). Everything else here is real:
 authenticated reviewers only, exact-revision/hash re-verification on every
 decision, and a fail-closed release gate.
 """
-import json
+from datetime import datetime
+from typing import Literal
+from fastapi import Response
+from app.services import ui_reads
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
-from app.db.models import GovernanceRequest, User
+from app.db.models import User
 from app.db.session import get_db
 from app.schemas.approval import (
     ApprovalPlaceholder,
     DecisionRequest,
     DecisionResult,
-    PendingRevisionSummary,
     ReleaseResult,
     RevisionDetail,
 )
-from app.services.approval import DecisionConflict, DecisionNotAllowed, apply_decision, pending_reviews, release_advisory, revision_detail
+from app.services.approval import DecisionConflict, DecisionNotAllowed, apply_decision, release_advisory, revision_detail
 from app.services.audit import append_event
 from app.services.governance import EvidenceIntegrityFailure, ReleaseNotAllowed
 
@@ -35,19 +37,18 @@ def review_approval(approval_id: UUID) -> ApprovalPlaceholder:
     return ApprovalPlaceholder()
 
 
-@router.get("/approvals", response_model=list[PendingRevisionSummary])
-def list_pending_approvals(user: User = Depends(require_role("reviewer", "admin")),
-                           session: Session = Depends(get_db)) -> list[PendingRevisionSummary]:
-    revisions = pending_reviews(session, viewer=user)
-    summaries = []
-    for rev in revisions:
-        route = json.loads(rev.canonical_proposal)["payload"].get("route")
-        binding = session.get(GovernanceRequest, rev.request_id)
-        summaries.append(PendingRevisionSummary(
-            action_revision_id=rev.id, request_id=rev.request_id, route=route,
-            created_at=rev.created_at, requester_user_id=binding.requester_user_id if binding else None,
-        ))
-    return summaries
+@router.get("/approvals")
+def list_pending_approvals(response: Response, view: Literal["pending", "history", "all"] = "pending",
+                           status: Literal["PENDING_REVIEW", "APPROVED", "REJECTED", "REVOKED", "EXPIRED"] | None = None,
+                           start: datetime | None = None, end: datetime | None = None,
+                           paging: tuple = Depends(ui_reads.page),
+                           user: User = Depends(require_role("reviewer", "admin")), session: Session = Depends(get_db)):
+    limit, offset = paging
+    items = ui_reads.approvals(session, user, view, status, limit + 1, offset, start, end)
+    response.headers["X-Has-More"] = str(len(items) > limit).lower()
+    response.headers["X-As-Of"] = ui_reads.now().isoformat()
+    response.headers["X-Sample-Size"] = str(min(len(items), limit))
+    return items[:limit]
 
 
 @router.get("/approvals/{revision_id}", response_model=RevisionDetail)

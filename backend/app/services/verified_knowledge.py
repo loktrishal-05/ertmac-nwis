@@ -274,22 +274,26 @@ def history(session, knowledge_id, actor):
     from app.db.models import AuditEvent
     authorize(session, actor, review=True)  # Audit events carry the /audit/log visibility (reviewer/admin).
     item = inspect_item(session, knowledge_id, actor)
-    lineage, cursor = [], item
-    while cursor is not None:  # Walk back to the first revision.
+    lineage, cursor, seen = [], item, set()
+    while cursor is not None and cursor.id not in seen and len(lineage) < 100:
+        seen.add(cursor.id)
         lineage.insert(0, cursor)
         cursor = session.get(VerifiedKnowledge, cursor.supersedes_id) if cursor.supersedes_id else None
-    while True:  # And forward to any successor revisions.
+    while len(lineage) < 100:  # Bounded lineage; detailed events also remain available through /audit/log.
         successor = session.scalar(select(VerifiedKnowledge).where(VerifiedKnowledge.supersedes_id == lineage[-1].id)
-                                   .order_by(VerifiedKnowledge.created_at).limit(1))
-        if successor is None:
+                                   .order_by(VerifiedKnowledge.created_at, VerifiedKnowledge.id).limit(1))
+        if successor is None or successor.id in seen:
             break
+        seen.add(successor.id)
         lineage.append(successor)
     events = session.scalars(select(AuditEvent).where(AuditEvent.action_revision_id.in_(
-        [i.approval_revision_id for i in lineage])).order_by(AuditEvent.sequence_number)).all()
+        [i.approval_revision_id for i in lineage])).order_by(AuditEvent.sequence_number).limit(501)).all()
     return {"knowledge_id": str(item.id), "lineage": [export_item(i) for i in lineage],
+            "as_of": datetime.now(timezone.utc), "lineage_limit": 100, "events_limit": 500,
+            "truncated": len(lineage) == 100 or len(events) > 500,
             "events": [{"sequence_number": e.sequence_number, "event_type": e.event_type, "occurred_at": e.occurred_at,
                         "actor_id": e.actor_id, "actor_kind": e.actor_kind, "action_revision_id": e.action_revision_id,
-                        "payload": e.payload, "event_hash": e.event_hash} for e in events],
+                        "payload": e.payload, "event_hash": e.event_hash} for e in events[:500]],
             "integrity": "Tamper-evident audit chain; verify with the audit chain verifier, not tamper-proof."}
 
 

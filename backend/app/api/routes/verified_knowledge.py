@@ -1,7 +1,8 @@
 """Authenticated registry; decisions reuse the Phase 5 approval ledger."""
 from typing import Literal
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from app.services import ui_reads
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_role
@@ -37,10 +38,11 @@ def create(payload: KnowledgeCandidate, user: User = Depends(get_current_user), 
 
 
 @router.get("")
-def listing(q: str = Query(default="", max_length=2000),
+def listing(response: Response, q: str = Query(default="", max_length=2000),
             status: Literal["CANDIDATE", "VERIFIED", "STALE", "REVOKED"] | None = None,
             origin: str | None = Query(default=None, max_length=40),
             equipment_tag: str | None = Query(default=None, max_length=100),
+            paging: tuple = Depends(ui_reads.page),
             user: User = Depends(get_current_user), session: Session = Depends(get_db)):
     def run():
         service.authorize(session, user)
@@ -49,11 +51,27 @@ def listing(q: str = Query(default="", max_length=2000),
             query = query.where(VerifiedKnowledge.match_key == service.canonical_hash(service.normalized(q)))
         if origin:
             query = query.where(VerifiedKnowledge.origin == origin)
-        ids = session.scalars(query.order_by(VerifiedKnowledge.created_at.desc()).limit(100)).all()
-        # Status is filtered after refresh(), so a stale source never lists as VERIFIED.
-        items = [service.inspect_item(session, i, user) for i in ids]
-        return [service.export_item(i) for i in items if (status is None or i.status == status) and
-                (equipment_tag is None or equipment_tag in (i.asset_scope or {}).get("equipment_tags", []))]
+        limit, offset = paging
+        # Scan stable creation order: refresh may change status, so it cannot define the offset set.
+        ids = session.scalars(query.order_by(VerifiedKnowledge.created_at.desc(), VerifiedKnowledge.id.desc())
+                              .offset(offset).limit(101)).all()
+        result, scanned = [], 0
+        for ident in ids[:100]:
+            item = service.inspect_item(session, ident, user)
+            scanned += 1
+            if (status is None or item.status == status) and (
+                    equipment_tag is None or equipment_tag in (item.asset_scope or {}).get("equipment_tags", [])):
+                result.append(service.export_item(item))
+            if len(result) == limit:
+                break
+        more = scanned < len(ids)
+        response.headers["X-As-Of"] = ui_reads.now().isoformat()
+        response.headers["X-Sample-Size"] = str(len(result))
+        response.headers["X-Has-More"] = str(more).lower()
+        response.headers["X-Scan-Limit"] = "100"
+        if more:
+            response.headers["X-Next-Offset"] = str(offset + scanned)
+        return result
     return transaction(session, run)
 
 

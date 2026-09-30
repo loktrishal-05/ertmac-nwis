@@ -1,5 +1,8 @@
 """Authenticated durable entry point for the existing LangGraph."""
 from uuid import UUID
+from datetime import datetime
+from typing import Literal
+from app.services import ui_reads
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -33,9 +36,18 @@ def start(request: QueryRequest, session: Session = Depends(get_db), actor: User
     return invoke(service.start, session, request, actor)
 
 
+@router.get("")
+def listing(paging: tuple = Depends(ui_reads.page),
+            status: Literal["PENDING", "RUNNING", "WAITING_APPROVAL", "COMPLETED", "REJECTED", "INTERRUPTED", "FAILED"] | None = None,
+            start: datetime | None = None, end: datetime | None = None,
+            session: Session = Depends(get_db), actor: User = Depends(principal)):
+    return ui_reads.execution_list(session, actor, *paging, status, start, end)
+
+
 @router.get("/{execution_id}")
-def status(execution_id: UUID, session: Session = Depends(get_db), actor: User = Depends(principal)):
-    return invoke(service.status, session, execution_id, actor)
+def status(execution_id: UUID, paging: tuple = Depends(ui_reads.page),
+           session: Session = Depends(get_db), actor: User = Depends(principal)):
+    return invoke(ui_reads.execution_detail, session, execution_id, actor, *paging)
 
 
 @router.post("/{execution_id}/resume")

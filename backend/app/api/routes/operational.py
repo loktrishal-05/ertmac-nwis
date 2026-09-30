@@ -1,6 +1,7 @@
 """Authenticated operational services reuse /query governance and audit."""
 from typing import Literal
-from fastapi import APIRouter, Body, Depends, Path, Query
+from fastapi import APIRouter, Body, Depends, Path, Query, Response
+from app.services import ui_reads
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_role
@@ -26,7 +27,7 @@ def list_notes(equipment_tag: str = Query(min_length=1, max_length=100), actor: 
         authorize(session, actor)
         asset = notes.equipment(session, equipment_tag)
         rows = session.scalars(select(OperatorNote).where(OperatorNote.equipment_id == asset.id,
-            OperatorNote.access_scope == "internal").order_by(OperatorNote.created_at.desc()).limit(100)).all()
+            OperatorNote.access_scope == "internal").order_by(OperatorNote.created_at.desc(), OperatorNote.id.desc()).limit(100)).all()
         return [notes.export(session, row) for row in rows]
     return transaction(session, run)
 
@@ -41,9 +42,16 @@ def environmental_compliance(payload: ComplianceInput, actor: User = Depends(get
     return transaction(session, lambda: execute_query(request, session, actor))
 
 @router.get("/knowledge-gaps")
-def knowledge_gaps(status: Literal["OPEN", "UNDER_REVIEW", "RESOLVED", "DISMISSED"] | None = None,
+def knowledge_gaps(response: Response, status: Literal["OPEN", "UNDER_REVIEW", "RESOLVED", "DISMISSED"] | None = None,
+                   paging: tuple = Depends(ui_reads.page),
                    actor: User = Depends(get_current_user), session: Session = Depends(get_db)):
-    return transaction(session, lambda: gaps.listing(session, actor, status))
+    limit, offset = paging
+    result = transaction(session, lambda: gaps.listing(session, actor, status, limit + 1, offset))
+    response.headers["X-As-Of"] = ui_reads.now().isoformat()
+    response.headers["X-Sample-Size"] = str(min(len(result), limit))
+    response.headers["X-Has-More"] = str(len(result) > limit).lower()
+    response.headers["X-Scan-Limit"] = "1000"
+    return result[:limit]
 
 @router.post("/knowledge-gaps")
 def submit_gap(payload: GapSubmission, actor: User = Depends(get_current_user), session: Session = Depends(get_db)):

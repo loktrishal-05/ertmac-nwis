@@ -51,6 +51,9 @@ test('voice, BI, automation and language views expose availability without autho
       assert.ok(render(views.BIReport, { data: sample }, code).includes(translateLabel(code, 'Operational BI')))
     }
     const { DataView } = await server.ssrLoadModule('/src/WorkspacePages.jsx')
-    assert.match(render(DataView, { value: 'P-204A XV-2040 मूल उद्धरण' }, 'ta'), /P-204A XV-2040 मूल उद्धरण/)
+    // Original-language evidence text stays exact; identifiers are wrapped only to keep them on one line.
+    const evidence = render(DataView, { value: 'P-204A XV-2040 मूल उद्धरण' }, 'ta')
+    assert.equal(evidence.replace(/<[^>]+>/g, ''), 'P-204A XV-2040 मूल उद्धरण')
+    assert.match(evidence, /<span class="identifier">P-204A<\/span> <span class="identifier">XV-2040<\/span>/)
   } finally { await server.close() }
 })

@@ -53,6 +53,7 @@ Thumbs.db
 !/data/**/
 !/data/**/.gitkeep
 !/data/README.md
+!/data/nwis_demo/dataset.json
 !/data/manifests/*.csv
 !/data/manifests/dataset_licenses.md
 !/data/evaluation/retrieval_questions.jsonl

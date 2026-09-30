@@ -9,7 +9,7 @@ from app.agents.evidence import pid_region_evidence
 from app.services.canonicalization import canonical_hash
 
 
-def load_pid_evidence(session, version_id):
+def load_pid_evidence(session, version_id, *, page_number=None, offset=0, limit=None):
     version = session.get(DocumentVersion, version_id)
     if version is None or version.ingestion_metadata.get('kind') != 'pid':
         raise ValueError('No processed P&ID found for this document_version_id.')
@@ -19,7 +19,11 @@ def load_pid_evidence(session, version_id):
         if not path.is_relative_to(root / directory) or not path.is_file():
             raise ValueError('P&ID manifest artifact is missing.' if '/manifests/' in uri
                              else 'P&ID artifact is missing or outside its source directory.')
-        return path.read_bytes()
+        with path.open("rb") as stream:
+            data = stream.read(32 * 1024 * 1024 + 1)
+        if len(data) > 32 * 1024 * 1024:
+            raise ValueError("P&ID artifact exceeds read limit.")
+        return data
     manifest = PIDManifest.model_validate_json(read(f'processed/pids/manifests/{version.id}.json', 'processed/pids'))
     if (manifest.document_version_id != version.id or manifest.document_id != version.document_id
             or manifest.source_sha256 != version.source_sha256):
@@ -40,8 +44,18 @@ def load_pid_evidence(session, version_id):
             DocumentVersion.document_id == version.document_id, DocumentVersion.id != version.id,
             DocumentVersion.created_at >= version.created_at).limit(1)):
         raise ValueError('P&ID source revision is stale.')
+    from functools import lru_cache
+    from app.services.pid_fusion import region_fusion, registry_evidence
+    # Request-local only: no authorization or freshness state survives this read.
+    @lru_cache(maxsize=1000)
+    def registry_lookup(tag):
+        return registry_evidence(session, tag)
     refs = []
-    for region, raw_region in zip(regions, artifact['regions']):
+    pairs = [(r, raw) for r, raw in zip(regions, artifact['regions'])
+             if page_number is None or r.page == page_number]
+    if limit is not None:
+        pairs = pairs[offset:offset + limit]
+    for region, raw_region in pairs:
         legacy = 'visual_candidates' not in raw_region
         region_content = region.model_dump(mode='json', exclude={'visual_candidates', 'visual_model'} if legacy else set())
         if not region.text_items and not region.visual_candidates:
@@ -64,9 +78,8 @@ def load_pid_evidence(session, version_id):
             revision=version.ingestion_metadata.get('request', {}).get('revision'),
             text_items=region.text_items, ocr_region_hash=canonical_hash(region_content),
         ))
-        from app.services.pid_fusion import region_fusion
         refs[-1].region_type = region.region_type
         refs[-1].visual_candidates = region.visual_candidates
         refs[-1].visual_model = region.visual_model
-        refs[-1].fusion = [] if legacy else region_fusion(region, session)
+        refs[-1].fusion = [] if legacy else region_fusion(region, session, registry_lookup=registry_lookup)
     return refs

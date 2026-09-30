@@ -1,0 +1,18 @@
+# Local final-release validation only; dedicated volumes and loopback ports.
+name: nwis-final-validation
+services:
+  backend:
+    environment:
+      MODEL_BASE_URL: http://host.docker.internal:11434
+      MODEL_ALLOWED_HOSTS: host.docker.internal
+      WORKBENCH_MODEL_ROOT: /workspace/models
+      WORKBENCH_AUTH_SECRET: ${NWIS_AUTH_SECRET:?Supply a disposable validation secret}
+      WORKBENCH_GOOGLE_ENABLED: 'false'
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    volumes:
+      - ${NWIS_MODEL_DIR:?Supply existing local BGE artifacts}:/workspace/models:ro
+  mailpit:
+    ports: !override
+      - '127.0.0.1:8014:8000'
+      - '127.0.0.1:8026:8025'

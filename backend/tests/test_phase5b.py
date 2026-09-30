@@ -14,6 +14,7 @@ from app.agents.registry import list_tools
 from app.core.config import settings
 from app.core.security import hash_password, verify_password
 from app.db.base import Base
+from app.db.models import AuthIdentity, AuthChallenge, ResetCapability, AuthAttempt, OIDCFlow
 from app.db.models import (
     ActionRevision, Agent, AgentAction, AgentRun, AgentRunStep, ApprovalDecision, AuditChainHead,
     AuditEvent, AuthSession, EvidenceManifest, EvidenceManifestItem, GovernanceRequest, User,
@@ -28,6 +29,7 @@ from app.services.governance import ReleaseNotAllowed, assert_release_allowed, c
 from test_phase5a import state
 
 TABLES = [model.__table__ for model in (
+    AuthIdentity, AuthChallenge, ResetCapability, AuthAttempt, OIDCFlow,
     User, Agent, AgentAction, AgentRun, AgentRunStep, GovernanceRequest, ActionRevision,
     AuthSession, ApprovalDecision, AuditChainHead, AuditEvent, EvidenceManifest, EvidenceManifestItem,
 )]

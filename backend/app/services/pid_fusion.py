@@ -69,7 +69,8 @@ def fuse(item=None, visuals=(), registry=None):
         limitations=[LIMITATION] + reasons, review_required=bool(reasons))
 
 
-def region_fusion(region, session=None):
+def region_fusion(region, session=None, *, registry_lookup=None):
+    lookup = registry_lookup or (lambda tag: registry_evidence(session, tag))
     result, used = [], set()
     for item in region.text_items:
         if item.category not in {"equipment_tag", "instrument_tag", "valve_tag"}:
@@ -77,8 +78,8 @@ def region_fusion(region, session=None):
         # A region shared by multiple OCR labels can make a symbol association ambiguous.
         nearby = [v for v in region.visual_candidates if overlaps(item.bbox, v.bbox)]
         used.update(id(v) for v in nearby)
-        result.append(fuse(item, nearby, registry_evidence(session, normalize_equipment_tag(item.normalized_text))))
+        result.append(fuse(item, nearby, lookup(normalize_equipment_tag(item.normalized_text))))
     for visual in region.visual_candidates:
         if id(visual) not in used:
-            result.append(fuse(visuals=[visual], registry=registry_evidence(session, visual.tag)))
+            result.append(fuse(visuals=[visual], registry=lookup(visual.tag)))
     return result

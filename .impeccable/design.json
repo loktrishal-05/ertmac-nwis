@@ -1,0 +1,881 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T01:25:53+00:00",
+  "title": "Design System: Sovereign AI Workbench",
+  "extensions": {
+    "colorMeta": {
+      "brand-navy": {
+        "role": "primary",
+        "displayName": "Brand Navy",
+        "canonical": "#020e21",
+        "tonalRamp": [
+          "#010b1e",
+          "#152539",
+          "#304157",
+          "#4d5f77",
+          "#6c7f98",
+          "#8ca0bb",
+          "#b1c6e2",
+          "#e4f0fe"
+        ]
+      },
+      "night-surface-0": {
+        "role": "neutral",
+        "displayName": "Night Surface 0",
+        "canonical": "#010a18",
+        "tonalRamp": [
+          "#020c1a",
+          "#162535",
+          "#314153",
+          "#4f5f72",
+          "#6e7f93",
+          "#8ea1b5",
+          "#b3c6db",
+          "#e3f0ff"
+        ]
+      },
+      "night-surface-1": {
+        "role": "neutral",
+        "displayName": "Night Surface 1",
+        "canonical": "#041329",
+        "tonalRamp": [
+          "#000a20",
+          "#13243c",
+          "#2e415a",
+          "#4b5f7a",
+          "#6a7f9b",
+          "#8ba0be",
+          "#b0c6e5",
+          "#e5f0ff"
+        ]
+      },
+      "night-surface-2": {
+        "role": "neutral",
+        "displayName": "Night Surface 2",
+        "canonical": "#081d38",
+        "tonalRamp": [
+          "#000a1f",
+          "#0f2440",
+          "#2a415f",
+          "#475f7f",
+          "#667fa0",
+          "#87a0c3",
+          "#acc6eb",
+          "#e4f0ff"
+        ]
+      },
+      "night-surface-3": {
+        "role": "neutral",
+        "displayName": "Night Surface 3",
+        "canonical": "#0e2a4c",
+        "tonalRamp": [
+          "#000a20",
+          "#082445",
+          "#244165",
+          "#425f85",
+          "#607fa7",
+          "#81a1cb",
+          "#a5c7f2",
+          "#e4f0ff"
+        ]
+      },
+      "night-text": {
+        "role": "neutral",
+        "displayName": "Night Text",
+        "canonical": "#e8eff8",
+        "tonalRamp": [
+          "#070b11",
+          "#1f242b",
+          "#3b4047",
+          "#585e66",
+          "#787e86",
+          "#999fa7",
+          "#bec5cd",
+          "#e8eff8"
+        ]
+      },
+      "night-text-muted": {
+        "role": "neutral",
+        "displayName": "Night Text Muted",
+        "canonical": "#a3b4ca",
+        "tonalRamp": [
+          "#020b1a",
+          "#182536",
+          "#334153",
+          "#505f72",
+          "#6f7f93",
+          "#8fa0b6",
+          "#b5c6dc",
+          "#e5f0fe"
+        ]
+      },
+      "night-text-faint": {
+        "role": "neutral",
+        "displayName": "Night Text Faint",
+        "canonical": "#71859f",
+        "tonalRamp": [
+          "#010b1e",
+          "#14253a",
+          "#2f4158",
+          "#4c5f78",
+          "#6b7f99",
+          "#8ca0bb",
+          "#b1c6e2",
+          "#e4f0ff"
+        ]
+      },
+      "nameplate-white": {
+        "role": "neutral",
+        "displayName": "Nameplate White",
+        "canonical": "#f5f9fe",
+        "tonalRamp": [
+          "#090b0e",
+          "#212428",
+          "#3d4044",
+          "#5b5e62",
+          "#7a7e82",
+          "#9b9fa3",
+          "#c1c4c9",
+          "#ebeff4"
+        ]
+      },
+      "signal-white": {
+        "role": "secondary",
+        "displayName": "Signal White",
+        "canonical": "#eef6fb",
+        "tonalRamp": [
+          "#070c0f",
+          "#1f2529",
+          "#3a4145",
+          "#585f63",
+          "#777e83",
+          "#98a0a4",
+          "#bec5ca",
+          "#e8f0f5"
+        ]
+      },
+      "cta-ink": {
+        "role": "secondary",
+        "displayName": "CTA Ink",
+        "canonical": "#031226",
+        "tonalRamp": [
+          "#000b1e",
+          "#13253a",
+          "#2e4158",
+          "#4b5f78",
+          "#6a7f99",
+          "#8ba0bc",
+          "#b0c6e3",
+          "#e4f0ff"
+        ]
+      },
+      "instrument-cyan": {
+        "role": "primary",
+        "displayName": "Instrument Cyan",
+        "canonical": "#35d7e8",
+        "tonalRamp": [
+          "#000e11",
+          "#012a2e",
+          "#07494f",
+          "#116a73",
+          "#088e9a",
+          "#10b3c2",
+          "#3cdbec",
+          "#cbf8fe"
+        ]
+      },
+      "instrument-cyan-soft": {
+        "role": "primary",
+        "displayName": "Instrument Cyan Soft",
+        "canonical": "#8fe3f0",
+        "tonalRamp": [
+          "#000e11",
+          "#022a2f",
+          "#094850",
+          "#156974",
+          "#348b97",
+          "#59adba",
+          "#80d4e0",
+          "#cbf8ff"
+        ]
+      },
+      "night-agent-blue": {
+        "role": "tertiary",
+        "displayName": "Night Agent Blue",
+        "canonical": "#3d8bff",
+        "tonalRamp": [
+          "#000923",
+          "#012152",
+          "#043b85",
+          "#0b58bd",
+          "#2a78eb",
+          "#639ef9",
+          "#a1c6fe",
+          "#e5efff"
+        ]
+      },
+      "night-flow-green": {
+        "role": "tertiary",
+        "displayName": "Night Flow Green",
+        "canonical": "#2fe0a4",
+        "tonalRamp": [
+          "#000f08",
+          "#012c1d",
+          "#044c35",
+          "#0d6f4f",
+          "#20926b",
+          "#2db988",
+          "#36e4a8",
+          "#c3fee2"
+        ]
+      },
+      "night-review-amber": {
+        "role": "tertiary",
+        "displayName": "Night Review Amber",
+        "canonical": "#f2a93b",
+        "tonalRamp": [
+          "#130900",
+          "#341f01",
+          "#573805",
+          "#7e540d",
+          "#a96f04",
+          "#d58d0b",
+          "#fdb448",
+          "#ffebd3"
+        ]
+      },
+      "night-knowledge-violet": {
+        "role": "tertiary",
+        "displayName": "Night Knowledge Violet",
+        "canonical": "#8b6cff",
+        "tonalRamp": [
+          "#0d002b",
+          "#270760",
+          "#4603a4",
+          "#6038c9",
+          "#7e5def",
+          "#9c8afc",
+          "#c1bbfc",
+          "#edecfe"
+        ]
+      },
+      "night-danger": {
+        "role": "tertiary",
+        "displayName": "Night Danger",
+        "canonical": "#ef5b5f",
+        "tonalRamp": [
+          "#1f0002",
+          "#4a020b",
+          "#7a091a",
+          "#ad142a",
+          "#d44149",
+          "#fb6669",
+          "#fbaca9",
+          "#ffe8e7"
+        ]
+      },
+      "daylight-field": {
+        "role": "neutral",
+        "displayName": "Daylight Field",
+        "canonical": "#f3f5f8",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4042",
+          "#5c5e60",
+          "#7c7d80",
+          "#9d9ea1",
+          "#c2c4c7",
+          "#edeff1"
+        ]
+      },
+      "daylight-surface": {
+        "role": "neutral",
+        "displayName": "Daylight Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "daylight-surface-2": {
+        "role": "neutral",
+        "displayName": "Daylight Surface 2",
+        "canonical": "#f4f7fb",
+        "tonalRamp": [
+          "#090b0e",
+          "#222427",
+          "#3e4043",
+          "#5b5e61",
+          "#7b7d81",
+          "#9c9fa2",
+          "#c1c4c8",
+          "#eceff3"
+        ]
+      },
+      "daylight-surface-3": {
+        "role": "neutral",
+        "displayName": "Daylight Surface 3",
+        "canonical": "#e6edf6",
+        "tonalRamp": [
+          "#070b11",
+          "#1f242b",
+          "#3b4047",
+          "#585e66",
+          "#787e86",
+          "#999fa7",
+          "#bec5cd",
+          "#e8eff8"
+        ]
+      },
+      "daylight-ink": {
+        "role": "neutral",
+        "displayName": "Daylight Ink",
+        "canonical": "#0b1a2e",
+        "tonalRamp": [
+          "#010b1d",
+          "#152539",
+          "#304157",
+          "#4d5f77",
+          "#6c7f98",
+          "#8da0bb",
+          "#b2c6e1",
+          "#e5f0fe"
+        ]
+      },
+      "daylight-ink-muted": {
+        "role": "neutral",
+        "displayName": "Daylight Ink Muted",
+        "canonical": "#3f5570",
+        "tonalRamp": [
+          "#000b1f",
+          "#11253d",
+          "#2c415b",
+          "#495f7b",
+          "#687f9c",
+          "#88a1bf",
+          "#adc7e6",
+          "#e4f0fe"
+        ]
+      },
+      "daylight-ink-faint": {
+        "role": "neutral",
+        "displayName": "Daylight Ink Faint",
+        "canonical": "#5d7089",
+        "tonalRamp": [
+          "#010b1e",
+          "#14253a",
+          "#2f4158",
+          "#4d5f77",
+          "#6b7f98",
+          "#8ca0bb",
+          "#b1c6e2",
+          "#e4f0fe"
+        ]
+      },
+      "workbench-blue": {
+        "role": "primary",
+        "displayName": "Workbench Blue",
+        "canonical": "#1d63d6",
+        "tonalRamp": [
+          "#000825",
+          "#011f56",
+          "#03398c",
+          "#0a54c6",
+          "#3277ec",
+          "#669df9",
+          "#a3c5ff",
+          "#e6efff"
+        ]
+      },
+      "workbench-teal": {
+        "role": "secondary",
+        "displayName": "Workbench Teal",
+        "canonical": "#096b76",
+        "tonalRamp": [
+          "#000e11",
+          "#04292e",
+          "#014951",
+          "#066a75",
+          "#388b96",
+          "#5cadb8",
+          "#82d3df",
+          "#cdf8fe"
+        ]
+      },
+      "verified-green": {
+        "role": "tertiary",
+        "displayName": "Verified Green",
+        "canonical": "#1c7c48",
+        "tonalRamp": [
+          "#000f05",
+          "#042c16",
+          "#004d28",
+          "#04703d",
+          "#37915c",
+          "#5cb47c",
+          "#82dba1",
+          "#c6ffd7"
+        ]
+      },
+      "review-amber": {
+        "role": "tertiary",
+        "displayName": "Review Amber",
+        "canonical": "#9a5b00",
+        "tonalRamp": [
+          "#150800",
+          "#361d01",
+          "#5b3606",
+          "#845010",
+          "#ad6c20",
+          "#d18e47",
+          "#f9b46d",
+          "#feebd9"
+        ]
+      },
+      "error-red": {
+        "role": "tertiary",
+        "displayName": "Error Red",
+        "canonical": "#b3261e",
+        "tonalRamp": [
+          "#1f0000",
+          "#490503",
+          "#7d0102",
+          "#ac1d17",
+          "#d2463a",
+          "#f96a5b",
+          "#feac9f",
+          "#fee9e5"
+        ]
+      },
+      "knowledge-violet": {
+        "role": "tertiary",
+        "displayName": "Knowledge Violet",
+        "canonical": "#5a3fd1",
+        "tonalRamp": [
+          "#0a012c",
+          "#230168",
+          "#3e09a8",
+          "#573bcd",
+          "#7460f4",
+          "#948ff8",
+          "#bcbdfe",
+          "#ecedff"
+        ]
+      },
+      "stale-grey": {
+        "role": "tertiary",
+        "displayName": "Stale Grey",
+        "canonical": "#9aa4b2",
+        "tonalRamp": [
+          "#050b15",
+          "#1d252f",
+          "#38404c",
+          "#555e6b",
+          "#757e8b",
+          "#959fad",
+          "#bbc5d4",
+          "#e5efff"
+        ]
+      },
+      "chart-1": {
+        "role": "tertiary",
+        "displayName": "Chart 1",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "#00062c",
+          "#001961",
+          "#01309d",
+          "#104dd4",
+          "#3271fa",
+          "#6a9bfe",
+          "#a7c5fd",
+          "#e7effe"
+        ]
+      },
+      "chart-2": {
+        "role": "tertiary",
+        "displayName": "Chart 2",
+        "canonical": "#0f8a80",
+        "tonalRamp": [
+          "#000f0d",
+          "#042b27",
+          "#024a45",
+          "#076c64",
+          "#1c9086",
+          "#49b2a7",
+          "#73d9cd",
+          "#b9fef5"
+        ]
+      },
+      "chart-3": {
+        "role": "tertiary",
+        "displayName": "Chart 3",
+        "canonical": "#7c3aed",
+        "tonalRamp": [
+          "#0f002a",
+          "#2b045e",
+          "#4a1099",
+          "#6c1ed7",
+          "#8a4cfe",
+          "#a488f9",
+          "#c6b8ff",
+          "#efecff"
+        ]
+      },
+      "chart-4": {
+        "role": "tertiary",
+        "displayName": "Chart 4",
+        "canonical": "#c26a00",
+        "tonalRamp": [
+          "#160700",
+          "#381c02",
+          "#5e3309",
+          "#8b4b02",
+          "#b66613",
+          "#e08531",
+          "#fbb278",
+          "#ffeadb"
+        ]
+      },
+      "night-line": {
+        "role": "neutral",
+        "displayName": "Night Line",
+        "canonical": "rgba(128, 176, 232, 0.16)"
+      },
+      "night-line-strong": {
+        "role": "neutral",
+        "displayName": "Night Line Strong",
+        "canonical": "rgba(128, 176, 232, 0.34)"
+      },
+      "daylight-line": {
+        "role": "neutral",
+        "displayName": "Daylight Line",
+        "canonical": "rgba(20, 45, 80, 0.14)"
+      },
+      "daylight-line-strong": {
+        "role": "neutral",
+        "displayName": "Daylight Line Strong",
+        "canonical": "rgba(20, 45, 80, 0.3)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display (Archivo)",
+        "purpose": "Landing hero headline only; night register."
+      },
+      "auth-title": {
+        "displayName": "Auth Title",
+        "purpose": "Auth story line; night register."
+      },
+      "headline-brand": {
+        "displayName": "Headline Brand",
+        "purpose": "Landing section headings; night register."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Workbench page titles; UI stack, never Archivo."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Workbench card and panel titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text; multilingual stack."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Tables, lists, nav."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase names for the content they sit on; never a kicker."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Live counts and metrics, tabular numerals."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Machine facts: tag bubbles, station indices, hashes, OCR labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px rgba(15, 35, 65, 0.06)",
+        "purpose": "Day: cards and panels at rest."
+      },
+      {
+        "name": "lift",
+        "value": "0 8px 24px rgba(15, 35, 65, 0.08)",
+        "purpose": "Day: hover, tooltips, open inspector."
+      },
+      {
+        "name": "float",
+        "value": "0 18px 48px rgba(15, 35, 65, 0.14)",
+        "purpose": "Day: menus, drawer, sticky decision bar."
+      },
+      {
+        "name": "palette",
+        "value": "0 30px 80px rgba(8, 20, 40, 0.28)",
+        "purpose": "Day: command palette."
+      },
+      {
+        "name": "selection-halo",
+        "value": "0 0 0 3px color-mix(in srgb, #1d63d6 18%, transparent)",
+        "purpose": "Day: selected item."
+      },
+      {
+        "name": "night-card",
+        "value": "0 18px 40px -18px rgba(0, 0, 0, 0.7)",
+        "purpose": "Night: translucent story cards."
+      },
+      {
+        "name": "night-reveal",
+        "value": "0 50px 120px -30px rgba(0, 0, 0, 0.85)",
+        "purpose": "Night: framed workbench capture."
+      },
+      {
+        "name": "night-glow",
+        "value": "0 0 0 1px rgba(53, 215, 232, 0.25), 0 0 32px rgba(53, 215, 232, 0.15)",
+        "purpose": "Night: sovereign core node only."
+      },
+      {
+        "name": "auth-instrument",
+        "value": "0 30px 60px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07)",
+        "purpose": "Night: auth glass card, with backdrop blur(28px) saturate(150%)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "State transitions."
+      },
+      {
+        "name": "ease-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Entrances, chart draws, card lift."
+      },
+      {
+        "name": "dur-fast",
+        "value": "120ms",
+        "purpose": "Press."
+      },
+      {
+        "name": "dur",
+        "value": "200ms",
+        "purpose": "Hover and colour."
+      },
+      {
+        "name": "dur-slow",
+        "value": "400ms",
+        "purpose": "Drawer, shadow lift."
+      },
+      {
+        "name": "page-transition",
+        "value": "140ms out / 320ms in",
+        "purpose": "Workbench main-pane view transition."
+      },
+      {
+        "name": "auth-push-in",
+        "value": "32s ease-in-out infinite alternate",
+        "purpose": "Auth footage camera push."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "640px"
+      },
+      {
+        "name": "compact",
+        "value": "760px"
+      },
+      {
+        "name": "auth-sheet",
+        "value": "820px"
+      },
+      {
+        "name": "hero-stack",
+        "value": "900px"
+      },
+      {
+        "name": "nav-drawer",
+        "value": "1024px"
+      },
+      {
+        "name": "split-collapse",
+        "value": "1100px"
+      },
+      {
+        "name": "dash-2col",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Landing Primary Button",
+      "kind": "button",
+      "refersTo": "button-landing-primary",
+      "description": "Night-side primary action: quiet white pill on navy.",
+      "html": "<div class=\"ds-night\"><button class=\"ds-btn-night-primary\">Enter the Workbench</button></div>",
+      "css": ".ds-night{background:#020e21;padding:24px;display:inline-block}.ds-btn-night-primary{min-height:50px;padding:0 2rem;border:1px solid transparent;border-radius:999px;background:#eef6fb;color:#031226;font:600 1rem Inter,'Segoe UI',system-ui,sans-serif;cursor:pointer;transition:background 200ms cubic-bezier(0.2,0.8,0.2,1),transform 120ms}.ds-btn-night-primary:hover{background:#fff}.ds-btn-night-primary:active{transform:scale(0.98)}.ds-btn-night-primary:focus-visible{outline:3px solid #7cc4ff;outline-offset:3px}"
+    },
+    {
+      "name": "Landing Ghost Button",
+      "kind": "button",
+      "refersTo": "button-landing-ghost",
+      "description": "Night-side secondary action.",
+      "html": "<div class=\"ds-night\"><button class=\"ds-btn-night-ghost\">See how it works</button></div>",
+      "css": ".ds-night{background:#020e21;padding:24px;display:inline-block}.ds-btn-night-ghost{min-height:50px;padding:0 2rem;border:1px solid rgba(255,255,255,0.22);border-radius:999px;background:transparent;color:#e6eef7;font:600 1rem Inter,'Segoe UI',system-ui,sans-serif;cursor:pointer;transition:border-color 200ms cubic-bezier(0.2,0.8,0.2,1)}.ds-btn-night-ghost:hover{border-color:rgba(255,255,255,0.5)}.ds-btn-night-ghost:focus-visible{outline:3px solid #7cc4ff;outline-offset:3px}"
+    },
+    {
+      "name": "Workbench Primary Button",
+      "kind": "button",
+      "refersTo": "button-workbench-primary",
+      "description": "The one day-side action colour.",
+      "html": "<button class=\"ds-btn-primary\">Approve draft</button>",
+      "css": ".ds-btn-primary{min-height:40px;padding:0 1rem;border:1px solid transparent;border-radius:10px;background:#1d63d6;color:#fff;font:600 0.875rem Inter,'Segoe UI',system-ui,sans-serif;cursor:pointer;transition:background 200ms cubic-bezier(0.2,0.8,0.2,1),transform 120ms}.ds-btn-primary:hover{background:color-mix(in srgb,#1d63d6 86%,#0b1a2e)}.ds-btn-primary:active{transform:scale(0.98)}.ds-btn-primary:focus-visible{outline:3px solid #1d63d6;outline-offset:3px}"
+    },
+    {
+      "name": "Workbench Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Reject and destructive decisions.",
+      "html": "<button class=\"ds-btn-danger\">Reject</button>",
+      "css": ".ds-btn-danger{min-height:44px;min-width:150px;padding:0 1rem;border:1px solid color-mix(in srgb,#b3261e 45%,transparent);border-radius:10px;background:#fff;color:#b3261e;font:600 0.875rem Inter,'Segoe UI',system-ui,sans-serif;cursor:pointer;transition:background 200ms,border-color 200ms}.ds-btn-danger:hover{border-color:#b3261e;background:color-mix(in srgb,#b3261e 6%,#fff)}.ds-btn-danger:focus-visible{outline:3px solid #1d63d6;outline-offset:3px}"
+    },
+    {
+      "name": "Workbench Input",
+      "kind": "input",
+      "refersTo": "input-workbench",
+      "description": "Labelled field on the light register.",
+      "html": "<label class=\"ds-label\">Asset tag<input class=\"ds-input\" placeholder=\"P-204\"></label>",
+      "css": ".ds-label{display:grid;gap:0.5rem;color:#3f5570;font:600 0.875rem Inter,'Segoe UI',system-ui,sans-serif}.ds-input{min-height:42px;padding:0.5rem 0.75rem;border:1px solid rgba(20,45,80,0.3);border-radius:10px;background:#fff;color:#0b1a2e;font:400 1rem Inter,'Segoe UI',system-ui,sans-serif}.ds-input:focus-visible{outline:3px solid #1d63d6;outline-offset:3px}.ds-input[aria-invalid=true]{border-color:#b3261e}"
+    },
+    {
+      "name": "Auth Input",
+      "kind": "input",
+      "refersTo": "input-auth",
+      "description": "Field inside the auth glass instrument.",
+      "html": "<div class=\"ds-night-block\"><input class=\"ds-input-auth\" placeholder=\"Username\"></div>",
+      "css": ".ds-night-block{background:#041329;padding:24px}.ds-input-auth{width:100%;min-height:46px;padding:0.5rem 0.75rem;border:1px solid rgba(160,200,240,0.18);border-radius:12px;background:rgba(1,8,20,0.6);color:#e8eff8;font:400 1rem Inter,'Segoe UI',system-ui,sans-serif;transition:border-color 200ms,box-shadow 200ms}.ds-input-auth:hover{border-color:rgba(160,200,240,0.32)}.ds-input-auth:focus-visible{outline:none;border-color:#5ad8e8;box-shadow:0 0 0 4px rgba(53,215,232,0.18)}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Grouped workbench nav with a blue-washed active item.",
+      "html": "<nav class=\"ds-nav\"><p class=\"ds-nav-label\">Govern</p><a class=\"ds-nav-link ds-active\" href=\"#\">Approvals</a><a class=\"ds-nav-link\" href=\"#\">Executions</a><a class=\"ds-nav-link\" href=\"#\">Audit</a></nav>",
+      "css": ".ds-nav{display:grid;gap:2px;width:232px;padding:16px;background:#fff;font-family:Inter,'Segoe UI',system-ui,sans-serif}.ds-nav-label{margin:0 12px 8px;color:#5d7089;font-size:0.75rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase}.ds-nav-link{padding:0.5rem 0.75rem;border-radius:10px;color:#3f5570;font-size:0.875rem;font-weight:600;text-decoration:none}.ds-nav-link:hover{background:#f4f7fb;color:#0b1a2e}.ds-nav-link.ds-active{background:color-mix(in srgb,#1d63d6 10%,#fff);color:#1d63d6;font-weight:700}.ds-nav-link:focus-visible{outline:3px solid #1d63d6;outline-offset:3px}"
+    },
+    {
+      "name": "Status Chips",
+      "kind": "chip",
+      "refersTo": "chip-status-ok",
+      "description": "One meaning per colour: verified, needs review, error.",
+      "html": "<span class=\"ds-chip ds-ok\">Chain verified</span> <span class=\"ds-chip ds-warn\">Awaiting review</span> <span class=\"ds-chip ds-bad\">Rejected</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#e6edf6;color:#3f5570;font:700 0.75rem Inter,'Segoe UI',system-ui,sans-serif}.ds-chip::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}.ds-ok{background:color-mix(in srgb,#1c7c48 11%,#fff);color:#1c7c48}.ds-warn{background:color-mix(in srgb,#9a5b00 12%,#fff);color:#9a5b00}.ds-bad{background:color-mix(in srgb,#b3261e 10%,#fff);color:#b3261e}"
+    },
+    {
+      "name": "Dashboard Card",
+      "kind": "card",
+      "refersTo": "card-workbench",
+      "description": "White work surface on the off-white field; rests flat, lifts on hover.",
+      "html": "<div class=\"ds-field\"><article class=\"ds-card\"><header><h3>Review queue</h3><a href=\"#\">Open desk</a></header><p><b>1</b> draft awaits human review</p></article></div>",
+      "css": ".ds-field{background:#f3f5f8;padding:24px}.ds-card{display:grid;gap:0.75rem;padding:1.5rem;border:1px solid rgba(20,45,80,0.14);border-radius:16px;background:#fff;color:#0b1a2e;box-shadow:0 1px 2px rgba(15,35,65,0.06);font-family:Inter,'Segoe UI',system-ui,sans-serif;transition:box-shadow 400ms cubic-bezier(0.16,1,0.3,1)}.ds-card:hover{box-shadow:0 8px 24px rgba(15,35,65,0.08)}.ds-card header{display:flex;justify-content:space-between;align-items:baseline}.ds-card h3{margin:0;font-size:1.125rem}.ds-card a{color:#1d63d6;font-size:0.875rem;font-weight:600;text-decoration:none}.ds-card a:focus-visible{outline:3px solid #1d63d6;outline-offset:3px}.ds-card p{margin:0;color:#3f5570}.ds-card b{margin-right:4px;color:#0b1a2e;font-size:1.75rem;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Signals Strip",
+      "kind": "custom",
+      "refersTo": "card-workbench",
+      "description": "One sentence of live system status, not a wall of tiles.",
+      "html": "<ul class=\"ds-signals\"><li><i class=\"ds-dot\"></i><span>Backend</span><b>Connected</b></li><li><i class=\"ds-dot\"></i><span>Hosted AI calls</span><b>0</b></li><li><i class=\"ds-dot ds-warn\"></i><span>Approvals</span><b>1 pending</b></li></ul>",
+      "css": ".ds-signals{display:flex;margin:0;padding:8px;border:1px solid rgba(20,45,80,0.14);border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(15,35,65,0.06);list-style:none;font-family:Inter,'Segoe UI',system-ui,sans-serif}.ds-signals li{flex:1;display:grid;grid-template-columns:auto 1fr;column-gap:8px;padding:8px 12px}.ds-signals li+li{border-left:1px solid rgba(20,45,80,0.14)}.ds-dot{grid-row:1/3;align-self:center;width:9px;height:9px;border-radius:50%;background:#1c7c48;box-shadow:0 0 0 3px color-mix(in srgb,#1c7c48 18%,transparent)}.ds-dot.ds-warn{background:#9a5b00;box-shadow:none}.ds-signals span{color:#3f5570;font-size:0.75rem}.ds-signals b{color:#0b1a2e;font-weight:650;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "P&ID Tag Bubble",
+      "kind": "custom",
+      "refersTo": "instrument-cyan",
+      "description": "Landing spine section marker in instrument-tag form.",
+      "html": "<div class=\"ds-night\"><div class=\"ds-tag\"><span>SW</span><span>01</span></div></div>",
+      "css": ".ds-night{background:#020e21;padding:24px;display:inline-block}.ds-tag{display:grid;place-items:center;width:48px;height:48px;border:1.5px solid #35d7e8;border-radius:50%;background:#020e21;color:#8fe3f0;font:700 11px/1.1 'JetBrains Mono',Consolas,monospace;text-align:center}.ds-tag span:first-child{border-bottom:1px solid currentColor;padding-bottom:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Control Room and the Day Shift",
+    "overview": "One product, two registers, split by the login. The public side (landing `/` and authentication `/login`, `/signup`, recovery) is **control-room night**: a brand-navy field, cyan and teal instrument light used as signal rather than decoration, a P&ID-style perspective grid, and Archivo set wide like an equipment nameplate. The approved Sovereign mark forms from particles in raw WebGL, and the approved auth footage runs behind the sign-in form. Everything there argues that the intelligence runs inside the plant.\n\nPast the login, the `/app` workbench is the **day shift**: an off-white field, white work surfaces, navy and slate ink, one restrained blue for action and selection, and state colours that mean one thing each. It is built for long shifts. Density is moderate, motion is short and exponential, and every figure on screen is live or plainly marked empty. The workbench uses no glow, no WebGL, no footage and no display face.\n\nThe registers share one token file, the same spacing and radius scales, the same UI sans, and the same semantic roles (agent, human review, knowledge, ok, danger). Only the values flip. Surfaces pick a register with `data-theme`: landing and auth pin `dark`, and the workbench defaults to `light` (operators can switch it to dark).",
+    "keyCharacteristics": [
+      "Two registers split at the login: cinematic dark for Persuade, calm light for Operate.",
+      "Instrument light: cyan marks signal (the spine, active stations, the sovereign boundary, focus), never fills.",
+      "Archivo expanded appears only on landing and auth. The workbench speaks in its UI sans.",
+      "White pill buttons on the night side; blue 10px-radius buttons on the day side.",
+      "Semantic colour is fixed: blue for agent and action, amber for human review, green only for verified or healthy, red only for errors.",
+      "Honest state is a visual element: empty, loading, planned and stale each have a stated form."
+    ],
+    "rules": [
+      {
+        "name": "The Register Rule",
+        "body": "Landing and auth are always `data-theme=\"dark\"`. The `/app` workbench defaults to light. No public surface goes light, and no workbench surface borrows the cinematic devices (WebGL, footage, glow, Archivo).",
+        "section": "colors"
+      },
+      {
+        "name": "The Signal-Not-Decoration Rule",
+        "body": "Cyan on the night side marks something live, active or bounded: a line, a stroke, a focus ring, a highlighted phrase. It never fills a large area or a button.",
+        "section": "colors"
+      },
+      {
+        "name": "The One-Meaning Rule",
+        "body": "In the workbench, green means verified or healthy, amber means a human must look, and red means error. Workbench Blue marks action and selection and never stands in for status.",
+        "section": "colors"
+      },
+      {
+        "name": "The Nameplate Rule",
+        "body": "Archivo is for the night side only, always bold and stretched. The workbench never uses it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every live number in the workbench uses tabular numerals so values do not jitter on refresh.",
+        "section": "typography"
+      },
+      {
+        "name": "The Light-Is-Depth Rule",
+        "body": "On the night side, depth comes from light sources and translucency. On the day side it comes from hairlines and three soft shadows. Neither side uses hard offset shadows.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Dashed-Means-Provisional Rule",
+        "body": "A dashed border or stroke signals planned, empty, hypothetical or a boundary. Never use it as decoration.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** pick the register by surface: `data-theme=\"dark\"` for landing and auth, the light default for everything under `/app`.",
+      "**Do** keep night-side cyan to lines, strokes, focus and one highlighted phrase. Primary actions there are Signal White pills.",
+      "**Do** use Workbench Blue as the only day-side action and selection colour, and reserve green, amber and red for verified, review and error.",
+      "**Do** set every live workbench number in tabular numerals next to a plain-language unit.",
+      "**Do** give every empty, loading, planned or stale state a visible form: dashed for planned or empty, a breathing dot for pending, grey for stale.",
+      "**Do** use dashed strokes only for provisional, hypothetical or boundary meaning.",
+      "**Do** ship a still fallback for every WebGL or video surface under reduced motion, Save-Data or no WebGL."
+    ],
+    "donts": [
+      "**Don't** bring Archivo, glow, WebGL, footage or navy fields into the `/app` workbench.",
+      "**Don't** fill buttons or large areas with Instrument Cyan.",
+      "**Don't** use green for anything that is not verified or healthy.",
+      "**Don't** use hard offset shadows in either register.",
+      "**Don't** redraw or recolour the approved logos. On light surfaces, place the white wordmark on a Brand Navy badge.",
+      "**Don't** put a small uppercase label above a heading as a kicker. Uppercase labels name the content they sit on (nav groups, metrics, evidence types)."
+    ]
+  }
+}

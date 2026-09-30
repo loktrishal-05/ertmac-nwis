@@ -3,7 +3,7 @@
 A request BODY can never choose its authenticated user: every dependency
 here resolves identity only from a server-issued session cookie, hashed and
 looked up against app.db.models.AuthSession. There is no X-User-ID header,
-no client-supplied role, and no hosted identity provider."""
+no client-supplied role, and no client-trusted provider identity claim."""
 from datetime import datetime, timezone
 
 from fastapi import Cookie, Depends, HTTPException
@@ -31,7 +31,8 @@ def get_optional_current_user(
     expires_at = row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=timezone.utc)
     if expires_at <= datetime.now(timezone.utc):
         return None
-    return session.get(User, row.user_id)
+    user = session.get(User, row.user_id)
+    return user if user is not None and user.is_active and not user.signup_pending else None
 
 
 def get_current_user(user: User | None = Depends(get_optional_current_user)) -> User:
