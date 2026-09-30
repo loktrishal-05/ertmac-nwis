@@ -1,5 +1,6 @@
-// The Sovereign Core: raw WebGL, no dependencies. The approved mark is sampled into GPU particles that
-// assemble out of a scattered "data nebula", breathe, part around the pointer and disperse as the visitor scrolls on.
+// eRTMAC-NWIS hero: raw WebGL, no dependencies. The approved NWIS symbol is sampled into GPU particles that assemble
+// out of a scattered "offset-well nebula" over a subsurface grid, breathe, part around the pointer and disperse on scroll.
+// (Ported from the Sovereign Workbench hero scene.)
 
 const FLOOR_VS = `attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`
 const FLOOR_FS = `#extension GL_OES_standard_derivatives : enable
@@ -100,7 +101,7 @@ export function particlesFromPixels(pixels, resolution, count, seed = 20260929) 
     const [x, y, r, g, b, alpha] = candidates[Math.floor(random() * candidates.length)]
     const luma = 0.3 * r + 0.59 * g + 0.11 * b
     target.set([(x + random() - 0.5) / resolution * 2 - 1, 1 - (y + random() - 0.5) / resolution * 2, (luma - 0.45) * 0.42 + (random() - 0.5) * 0.05], k * 3)
-    // Five loose clusters around the mark: SOPs, P&IDs, sensors, maintenance, operator knowledge.
+    // Five loose clusters around the mark: the five knowledge sources NWIS brings together.
     const cluster = Math.floor(random() * 5), angle = (cluster / 5) * Math.PI * 2 + (random() - 0.5) * 0.9
     const radius = 1.5 + random() * 1.4
     start.set([Math.cos(angle) * radius * 1.35, Math.sin(angle) * radius * 0.8, (random() - 0.5) * 2.4], k * 3)
@@ -149,7 +150,7 @@ export function createHeroScene(canvas, image, { particles = 14000 } = {}) {
     canvas.height = Math.max(1, Math.round(height * dpr))
     gl.viewport(0, 0, canvas.width, canvas.height)
     // Wide screens: the sculpture sits right of the headline. Narrow screens: centred above it.
-    if (width / height > 1.15) { state.scale = Math.min(0.54, 0.28 + height / 2800); state.offset = [0.47, 0.05] }
+    if (width / height > 1.15) { state.scale = Math.min(0.64, 0.34 + height / 2600); state.offset = [0.45, 0.02] }
     else {
       // Narrow screens: the sculpture lives in the top band of the real viewport so the headline and CTA fit below it.
       const viewport = Math.min(window.innerHeight || height, height)

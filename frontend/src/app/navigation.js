@@ -3,35 +3,37 @@
 export const REVIEWERS = ['reviewer', 'admin']
 export const ADMINS = ['admin']
 
+// eRTMAC-NWIS primary navigation. Legacy SIH26117 routes (workspace, agents, pid, maintenance, operations, gaps,
+// approvals, executions, sovereignty, resources) stay routable for tests and imports but are never listed here.
 export const APP_SECTIONS = [
-  { group: 'Operate', items: [
+  { group: 'Overview', items: [
     { path: 'dashboard', label: 'Dashboard', icon: 'grid' },
-    { path: 'workspace', label: 'AI Workspace', icon: 'terminal' },
-    { path: 'workspace/voice', label: 'Voice query', icon: 'mic' },
-    { path: 'agents', label: 'Agents', icon: 'agent' },
+    { path: 'map', label: 'Nearby Wells Map', icon: 'map' },
   ] },
-  { group: 'Evidence', items: [
-    { path: 'pid', label: 'P&ID Intelligence', icon: 'drawing' },
-    { path: 'maintenance', label: 'Maintenance & Sensors', icon: 'pulse' },
-    { path: 'operations', label: 'Operations', icon: 'tool' },
+  { group: 'Wells', items: [
+    { path: 'wells', label: 'Well Catalogue', icon: 'list', end: true },
+    { path: 'active', label: 'Active Well', icon: 'well' },
+    { path: 'offset-analysis', label: 'Offset Analysis', icon: 'offset' },
+    { path: 'correlation', label: 'Formation Correlation', icon: 'layers' },
   ] },
-  { group: 'Knowledge', items: [
-    { path: 'knowledge', label: 'Knowledge', icon: 'book' },
-    { path: 'gaps', label: 'Knowledge Gaps', icon: 'gap' },
+  { group: 'Intelligence', items: [
+    { path: 'events', label: 'Drilling Events', icon: 'timeline' },
+    { path: 'risk', label: 'Risk Look-Ahead', icon: 'gauge' },
+    { path: 'live', label: 'Live Drilling', icon: 'pulse' },
+    { path: 'knowledge', label: 'Knowledge Search', icon: 'search' },
   ] },
-  { group: 'Govern', items: [
-    { path: 'approvals', label: 'Approvals', icon: 'check' },
-    { path: 'executions', label: 'Executions', icon: 'timeline' },
-    { path: 'audit', label: 'Audit', icon: 'list', roles: REVIEWERS },
+  { group: 'Governance', items: [
+    { path: 'advisories', label: 'Advisories', icon: 'check' },
+    { path: 'audit', label: 'Audit', icon: 'shield', roles: REVIEWERS },
   ] },
-  { group: 'Trust', items: [
-    { path: 'sovereignty', label: 'Sovereignty', icon: 'shield' },
-    { path: 'resources', label: 'Government Resources', icon: 'globe' },
+  { group: 'Support', items: [
+    { path: 'help', label: 'Help & Resources', icon: 'help' },
   ] },
   { group: 'Admin', items: [
     { path: 'admin', label: 'Administration', icon: 'users', roles: ADMINS },
   ] },
 ]
+export const LEGACY_PATHS = ['workspace', 'workspace/voice', 'agents', 'pid', 'maintenance', 'operations', 'gaps', 'approvals', 'executions', 'sovereignty', 'resources']
 
 export const canAccess = (roles, role) => !roles?.length || roles.includes(role)
 

@@ -49,13 +49,20 @@ fieldset:disabled label { color: var(--text-faint); }
 .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--stale); }
 .health-connected .dot { background: var(--ok); } .health-disconnected .dot { background: var(--danger); }
 
-/* Brand crops are transparent. The wordmark text is white, so light surfaces carry it on a navy brand badge. */
-[data-theme="light"] .shell-brand { padding: 4px 12px; border-radius: var(--radius-md); background: var(--brand-navy); }
+/* eRTMAC-NWIS wordmark: approved symbol image + real text, so the name follows the surface colour in light and dark themes. */
+.brand-logo { --brand-accent: var(--ai-cyan); display: inline-flex; align-items: center; gap: 10px; color: var(--text); line-height: 1; }
+.brand-mark { flex-shrink: 0; object-fit: contain; user-select: none; }
+.agent-avatar { flex-shrink: 0; object-fit: contain; vertical-align: middle; user-select: none; }
+.brand-words { display: grid; gap: 3px; }
+.brand-name { font: 800 1.18rem/1 var(--font-brand); font-stretch: 105%; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-name b { color: var(--brand-accent); font-weight: 800; }
+.brand-sub { color: var(--text-muted); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+.shell-brand { color: inherit; text-decoration: none; }
 
 /* App shell */
 .shell { display: grid; grid-template-columns: var(--shell-nav) 1fr; grid-template-rows: var(--shell-top) 1fr; min-height: 100vh; }
 .shell-topbar { grid-column: 1 / -1; position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-4); padding: 0 var(--space-5); border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-1) 88%, transparent); backdrop-filter: blur(14px); }
-.shell-brand img { display: block; height: 40px; width: auto; }
+.shell-brand .brand-logo { height: 40px; }
 .nav-toggle { display: none; }
 .topbar-status { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .topbar-actions { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; }
@@ -99,7 +106,7 @@ fieldset:disabled label { color: var(--text-faint); }
   .user-name { display: none; }
   /* Keep the language select on phones; only the visible word "Language" is dropped (the select keeps its label). */
   .topbar-actions label { gap: 0; font-size: 0; } .topbar-actions label select { font-size: var(--fs-sm); }
-  .shell-brand img { height: 32px; }
+  .shell-brand .brand-sub { display: none; }
 }
 
 /* Page scaffolding and states */
@@ -110,12 +117,16 @@ fieldset:disabled label { color: var(--text-faint); }
 .planned { border-style: dashed; } .planned .badge-planned { margin-bottom: var(--space-3); }
 .state { display: flex; align-items: flex-start; gap: var(--space-3); margin: var(--space-4) 0; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-2); color: var(--text-muted); }
 .state-error { border-color: var(--danger); } .state-empty { flex-direction: column; }
+.state-brand { flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); min-height: 40vh; border: 0; background: transparent; text-align: center; }
+.brand-pulse { animation: brand-pulse 1.8s ease-in-out infinite; }
+@keyframes brand-pulse { 50% { opacity: 0.55; transform: scale(0.94); } }
+@media (prefers-reduced-motion: reduce) { .brand-pulse { animation: none; } }
 .spinner { width: 18px; height: 18px; border: 2px solid var(--line-strong); border-top-color: var(--ai-cyan); border-radius: 50%; animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .policy-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 .policy-list li { display: grid; align-content: start; gap: var(--space-2); padding: var(--space-4); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-md); }
 table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.table-scroll { max-width: 100%; overflow-x: auto; } /* Wide tables scroll inside their card, never the page. */
+.table-scroll { position: relative; max-width: 100%; overflow-x: auto; } /* Wide tables scroll inside their card, never the page. */
 th, td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--line); text-align: left; }
 caption { text-align: left; font-weight: 700; padding-bottom: var(--space-2); }
 
@@ -166,3 +177,4 @@ pre { overflow: auto; max-height: 360px; padding: var(--space-3); border-radius:
 .check { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--text); font-weight: 600; }
 .check.confirm { margin-top: var(--space-3); }
 .gate { margin: var(--space-3) 0 0; color: var(--human); font-weight: 700; } .gate.ready { color: var(--ok); }
+@media (max-width: 480px) { .shell-brand .brand-words { display: none; } .shell-topbar .search-trigger { margin-left: 0; } }

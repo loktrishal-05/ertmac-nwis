@@ -31,6 +31,12 @@ const ICONS = {
   home: 'M3 11 12 4l9 7 M5 10v10h14V10',
   logout: 'M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10',
   refresh: 'M20 11a8 8 0 0 0-14.9-3.5 M4 4v4h4 M4 13a8 8 0 0 0 14.9 3.5 M20 20v-4h-4',
+  map: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z M9 4v14 M15 6v14',
+  well: 'M12 2 7 22 M12 2l5 20 M8.6 15h6.8 M10.2 9h3.6 M4 22h16',
+  offset: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 11.5v1',
+  layers: 'M4 5h16 M4 10h16 M4 15h16 M4 20h16 M9 3v19',
+  gauge: 'M4 17a8 8 0 1 1 16 0 M12 17l4-6 M4 17h16',
+  help: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14 M12 17h.01',
 }
 
 export function Icon({ name, size = 20, ...props }) {
@@ -38,22 +44,25 @@ export function Icon({ name, size = 20, ...props }) {
     strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{ flexShrink: 0 }} {...props}><path d={ICONS[name] || ICONS.grid} /></svg>
 }
 
-// Cropped from the approved brand boards; never the full boards with captions.
-const BRAND = {
-  horizontal: ['/assets/branding/sovereign-logo-horizontal.png', 508, 169],
-  stacked: ['/assets/branding/sovereign-logo-stacked.png', 383, 299],
-  mark: ['/assets/branding/sovereign-mark.png', 458, 458],
-  primary: ['/assets/branding/sovereign-logo-primary.png', 768, 605],
+export const BRAND_NAME = 'eRTMAC-NWIS'
+export const BRAND_SUBTITLE = 'Nearby Wells Intelligence System'
+
+// Approved eRTMAC-NWIS symbol (public/brand). The product name is always real text next to it, never baked into the image.
+const APP_LOGO = { src: '/brand/nwis-app-logo-128.webp', srcSet: '/brand/nwis-app-logo-128.webp 128w, /brand/nwis-app-logo-256.webp 256w' }
+export function BrandMark({ size = 32, className = '', alt = '' }) {
+  return <img className={`brand-mark ${className}`} src={APP_LOGO.src} srcSet={APP_LOGO.srcSet} sizes={`${size}px`} width={size} height={size} alt={alt} decoding="async" draggable="false" />
 }
 
-export function Logo({ variant = 'horizontal', className = '', decorative = false, ...props }) {
-  const [src, width, height] = BRAND[variant] || BRAND.horizontal
-  return <img className={`brand-img ${className}`} src={src} width={width} height={height}
-    alt={decorative ? '' : 'Sovereign AI Workbench'} decoding="async" {...props} />
+export function Logo({ variant = 'horizontal', className = '', decorative = false }) {
+  return <span className={`brand-logo brand-${variant} ${className}`} role={decorative ? undefined : 'img'} aria-label={decorative ? undefined : `${BRAND_NAME}, ${BRAND_SUBTITLE}`}>
+    <BrandMark size={variant === 'mark' ? 120 : 36} />
+    {variant !== 'mark' && <span className="brand-words" aria-hidden="true"><span className="brand-name">eRTMAC<b>-NWIS</b></span><span className="brand-sub">{BRAND_SUBTITLE}</span></span>}
+  </span>
 }
 
-export function AgentAvatar({ size = 40, className = '' }) {
-  return <img className={`brand-img agent-avatar ${className}`} src="/assets/branding/agent-mark.png" width={size} height={size} alt="AI agent" decoding="async" />
+// NWIS intelligence identity: only on evidence synthesis / explanation surfaces, never as a user avatar. Decorative by default.
+export function AgentAvatar({ size = 40, className = '', alt = '' }) {
+  return <img className={`agent-avatar ${className}`} src="/brand/nwis-agent-logo-128.webp" width={size} height={size} alt={alt} decoding="async" draggable="false" />
 }
 
 export function PageHeader({ title, description, actions }) {
@@ -63,7 +72,8 @@ export function PageHeader({ title, description, actions }) {
   </header>
 }
 
-export function LoadingState({ label = 'Loading…' }) {
+export function LoadingState({ label = 'Loading…', brand = false }) {
+  if (brand) return <div className="state state-loading state-brand" role="status" aria-live="polite"><BrandMark size={56} className="brand-pulse" /><span>{label}</span></div>
   return <div className="state state-loading" role="status" aria-live="polite"><span className="spinner" aria-hidden="true" />{label}</div>
 }
 
@@ -88,12 +98,12 @@ export function PlannedCapability({ title, phase, available, planned, requires }
   </section>
 }
 
-const useStatusTitle = text => useEffect(() => { document.title = `${text} · Sovereign AI Workbench` }, [text])
+const useStatusTitle = text => useEffect(() => { document.title = `${text} · ${BRAND_NAME}` }, [text])
 
 export function NotFound() {
   useStatusTitle('Page not found')
   return <div className="status-page"><h1 tabIndex={-1} data-page-title>Page not found</h1>
-    <p>This address does not exist in the Sovereign AI Workbench (error 404).</p>
+    <p>This address does not exist in {BRAND_NAME} (error 404).</p>
     <div className="toolbar"><Link className="button" to="/app/dashboard">Go to dashboard</Link><Link className="button ghost" to="/">Home</Link></div></div>
 }
 
@@ -108,5 +118,5 @@ export function RouteError() {
   const error = useRouteError()
   if (isRouteErrorResponse(error) && error.status === 404) return <main id="main" className="standalone"><NotFound /></main>
   return <main id="main" className="standalone"><ErrorState title="This view failed to load"
-    message="Reload the page. If the problem continues, check that the Workbench frontend and backend are running." onRetry={() => window.location.reload()} /></main>
+    message="Reload the page. If the problem continues, check that the NWIS frontend and backend are running." onRetry={() => window.location.reload()} /></main>
 }

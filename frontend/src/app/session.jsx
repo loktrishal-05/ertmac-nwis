@@ -75,8 +75,8 @@ export function RequireAuth({ roles }) {
   const session = useSession()
   const location = useLocation()
   switch (guardDecision(session, roles)) {
-    case 'loading': return <LoadingState label="Checking your session…" />
-    case 'unavailable': return <ErrorState title="Workbench backend unavailable" message="Your session could not be checked. No data is shown until the backend responds." onRetry={session.reload} />
+    case 'loading': return <LoadingState brand label="Checking your session…" />
+    case 'unavailable': return <ErrorState title="NWIS backend unavailable" message="Your session could not be checked. No data is shown until the backend responds." onRetry={session.reload} />
     case 'login': return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
     case 'forbidden': return <Forbidden />
     default: return <Outlet />
