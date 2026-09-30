@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi import HTTPException
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import make_url
@@ -91,7 +92,7 @@ class PostgreSQLAccountsTests(unittest.TestCase):
             self.assertEqual(user.display_name, "preserved")
             self.assertIsNone(user.email); self.assertTrue(user.is_active); self.assertFalse(user.signup_pending)
             self.assertTrue(verify_password(PASSWORD, user.password_hash))
-            self.assertEqual(db.scalar(text("SELECT version_num FROM alembic_version")), "0017_accounts_recovery")
+            self.assertEqual(db.scalar(text("SELECT version_num FROM alembic_version")), ScriptDirectory.from_config(self.config).get_current_head())
             accounts.login(db, "preserved", PASSWORD, str(uuid4()))
         with self.assertRaises(DBAPIError), self.engine.begin() as conn:
             conn.execute(text("UPDATE users SET email='UPPER@example.com' WHERE id=:id"), {"id": self.legacy_id})
