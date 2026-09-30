@@ -69,6 +69,21 @@ function DevInboxNotice({ delivery }) {
   return <Notice>Development mail: codes are delivered to the local test inbox at <a href="http://127.0.0.1:8025" target="_blank" rel="noreferrer">127.0.0.1:8025</a>, not to Gmail or other real mailboxes. Real delivery needs SMTP settings in the backend (<code>infra/.env</code>).</Notice>
 }
 
+// Public evaluator account (reviewer, synthetic demo data only), seeded by backend/scripts/seed_demo_account.py.
+// Override at build time with VITE_DEMO_USERNAME / VITE_DEMO_PASSWORD, or hide with VITE_DEMO_LOGIN=off.
+const DEMO = { username: import.meta.env?.VITE_DEMO_USERNAME || 'evaluator', password: import.meta.env?.VITE_DEMO_PASSWORD || 'Evaluate-NWIS-2026',
+  hidden: import.meta.env?.VITE_DEMO_LOGIN === 'off' }
+
+function DemoAccess({ onUse }) {
+  if (DEMO.hidden) return null
+  return <section className="demo-access" aria-labelledby="demo-access-title">
+    <p id="demo-access-title" className="demo-access-title">Demo access for evaluators</p>
+    <dl><div><dt>Username</dt><dd><code>{DEMO.username}</code></dd></div><div><dt>Password</dt><dd><code>{DEMO.password}</code></dd></div></dl>
+    <button type="button" className="ghost" onClick={onUse}>Use demo account</button>
+    <p className="hint">Reviewer role on the synthetic demo dataset: every NWIS screen, advisory review and audit. Advisory only; nothing controls rig equipment.</p>
+  </section>
+}
+
 export function LoginPage() {
   const session = useSession()
   const caps = useAuthCapabilities()
@@ -95,6 +110,7 @@ export function LoginPage() {
   return <>
     <AuthHeading title="Sign in">Local account on this NWIS deployment. Your role is assigned by the server.</AuthHeading>
     {session.status === 'unavailable' && <Notice>The NWIS backend is not responding. Sign-in will work once it is available.</Notice>}
+    <DemoAccess onUse={() => { setUsername(DEMO.username); setPassword(DEMO.password); setError('') }} />
     {location.state?.passwordReset && <p role="status">Password updated. All existing sessions were signed out. Sign in with your new password.</p>}
     <form onSubmit={submit}>
       <Field id="login-username" label="Email or username" value={username} onChange={event => setUsername(event.target.value)} autoComplete="username" required maxLength={254} />

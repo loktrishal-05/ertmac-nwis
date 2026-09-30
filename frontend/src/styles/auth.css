@@ -83,6 +83,14 @@
 .policy-checklist li.ok { color: #7fe3b4; }
 .auth-card button.primary { width: 100%; min-height: 48px; border-radius: 12px; background: #eaf6fb; color: #031226; font-size: var(--fs-md); }
 .auth-card button.primary:hover:not(:disabled) { background: #ffffff; }
+.demo-access { display: grid; gap: var(--space-2); margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid rgba(53, 215, 232, 0.4); border-radius: 12px; background: rgba(53, 215, 232, 0.07); }
+.demo-access-title { margin: 0; color: #8fe3f0; font: 700 var(--fs-xs) var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; }
+.demo-access dl { display: grid; gap: 4px; margin: 0; }
+.demo-access dl div { display: flex; gap: var(--space-3); align-items: baseline; }
+.demo-access dt { min-width: 5.5rem; color: #9fb2c9; font-size: var(--fs-sm); }
+.demo-access dd { margin: 0; } .demo-access code { color: #f2f7fc; font: 600 var(--fs-sm) var(--font-mono); user-select: all; }
+.auth-card .demo-access button.ghost { justify-self: start; min-height: 36px; padding: 0 var(--space-4); border: 1px solid rgba(201, 217, 234, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.05); color: #eef6fb; font-weight: 600; }
+.demo-access .hint { margin: 0; color: #9fb2c9; font-size: var(--fs-xs); }
 .auth-divider { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-4) 0; color: #8ea3bb; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.12em; }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(201, 217, 234, 0.18); }
 .auth-card .google-button { display: flex; align-items: center; justify-content: center; gap: var(--space-3); width: 100%; min-height: 48px; border: 1px solid rgba(201, 217, 234, 0.28); border-radius: 12px; background: rgba(255, 255, 255, 0.04); color: #eef6fb; font-weight: 600; text-decoration: none; }
