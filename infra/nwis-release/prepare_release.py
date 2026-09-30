@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = '579de878f5edf9d1e76545cc11e939750e751266'
-BACKEND = 'e988cc36b3c7f3e9b14b5d7f2ace58335d34e705'
+REQUIRED_BACKEND = ('70f9060', 'e988cc36', '56e7343', '18b058e', '55a9964')
 
 
 def git(*args):
@@ -47,6 +47,17 @@ def frontend_sha(ref):
     return sha
 
 
+def backend_sha(ref):
+    if not re.fullmatch(r'[0-9a-f]{7,40}', ref):
+        raise ValueError('Supply the frozen final backend commit SHA')
+    sha = git('rev-parse', '--verify', ref+'^{commit}').decode().strip()
+    for required in REQUIRED_BACKEND:
+        subprocess.run(['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', required, sha], check=True)
+    subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', sha, '--',
+                    'backend', 'infra/Dockerfile.backend', '.dockerignore'], check=True)
+    return sha
+
+
 def export_frontend(sha, destination):
     destination.mkdir(parents=True, exist_ok=False)
     # Export committed frontend files only: never copy a working tree, tokens or .env files.
@@ -72,19 +83,18 @@ def export_frontend(sha, destination):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--frontend-sha', required=True)
+    parser.add_argument('--backend-sha', required=True)
     parser.add_argument('--gateway-origin', required=True)
     args = parser.parse_args()
     sha = frontend_sha(args.frontend_sha)
+    frozen_backend = backend_sha(args.backend_sha)
     config = vercel_config(args.gateway_origin)
-    # D2 may add deployment files, but must not alter the accepted backend or its image recipe.
-    subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', BACKEND, '--',
-                    'backend', 'infra/Dockerfile.backend', '.dockerignore'], check=True)
     destination = ROOT/'data'/'nwis-release'/sha/'frontend'
     export_frontend(sha, destination)
     (destination/'vercel.json').write_text(json.dumps(config, indent=2)+'\n', encoding='utf-8')
     (destination/'.vercelignore').write_text('.env*\n.vercel\nnode_modules\ndist\n', encoding='utf-8')
     (destination.parent/'release.json').write_text(json.dumps({
-        'backend_sha': BACKEND, 'frontend_sha': sha, 'frontend_baseline': BASELINE,
+        'backend_sha': frozen_backend, 'frontend_sha': sha, 'frontend_baseline': BASELINE,
         'preflight_sha': git('rev-parse', 'HEAD').decode().strip(),
         'gateway_origin': args.gateway_origin.rstrip('/'), 'deployed': False,
     }, indent=2)+'\n', encoding='utf-8')

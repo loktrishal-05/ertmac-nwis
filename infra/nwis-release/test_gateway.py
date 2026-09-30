@@ -18,6 +18,12 @@ ROUTES = {
     '/api/audit/verify': '/audit/verify',
     '/api/auth/login': '/auth/login',
     '/api/auth/me': '/auth/me',
+    '/api/auth/signup': '/auth/signup',
+    '/api/auth/email/request-verification': '/auth/email/request-verification',
+    '/api/auth/email/verify': '/auth/email/verify',
+    '/api/auth/password/forgot': '/auth/password/forgot',
+    '/api/auth/password/verify-otp': '/auth/password/verify-otp',
+    '/api/auth/password/reset': '/auth/password/reset',
     '/api/auth/sessions/example/revoke': '/auth/sessions/example/revoke',
     '/api/health': '/health',
     '/api/ready': '/ready',
@@ -40,14 +46,14 @@ def main():
         value = shlex.quote(expected+'|https://judge.example.org|workbench_session=synthetic')
         script += [f'body=$(wget -qO- --header="Origin: https://judge.example.org" --header="Cookie: workbench_session=synthetic" {url})',
                    f'test "$body" = {value}']
-    for path in ('/docs', '/openapi.json', '/auth/login', '/admin/users', '/api/admin/users', '/api/ingest/report', '/api/audit/log', '/api/auth/signup'):
+    for path in ('/docs', '/openapi.json', '/auth/login', '/admin/users', '/api/admin/users', '/api/ingest/report', '/api/audit/log', '/api/auth/google/start', '/api/auth/google/callback', '/api/auth/password/reset/extra', '/api/auth/email/verify/extra'):
         script += [f'if wget -qO- http://127.0.0.1:8080{path}; then exit 1; fi']
     script += [
         'wget -S -O /dev/null http://127.0.0.1:8080/api/auth/me 2>/tmp/headers',
         "grep -qi 'Cache-Control: no-store' /tmp/headers",
         "grep -qi 'Set-Cookie: workbench_session=synthetic; Path=/; Secure; HttpOnly; SameSite=Lax' /tmp/headers",
         'nginx -s quit -c /preflight/nginx.conf',
-        'echo "PASS: 15 routes, 8 denied routes, Origin/Cookie forwarding, Secure Set-Cookie and no-store."',
+        'echo "PASS: 21 routes, 11 denied routes, Origin/Cookie forwarding, Secure Set-Cookie and no-store."',
     ]
     with tempfile.TemporaryDirectory(prefix='nwis-d2-gateway-') as folder:
         Path(folder, 'nginx.conf').write_text(config, encoding='utf-8')

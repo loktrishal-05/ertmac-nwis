@@ -1,6 +1,6 @@
 # NWIS D2 deployment preflight
 
-Prepared 2026-09-30. This is a release plan, not a deployment record. No release services, tunnel, Vercel upload, push or merge were performed. Claude's D1 visual commit remains pending.
+Updated for F1 on 2026-09-30. This is a release plan, not a deployment record. No tunnel, Vercel upload, push or main merge was performed. Claude's frontend is frozen at `2e00e83`; the release adds only the removal of an old visible problem-ID label. See [final release report](final_release_report.md) for the final commit and validation record and [production configuration](production_config.md) for exact environment names.
 
 ## Release inputs and source isolation
 
@@ -9,10 +9,10 @@ Prepared 2026-09-30. This is a release plan, not a deployment record. No release
 | Frozen B2 | `70f90606346e81c4c36f916be967a2d4cecc541a` |
 | Backend with C2 hardening | `e988cc36b3c7f3e9b14b5d7f2ace58335d34e705` |
 | Integrated frontend baseline | `579de878f5edf9d1e76545cc11e939750e751266` |
-| Final frontend | Claude D1 SHA, still required; must descend from the baseline |
-| D2 worktree / branch | `C:\Users\Lohith k\Desktop\ertmac-nwis-d2` / `release/nwis-d2-preflight` |
+| Claude frontend freeze | `2e00e83`, descendant of the integrated baseline |
+| Final release branch | `release/nwis-final`; use its tested full SHA for both export and backend image |
 
-D2 starts from C2. Its root `frontend/` is NOT the integrated frontend. `prepare_release.py` exports only committed frontend files from the accepted D1 SHA into ignored `data/nwis-release/<full-sha>/frontend`, adds the production Vercel configuration, and records both backend and frontend SHAs in `release.json`. It rejects the baseline as a final D1 candidate and never copies working-tree credentials or links/deploys a project. Do not deploy the D2 root or the old Vercel worktree. No application/API/risk changes are part of D2.
+The assembled F1 branch includes C2, D2, E1 and Claude's committed frontend/auth work. `prepare_release.py` requires explicit frozen frontend and backend SHAs, checks the required backend ancestry, exports only committed frontend files into ignored `data/nwis-release/<full-sha>/frontend`, adds production Vercel configuration, and records both SHAs in `release.json`. It rejects the integrated baseline as a final candidate and never copies working-tree credentials or deploys. Do not deploy the old D2 root or Vercel worktree. Frozen B2 risk semantics remain unchanged.
 
 ## Final topology
 
@@ -54,7 +54,8 @@ The `/api/:path*` external rewrite must precede the SPA fallback and retain `/ap
 | `/api/audit/verify` | `/audit/verify` |
 | `/api/reports/OFF-04-DDR/source#page=1` | Authenticated PDF; fragment selects page in browser |
 | Unauthenticated protected API | JSON 401, never HTML SPA fallback |
-| Unknown API, admin, ingestion, signup/recovery, docs/OpenAPI, legacy request APIs | Gateway JSON 404 |
+| `/api/auth/signup`, `email/request-verification`, `email/verify`, `password/forgot`, `password/verify-otp`, `password/reset` | Strip `/api`; forward the exact approved auth path |
+| Unknown API, Google, admin, ingestion, docs/OpenAPI, legacy request APIs | Gateway JSON 404 |
 
 Query strings survive forwarding. Nginx preserves the incoming Origin, Referer, Cookie and Set-Cookie. Do not globally remove `/api`: that breaks the frozen NWIS routes. Do not use the Vite development proxy in production. Backend source URLs already point to `/api/reports/...`; no page-link rewrite is needed.
 
@@ -66,11 +67,12 @@ Copy `infra/nwis-release/release.env.example` to an operator-protected path outs
 | --- | --- |
 | `NWIS_DB_OWNER_PASSWORD` | Unique migration-owner/database bootstrap secret |
 | `NWIS_DB_PASSWORD` | Different application database secret |
-| `NWIS_BACKEND_IMAGE` | Unique backend image tag, initially `ertmac-nwis-release:e988cc36`; record image ID/digest |
+| `NWIS_BACKEND_IMAGE` | Unique final-release image tag built from the tested SHA; record image ID/digest |
 | `NWIS_MODEL_DIR` | Absolute existing model root containing `bge-base-en-v1.5` and `bge-reranker-base` |
 | `NWIS_PUBLIC_ORIGIN` | `https://sovereign-ai-workbench-nine.vercel.app`, no trailing slash |
 | `NWIS_GATEWAY_ORIGIN` | Reserved public HTTPS DNS origin; required by artifact preparation, not passed to FastAPI |
-| Demo reviewer password | Hidden prompt during provisioning/login; do not place in frontend or source control |
+| `NWIS_AUTH_SECRET`, `NWIS_SMTP_HOST`, `NWIS_SMTP_SENDER` | Required; missing values fail Compose configuration. TLS and provider credentials are listed in production_config.md |
+| Demo reviewer credentials | Deliberately public synthetic evaluator account; see authentication section |
 | Vercel / tunnel operator credentials | Operator credential store only; never `VITE_*` or backend account credentials |
 
 The Compose file supplies these exact runtime names (B2's prefixed names matter):
@@ -81,12 +83,14 @@ The Compose file supplies these exact runtime names (B2's prefixed names matter)
 | `QDRANT_URL` | `http://qdrant:6333` |
 | `MODEL_RUNTIME`, `MODEL_NAME`, `PRIMARY_MODEL` | `ollama`, `qwen3.5:9b`, `qwen3.5:9b` |
 | `MODEL_BASE_URL`, `MODEL_ALLOWED_HOSTS` | `http://host.docker.internal:11434`, `host.docker.internal` |
-| `WORKBENCH_DEPLOYMENT_MODE`, `WORKBENCH_SIGNUP_MODE` | `public`, `disabled` |
+| `WORKBENCH_DEPLOYMENT_MODE`, `WORKBENCH_SIGNUP_MODE` | `public`, `open` (or operator-selected `approval`) |
 | `WORKBENCH_CORS_ORIGINS` | JSON array with only the exact public frontend origin |
 | `WORKBENCH_AUTH_FRONTEND_ORIGIN` | Same exact public frontend origin |
 | `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_NAME`, `SESSION_TTL_SECONDS` | `true`, `workbench_session`, `28800` |
-| `WORKBENCH_AUTH_SECRET` | Deliberately empty: this enables no recovery flow; it is not a session-signing key |
-| `WORKBENCH_GOOGLE_ENABLED`, `WORKBENCH_SMTP_HOST`, `WORKBENCH_SMTP_SENDER` | `false`, empty, empty |
+| `WORKBENCH_AUTH_SECRET` | Unique secret, at least 32 bytes; OTP HMAC only, sessions remain opaque database tokens |
+| `WORKBENCH_GOOGLE_ENABLED` | `false`; Google routes are also blocked by gateway |
+| `WORKBENCH_SMTP_HOST`, `WORKBENCH_SMTP_PORT`, `WORKBENCH_SMTP_TLS`, `WORKBENCH_SMTP_SENDER` | Provider relay, `587`, `starttls`, verified sender (or port `465` with `tls`) |
+| `WORKBENCH_SMTP_USERNAME`, `WORKBENCH_SMTP_PASSWORD` | Provider credentials from protected environment only |
 | `WORKBENCH_DATA_ROOT`, `WORKBENCH_MODEL_ROOT` | `/workbench/data`, `/workbench/models` |
 | `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`, `HF_HOME` | `1`, `1`, `/tmp/huggingface` |
 | `OMP_NUM_THREADS`, `MKL_NUM_THREADS` | `2`, `2` |
@@ -98,7 +102,9 @@ Do not substitute unprefixed `DEPLOYMENT_MODE`, `SIGNUP_MODE` or `CORS_ORIGINS`:
 
 Keep B2's opaque database-backed sessions. The cookie is host-only, HttpOnly, Secure, SameSite=Lax, path `/`, eight-hour lifetime. Through the same-origin Vercel rewrite it belongs to the public frontend hostname; no cross-site cookie or Domain rewrite is required. Browser calls retain `credentials: include`. Mutations must carry the real frontend Origin/Referer; never replace those headers with an approved value. No wildcard CORS or automatic preview-origin access. A preview requires an explicitly approved origin/configuration, otherwise use the permanent production origin for validation.
 
-Provision only `nwis_demo_reviewer` using the existing C2 tool and a hidden password prompt. Its development-mode safety check is satisfied in a one-off operator process; the serving API remains public-mode with secure cookies. The script refuses to overwrite another account and never creates an admin. Reviewer can view/query/review and see its own audit; existing reviewer evidence/replay permissions remain frozen. Share credentials only with the judge/team, not in a public page or repository. Public signup, Google, SMTP, recovery and admin routes are disabled/blocked. `AUTH_SECRET` is intentionally unset because recovery is not part of this demo; no JWT signing secret is required for these sessions.
+Provision the explicitly public `evaluator` account with `python -m scripts.seed_demo_account` only on this synthetic demonstration dataset. Claude's sign-in page displays its matching public credentials. The seed permits only requester/reviewer, clears email, and never grants admin, so email recovery cannot take over that account. Its current script can refresh an existing same-name account: use only the dedicated synthetic release database and verify no unrelated account occupies the name. Set `VITE_DEMO_LOGIN=off` and omit the demo seed for any non-demo installation; all `VITE_*` values are public bundle contents. Optional credential overrides must match `NWIS_DEMO_USERNAME/PASSWORD` and `VITE_DEMO_USERNAME/PASSWORD`; never put a private password in them.
+
+Signup creates requesters only. Email verification and forgot-password OTP are enabled through TLS SMTP. Each code lasts 10 minutes, allows five attempts, is purpose-bound and single-use; recovery requires a verified eligible email and revokes all old sessions on reset. Request responses remain generic. Google is disabled/hidden for this release; live OAuth has not been validated. Admin/ingestion endpoints remain private. See production_config.md for absent-variable and mail-delivery-failure behavior.
 
 ## Exact deployment order (future execution only)
 
@@ -108,10 +114,11 @@ Run these steps only after accepted D1 SHA and explicit deployment authorization
 2. Fill the protected environment file and prepare the accepted frontend artifact:
 
 ```powershell
-Set-Location 'C:\Users\Lohith k\Desktop\ertmac-nwis-d2'
-$d1 = '<accepted full Claude D1 SHA>'
+Set-Location '<isolated release/nwis-final worktree>'
+$d1 = '<tested full final release SHA>'
+$backend = $d1
 $gateway = 'https://<assigned-gateway-hostname>'
-python infra/nwis-release/prepare_release.py --frontend-sha $d1 --gateway-origin $gateway
+python infra/nwis-release/prepare_release.py --frontend-sha $d1 --backend-sha $backend --gateway-origin $gateway
 $frontendRelease = Join-Path (Get-Location) "data/nwis-release/$d1/frontend"
 Push-Location $frontendRelease
 npm ci
@@ -124,20 +131,20 @@ npm run verify:dist
 Pop-Location
 ```
 
-The final artifact must use the full SHA directory printed by the preparer. Do not run the held-out benchmark. Test/build commands above are frontend checks only.
+The final artifact must use the full SHA directory printed by the preparer. The F1 blind benchmark is a one-time evaluation; never rerun it during deployment. Test/build commands above are frontend checks only.
 
-3. Build the unchanged C2 backend into a distinct tag. Do not replace the shared B2 image tag. Create the isolated persistent services, migrate as owner, grant least-privilege DML access, then seed/index:
+3. Build the tested final backend into a distinct tag. Do not replace the shared B2 image tag. Create isolated persistent services, migrate as owner, grant least-privilege DML access, then seed/index:
 
 ```powershell
 $release = @('--env-file', 'C:\protected\nwis-release.env', '-f', 'infra/nwis-release/compose.yml')
-docker build -f infra/Dockerfile.backend -t ertmac-nwis-release:e988cc36 .
-docker image inspect ertmac-nwis-release:e988cc36 --format '{{.Id}}'
+docker build -f infra/Dockerfile.backend -t "ertmac-nwis-release:$backend" .
+docker image inspect "ertmac-nwis-release:$backend" --format '{{.Id}}'
 docker compose @release config --quiet
 docker compose @release up -d --wait postgres qdrant
 docker compose @release run --rm --no-deps migrate
 docker compose @release exec -T postgres psql -U nwis_owner -d nwis -v ON_ERROR_STOP=1 -f /release/grant-app.sql
 docker compose @release run --rm --no-deps backend python -m scripts.seed_nwis --index
-docker compose @release run --rm --no-deps -e WORKBENCH_DEPLOYMENT_MODE=development backend python -m scripts.provision_nwis_demo
+docker compose @release run --rm --no-deps backend python -m scripts.seed_demo_account
 ```
 
 Use the actual tag from the protected environment if changed. Qdrant startup here means process started; readiness/index checks below still must pass. Seed is idempotent and uses the single C2 synthetic universe. Expected: 12 wells, 396 trajectory points, 48 formations, 11 reports, 66 events, 610 telemetry samples. Do not erase persistent volumes to reseed. Provisioning uses a hidden prompt; do not add a password to command history.
@@ -227,6 +234,6 @@ Executed without deploying:
 
 C2's prior 109 distinct tests, real PostGIS/BGE/Qdrant validation and golden HTTP chain remain documented in `c2_validation.md`; they were not rerun or misreported as new release-runtime tests. No held-out benchmark was run.
 
-Blocking final deployment: accepted D1 SHA; assigned reserved HTTPS gateway and operator agent/credentials; operator Vercel access/dashboard verification; filled unique database secrets and reviewer password; final D1 build/tests; fresh private release migration/seed/index validation; real TLS rewrite/cookie/PDF/browser checks and warm latency gate. These are explicit deployment gates, not B2 contract blockers. D2's configuration can be reviewed and committed while these inputs remain pending.
+Future deployment still requires an assigned reserved HTTPS gateway, operator agent/credentials, Vercel access/dashboard verification, filled unique database/auth/mail secrets, an immutable image built from the tested final SHA, private release-volume provisioning, real TLS rewrite/cookie/PDF/browser checks and the public warm latency gate. F1 local validation is recorded separately; it does not claim a public deployment or live Google validation. Historical D2 results above describe the then-disabled auth policy, superseded by F1's configuration and tests.
 
 Claude/team entry points: this file, `infra/nwis-release/release.env.example`, `prepare_release.py`, `compose.yml`, `smoke_public.py`, plus inherited `backend_api_contract.md`, `demo_runbook.md`, `golden_demo_fixture.json` and `c2_validation.md`.

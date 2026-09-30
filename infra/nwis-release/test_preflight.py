@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from prepare_release import BASELINE, export_frontend, frontend_sha, vercel_config
+from prepare_release import BASELINE, backend_sha, export_frontend, frontend_sha, vercel_config
 
 
 class ReleaseTests(unittest.TestCase):
@@ -37,6 +37,13 @@ class ReleaseTests(unittest.TestCase):
             self.assertFalse((target/'backend').exists())
             with self.assertRaises(FileExistsError):
                 export_frontend(BASELINE, target)
+
+    def test_final_lineage_and_claude_freeze(self):
+        self.assertTrue(frontend_sha('2e00e83').startswith('2e00e83'))
+        with self.assertRaises(ValueError):
+            backend_sha('release/nwis-final')
+        with self.assertRaises(Exception):
+            backend_sha('e988cc36')
 
 
 if __name__ == '__main__':

@@ -27,7 +27,7 @@ services:
       - qdrant:/qdrant/storage
     networks: [storage]
   backend:
-    image: ${NWIS_BACKEND_IMAGE:?Build and record an immutable C2 backend image tag}
+    image: ${NWIS_BACKEND_IMAGE:?Build and record an immutable final release backend image tag}
     restart: unless-stopped
     working_dir: /workbench
     user: '10001:10001'
@@ -46,16 +46,20 @@ services:
       WORKBENCH_DATA_ROOT: /workbench/data
       WORKBENCH_MODEL_ROOT: /workbench/models
       WORKBENCH_DEPLOYMENT_MODE: public
-      WORKBENCH_SIGNUP_MODE: disabled
-      WORKBENCH_AUTH_SECRET: ''
+      WORKBENCH_SIGNUP_MODE: ${NWIS_SIGNUP_MODE:-open}
+      WORKBENCH_AUTH_SECRET: ${NWIS_AUTH_SECRET:?Supply a unique 32-byte minimum OTP secret}
       WORKBENCH_CORS_ORIGINS: '["${NWIS_PUBLIC_ORIGIN:?Supply the exact HTTPS Vercel origin}"]'
       WORKBENCH_AUTH_FRONTEND_ORIGIN: ${NWIS_PUBLIC_ORIGIN:?Required}
       SESSION_COOKIE_SECURE: 'true'
       SESSION_COOKIE_NAME: workbench_session
       SESSION_TTL_SECONDS: '28800'
       WORKBENCH_GOOGLE_ENABLED: 'false'
-      WORKBENCH_SMTP_HOST: ''
-      WORKBENCH_SMTP_SENDER: ''
+      WORKBENCH_SMTP_HOST: ${NWIS_SMTP_HOST:?Supply the production SMTP relay}
+      WORKBENCH_SMTP_PORT: ${NWIS_SMTP_PORT:-587}
+      WORKBENCH_SMTP_TLS: ${NWIS_SMTP_TLS:-starttls}
+      WORKBENCH_SMTP_SENDER: ${NWIS_SMTP_SENDER:?Supply the verified mail sender}
+      WORKBENCH_SMTP_USERNAME: ${NWIS_SMTP_USERNAME:-}
+      WORKBENCH_SMTP_PASSWORD: ${NWIS_SMTP_PASSWORD:-}
       HF_HUB_OFFLINE: '1'
       TRANSFORMERS_OFFLINE: '1'
       HF_HOME: /tmp/huggingface

@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.core.security import hash_password
 from app.db.models import User
+from app.db.models.nwis import Well
 from app.db.session import SessionLocal
 
 USERNAME = os.environ.get("NWIS_DEMO_USERNAME", "evaluator")
@@ -24,7 +25,13 @@ def main():
     if len(PASSWORD) < 12:
         raise SystemExit("The demo password must have at least 12 characters.")
     with SessionLocal() as session:
+        origins = set(session.scalars(select(Well.dataset_origin)).all())
+        if origins != {"synthetic_demo"}:
+            raise SystemExit("Public demo access requires an already-seeded, exclusively synthetic NWIS dataset.")
         user = session.scalar(select(User).where(User.username == USERNAME))
+        if user is not None and (user.display_name != "Demo Evaluator" or user.email is not None or
+                                 user.role not in {"requester", "reviewer"} or user.signup_pending):
+            raise SystemExit("Refusing to overwrite an unrelated account with public demo credentials.")
         if user is None:
             user = User(username=USERNAME)
             session.add(user)

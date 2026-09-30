@@ -131,7 +131,7 @@ export default function AppShell() {
     <button type="button" className="nav-scrim" aria-hidden="true" tabIndex={-1} onClick={() => setNavOpen(false)} />
     <main id="main" ref={main} tabIndex={-1} className="shell-main">
       {FIXTURE_MODE && <p className="shell-banner is-fixture" role="note"><strong>DEV FIXTURE MODE.</strong> NWIS data on these screens comes from frontend development fixtures (synthetic_demo), not from the NWIS backend. Production builds never include fixtures.</p>}
-      {legacy && <p className="shell-banner" role="note"><strong>Legacy SIH26117 screen.</strong> Retained for regression only; not part of eRTMAC-NWIS. <Link to="/app/dashboard">Back to the NWIS dashboard</Link></p>}
+      {legacy && <p className="shell-banner" role="note"><strong>Legacy screen.</strong> Retained for regression only; not part of eRTMAC-NWIS. <Link to="/app/dashboard">Back to the NWIS dashboard</Link></p>}
       <TermsGate><NwisProvider><Outlet /></NwisProvider></TermsGate>
     </main>
     <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />

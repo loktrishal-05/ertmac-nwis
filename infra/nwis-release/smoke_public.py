@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--origin', required=True)
     parser.add_argument('--browser-origin', help='Exact frontend CORS origin when probing gateway directly')
-    parser.add_argument('--username', default='nwis_demo_reviewer')
+    parser.add_argument('--username', default='evaluator')
     args = parser.parse_args()
     vercel_config(args.origin)
     origin = args.origin.rstrip('/')
@@ -54,7 +54,8 @@ def main():
     assert call('/api/health')['status'] == 'ok'
     call('/api/wells', expected=401)
     capabilities = call('/api/auth/capabilities')
-    assert not any(capabilities[k] for k in ('signup','google','password_recovery','email_recovery'))
+    assert capabilities['signup'] and capabilities['password_recovery'] and capabilities['email_recovery']
+    assert capabilities['email_delivery'] == 'smtp' and not capabilities['google']
     actor = call('/api/auth/login', {'username': args.username, 'password': getpass('Demo reviewer password: ')})
     assert actor['role'] == 'reviewer'
     assert call('/api/auth/me')['id'] == actor['id']
@@ -78,7 +79,8 @@ def main():
     assert call('/api/audit/verify')['valid']
     assert all(e['actor_id'] == actor['id'] for e in call('/api/audit')['items'])
     call('/api/admin/users', expected=404)
-    call('/api/auth/signup', {}, expected=404)
+    call('/api/auth/signup', {}, expected=422)
+    call('/api/auth/google/start', expected=404)
     call('/api/auth/logout', {})
     call('/api/wells', expected=401)
     print(json.dumps({'https_routing_cookie_origin_checks': 'passed', 'hybrid_query_seconds': timings,
