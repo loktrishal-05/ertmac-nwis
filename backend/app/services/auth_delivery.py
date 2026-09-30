@@ -35,8 +35,9 @@ def send_code(address, code, purpose):
 
     message = EmailMessage()
     message["From"], message["To"] = settings.smtp_sender, address
-    message["Subject"] = "Workbench verification code"
-    message.set_content(f"Your Workbench {'password recovery' if purpose == 'password' else 'email verification'} code is {code}.\n"
+    action = "password recovery" if purpose == "password" else "email verification"
+    message["Subject"] = f"eRTMAC-NWIS {action} code"
+    message.set_content(f"Your eRTMAC-NWIS {action} code is {code}.\n"
                         "It expires in 10 minutes and can be used once. If you did not request it, ignore this message.")
     client = PinnedSSL if settings.smtp_tls == "tls" else PinnedSMTP
     kwargs = {"context": ssl.create_default_context()} if settings.smtp_tls == "tls" else {}

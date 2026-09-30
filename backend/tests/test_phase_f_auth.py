@@ -260,7 +260,13 @@ class AccountsTests(unittest.TestCase):
         settings.auth_secret = ""
         data = self.client.get("/auth/capabilities").json()
         self.assertFalse(data["email_recovery"] or data["admin_recovery"] or data["google"])
+        self.assertEqual(data["email_delivery"], "none")
         self.login()
+
+    def test_capabilities_report_where_codes_are_delivered(self):
+        self.assertEqual(self.client.get("/auth/capabilities").json()["email_delivery"], "smtp")
+        with patch.object(settings, "smtp_host", "localhost"):
+            self.assertEqual(self.client.get("/auth/capabilities").json()["email_delivery"], "local")
 
     def test_admin_authorization_role_change_and_revocation(self):
         self.assertEqual(self.client.get("/admin/users").status_code, 401)

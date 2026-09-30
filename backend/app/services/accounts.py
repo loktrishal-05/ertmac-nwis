@@ -12,6 +12,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
+from app.core.locality import classify_host
 from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
 from app.db.models import AuthAttempt, AuthChallenge, AuthSession, ResetCapability, User
 from app.schemas.auth import normalized_email
@@ -57,6 +58,13 @@ def recovery_enabled():
 
 def email_enabled():
     return recovery_enabled() and bool(settings.smtp_host and settings.smtp_sender)
+
+
+def email_delivery():
+    """Where one-time codes are delivered: none, a loopback development inbox, or a configured SMTP relay."""
+    if not email_enabled():
+        return "none"
+    return "local" if classify_host(settings.smtp_host) == "local" else "smtp"
 
 
 def budget(db, scope, identifier, limit, seconds=900):
