@@ -22,6 +22,16 @@ docker compose -f infra/docker-compose.nwis.yml up -d backend
 
 The reused development-user script creates `dev_requester` / `dev-requester-pass-1` and `dev_reviewer` / `dev-reviewer-pass-1`. These are local-only test identities, never production accounts. Login uses the existing `/auth/login` session cookie contract. Then POST `/api/terms/accept` with `{"version":"nwis-advisory-v1","accepted":true}`. Requesters may inspect wells/evidence and assess risk; reviewers also replay data, review advisories and validate extracted events; admins may ingest reports. Restricted wells are admin-only. Browser writes use the existing same-origin guard.
 
+## Accounts, email OTP and Google sign-in
+
+Copy `infra/nwis-auth.env.example` to `infra/.env` (untracked) and set `NWIS_AUTH_SECRET` (32+ random characters). With only that set, the stack runs:
+
+- self-service sign-up (`NWIS_SIGNUP_MODE=open`; `approval` makes an administrator approve each account);
+- email verification after sign-up and password recovery by one-time code (6 digits, 10 minutes, single use);
+- a local Mailpit catcher as the mail server: every code appears at `http://127.0.0.1:8025` and never leaves the machine.
+
+For real inboxes set `NWIS_SMTP_HOST/PORT/TLS/USERNAME/PASSWORD/SENDER` to your provider (Gmail: `smtp.gmail.com`, `587`, `starttls`, an App Password). For Google sign-in create an OAuth web client with redirect URI `http://localhost:3000/api/auth/google/callback`, set `NWIS_GOOGLE_ENABLED=true`, `NWIS_GOOGLE_CLIENT_ID` and `NWIS_GOOGLE_CLIENT_SECRET`, and open the app at `http://localhost:3000`. Apply changes with `docker compose -f infra/docker-compose.nwis.yml up -d`. `/auth/capabilities` reports exactly which flows are active; the frontend hides anything that is not.
+
 ## Data and provenance
 
 `data/nwis_demo/dataset.json` is deterministic ground truth: 12 synthetic wells, 48 formation intervals, 396 survey stations, 66 events in 11 six-page WCR/DDR reports, and 610 telemetry samples across 10 channels. Every source record carries `dataset_origin="synthetic_demo"`. This is not Oil India data. `--generate` regenerates JSON and PDFs under `data/nwis_demo/reports/`; the normal seed can generate its ground truth without those files. Seeding is repeatable and refuses non-demo identity collisions. PDF hashes, rather than invented source hashes, are persisted. Source files are stored by hash under `data/nwis/reports/` and served through an authorized endpoint.

@@ -33,17 +33,44 @@ services:
       MODEL_ROOT: /workspace/models
       HF_HUB_OFFLINE: '1'
       TRANSFORMERS_OFFLINE: '1'
-      GOOGLE_ENABLED: 'false'
-      SMTP_HOST: ''
+      # Account settings (app/core/config.py reads WORKBENCH_* only). Values come from infra/.env (untracked, see
+      # infra/nwis-auth.env.example); every default below is safe for a local development machine.
+      WORKBENCH_DEPLOYMENT_MODE: development
+      WORKBENCH_AUTH_SECRET: ${NWIS_AUTH_SECRET:-} # 32+ chars; empty disables OTP recovery and Google sign-in
+      WORKBENCH_SIGNUP_MODE: ${NWIS_SIGNUP_MODE:-open}
+      # Default SMTP is the Mailpit catcher (shared network namespace, so it is loopback and TLS may be off).
+      # Real inboxes: set NWIS_SMTP_* to your provider (e.g. smtp.gmail.com:587 starttls + app password).
+      WORKBENCH_SMTP_HOST: ${NWIS_SMTP_HOST:-localhost}
+      WORKBENCH_SMTP_PORT: ${NWIS_SMTP_PORT:-1025}
+      WORKBENCH_SMTP_TLS: ${NWIS_SMTP_TLS:-none}
+      WORKBENCH_SMTP_SENDER: ${NWIS_SMTP_SENDER:-eRTMAC-NWIS <no-reply@nwis.localhost>}
+      WORKBENCH_SMTP_USERNAME: ${NWIS_SMTP_USERNAME:-}
+      WORKBENCH_SMTP_PASSWORD: ${NWIS_SMTP_PASSWORD:-}
+      WORKBENCH_GOOGLE_ENABLED: ${NWIS_GOOGLE_ENABLED:-false}
+      WORKBENCH_GOOGLE_CLIENT_ID: ${NWIS_GOOGLE_CLIENT_ID:-}
+      WORKBENCH_GOOGLE_CLIENT_SECRET: ${NWIS_GOOGLE_CLIENT_SECRET:-}
+      # Google returns to the frontend origin; its /api proxy forwards to the backend callback, so the session cookie is first-party.
+      WORKBENCH_GOOGLE_CALLBACK_URL: ${NWIS_GOOGLE_CALLBACK_URL:-http://localhost:3000/api/auth/google/callback}
+      WORKBENCH_AUTH_FRONTEND_ORIGIN: ${NWIS_AUTH_FRONTEND_ORIGIN:-http://localhost:3000}
     volumes:
       - ..:/workspace
       - ${NWIS_MODEL_DIR:-../models}:/workspace/models:ro
-    ports:
-      - '127.0.0.1:8011:8000'
+    # Shares the mailpit container's network namespace (ports are published there), so the dev mail catcher is on this
+    # container's loopback. Recreating the backend keeps mail working; Postgres/Qdrant resolve as usual.
+    network_mode: service:mailpit
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     command: [python, -m, uvicorn, app.main:app, --host, 0.0.0.0, --port, '8000']
+  # Development mail catcher: receives verification / recovery codes on SMTP :1025 (loopback of the backend, which joins
+  # this namespace) and shows them at http://127.0.0.1:8025. Unused when NWIS_SMTP_HOST points at a real provider.
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    ports:
+      - '127.0.0.1:8011:8000' # backend API
+      - '127.0.0.1:8025:8025' # Mailpit web inbox (development only)
 volumes:
   nwis_postgres:
   nwis_qdrant:

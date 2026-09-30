@@ -35,6 +35,7 @@ def capabilities():
         mode = "disabled"
     return {"local_login": True, "signup": mode != "disabled", "signup_mode": mode,
             "password_recovery": accounts.recovery_enabled(), "email_recovery": accounts.email_enabled(),
+            "email_delivery": accounts.email_delivery(),
             "admin_recovery": accounts.recovery_enabled(), "google": auth_oidc.enabled()}
 
 
