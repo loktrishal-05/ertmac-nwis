@@ -1,59 +1,59 @@
-# eRTMAC-NWIS frontend integration checklist
+# eRTMAC-NWIS frontend integration checklist (B2)
 
-Use when the Codex NWIS backend (`pivot/nwis-backend`) reports ready. Contract: `frontend_api_contract.md`.
-Fixtures: `frontend_fixtures.md` (dev only; must be OFF for everything below).
+Backend: `pivot/nwis-backend` `a9949c5`, Docker Compose project `ertmac-nwis-backend` (`infra/docker-compose.nwis.yml`), API on `127.0.0.1:8011`.
+Contract: `frontend_api_contract.md`. Fixtures: `frontend_fixtures.md` (dev only; must be OFF for everything below).
 
 ## 0. Preconditions
 
-- [ ] Backend running (default `http://127.0.0.1:8000`, override with `WORKBENCH_API_PROXY` for the Vite proxy).
-- [ ] Frontend started **without** fixtures: `cd frontend && npx vite` (no `VITE_NWIS_FIXTURES`). The shell must **not**
-      show the DEV FIXTURES pill/banner.
-- [ ] `npm run contract:check` with `NWIS_API_URL` and `NWIS_SESSION_COOKIE` → all PASS. Any FAIL lists the exact field;
-      fix it in the backend, or add an alias in `frontend/src/features/nwis/adapters.js` (one place), then re-run
-      `npm test` (the contract tests pin the adapters).
+- [ ] Backend healthy: `curl http://127.0.0.1:8011/health`.
+- [ ] Frontend dev server **without** fixtures, on an origin the backend's same-origin guard allows (default `:5173` or `:3000`):
+      `cd frontend && WORKBENCH_API_PROXY=http://127.0.0.1:8011 npx vite --port 3000`. No DEV FIXTURE banner.
 - [ ] `npm run lint && npm test && npm run build && npm run verify:dist` green.
+- [ ] `NWIS_API_URL=http://127.0.0.1:8011 NWIS_SESSION_COOKIE=… npm run contract:check` → all PASS (the assessment check SKIPs until one is recorded).
 
-## 1. Roles (frontend guards; the backend authorizes every request)
+## 1. Roles
 
-| Capability | Minimum role | Enforced by |
-|---|---|---|
-| Dashboard, wells, map, active well, offset analysis, correlation, events, risk, live, knowledge, help | any signed-in role (`requester` / viewer) | session guard on `/app/*` |
-| View advisories | any signed-in role | backend |
-| Acknowledge / review / insufficient evidence / note | drilling engineer or `reviewer` (backend decides; UI shows 403 as "Your role cannot review advisories") | backend |
-| Audit (`/app/audit`) | `reviewer` or `admin` | frontend route guard + backend |
-| Administration | `admin` | frontend route guard + backend |
+| Capability | Minimum role |
+|---|---|
+| All NWIS read screens, knowledge search, "Record assessment" | `requester` (after accepting the terms) |
+| Advisory review, telemetry replay seek | `reviewer` |
+| Audit screen (`/app/audit`, own entries for non-admins) | `reviewer` |
+| Report ingestion, administration | `admin` |
 
-Judge demo account: needs a role that can **review advisories** and **read audit** (i.e. `reviewer` today, or an NWIS
-"drilling engineer" role mapped to the same permissions). No credentials are invented or shipped; RBAC is not weakened.
+Local demo identities come from the backend's `scripts/seed_dev_users.py` (`dev_requester`, `dev_reviewer`). They are local-only; never use them outside a development machine.
 
-## 2. Judge flow (fixtures OFF, real backend)
+## 2. Golden-demo preparation (backend runbook step 4)
+
+Advisories are raised only after successive assessments. As `dev_reviewer`: `POST /api/wells/ACTIVE-01/replay {"as_of":"2026-09-29T15:58:00Z"}`, then
+`POST /api/wells/ACTIVE-01/assess?lookahead_m=100`; repeat for `15:59:00Z` and `16:00:00Z`. The third assessment yields pending advisories
+(stuck pipe, mud loss). Re-running on the same timestamps is idempotent.
+
+## 3. Golden flow (fixtures OFF, real backend)
 
 | # | Step | Check |
 |---|---|---|
-| 1 | Login | `/login` → sign in → lands on `/app/dashboard`; logged-out `/app/*` redirects to `/login?next=…` |
-| 2 | Dashboard | active well MD/TVD/formation/section; 4 hazard cards; offset coverage; mini-map; alerts; data quality; events matrix; synthetic badge only if `dataset_origin=synthetic_demo` |
-| 3 | Well list | `/app/wells` lists catalogue; search and status filter hit the server (`q`, `status`) |
-| 4 | Active well | `/app/active` → `/app/wells/{id}`; telemetry strip shows only channels with values; offset well pages show stratigraphy/events, risk 404 → "Not available" |
-| 5 | Radius change | map 2/5/10/20 km → new `nearby` request; ring redraws; markers = backend items; table matches |
-| 6 | Offset ranking | `/app/offset-analysis` order = backend order; component scores + weights shown; closest-well callout appears when the closest well is not #1 |
-| 7 | Correlation | tracks on TVD; formation bands, interpreted hatching, unknown tops "?", events clickable, casing, look-ahead band |
-| 8 | Events | filters (well, formation, type, severity, TVD range) map to query params; source wording + report/page shown |
-| 9 | Risk 50/100/150 m | segmented control changes `lookahead_m`; profile table shows all three; no overall risk number |
-| 10 | Why this alert? | drawer lists supporting wells with scores, cited events (report + page), telemetry features, missing evidence, confidence explanation |
-| 11 | Telemetry replay | `/app/live` banner says SIMULATED / REPLAY unless `mode=live`; stale data flagged; refresh every 15 s |
-| 12 | Knowledge query | example query → results grouped Wells / Events / Reports with citations; a legacy response shows "Unrecognised search response" |
-| 13 | Advisory acknowledgement | note required; decision recorded; list status updates; 403/409/422 shown inline |
-| 14 | Audit event | `/app/audit` shows `Alert acknowledged` / `Advisory reviewed` for step 13; chain verification shown |
+| 1 | Sign in | `/login` → `/app/dashboard`; a user who has not accepted the terms sees the backend terms text and **Accept and continue** before any NWIS data request |
+| 2 | Dashboard | ACTIVE-01 MD 2,450 m · TVD 2,450 m · TIPAM_A (from the risk response); hazard cards labelled *uncalibrated estimate*; offsets; alerts; events matrix |
+| 3 | Map, radius | 2/5/10/20 km → new `nearby` request; the callout shows OFF-01 as closest (0.1 km) while OFF-04 ranks first; marker event counts come from `/api/events` |
+| 4 | Offset ranking | order = backend order; six component scores, weights, depth basis and the backend explanation lines |
+| 5 | Correlation | TVD alignment basis, continuity warning, top 3 offsets (or the compare selection) |
+| 6 | Events | type/formation/depth-basis/range filters reach `/api/events`; source link opens `/api/reports/{id}/source#page=N` |
+| 7 | Risk 100 m | stuck pipe 75 % (0.746), confidence 0.855, rising, historical 0.70 + live anomaly +0.15; *Uncalibrated estimate* badge; replay timestamp |
+| 8 | Why this alert? | loads `/api/assessments/{id}`: supporting wells with scores, cited events with report/page links, contribution, source-hash status, telemetry features, missing evidence, confidence basis. On 404: **Record assessment** |
+| 9 | Telemetry | SIMULATED / REPLAY banner; channel states from the backend at the replay time |
+| 10 | Knowledge | example question → cited answer, grouped wells/events/reports (status `completed`); `refused` shown as refused |
+| 11 | Advisory | select the stuck-pipe advisory; hazard/probability/evidence come from its assessment; acknowledge with a reason ≥ 5 chars → status Acknowledged with reviewer and time |
+| 12 | Audit | `Advisory reviewed` entry with status and reason; chain verification valid |
 
-## 3. Failure behaviour (must hold with the real backend)
+## 4. Failure behaviour
 
-- [ ] Stop the backend → every NWIS screen shows "NWIS backend unavailable for …" with Retry; nothing falls back to fixtures.
-- [ ] A 404 for risk/telemetry on an offset well → "Not available", not an error wall.
-- [ ] Missing numbers render as `—` / "unknown" / "not reported", never `0`.
-- [ ] MapLibre chunk loads only on `/app/map` and the dashboard mini-map; no external tile or font requests.
+- [ ] Backend stopped → every NWIS screen shows "NWIS backend unavailable for …" with Retry; nothing falls back to fixtures.
+- [ ] Historical well as context → risk shows "Insufficient evidence / No usable analogs", telemetry "No channels with values".
+- [ ] Missing numbers render as `—` / "unknown" / "not recorded", never `0`.
+- [ ] Unknown well or assessment → "Not available".
 
-## 4. Known dependencies to resolve with Codex
+## 5. Known limits (not blockers)
 
-1. `POST /query` must answer `mode: "nwis_evidence"` with `results` (or provide a dedicated path).
-2. Audit writes for `alert_acknowledged` / `advisory_reviewed` on review.
-3. Demo account role (section 1).
+1. B2 has no advisory status/hazard filter or event multi-well filter: the frontend filters one bounded page (≤ 100) and flags `has_more`.
+2. The frontend has no replay control; replay is a reviewer data operation (step 2).
+3. Analyst pin/compare/exclude are session view preferences; B2 does not accept overrides.

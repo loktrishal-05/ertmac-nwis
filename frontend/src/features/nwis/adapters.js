@@ -1,162 +1,234 @@
-// NWIS API → domain adapters: the ONLY place that knows raw backend field names.
-// Screens read the canonical shapes returned here (documented in docs/nwis/frontend_api_contract.md).
-// If the backend names a field differently, add the alias here, not in a screen.
+// NWIS B2 API → view-model adapters: the ONLY place that knows raw backend field names.
+// Screens read the stable view-model shapes returned here (docs/nwis/frontend_api_contract.md).
 // Rules: numbers are finite or null (never coerced to 0); strings are non-empty or null; lists are arrays.
+// Nothing here computes distances, rankings or probabilities: it only renames, groups and formats backend values.
 import { SCORE_COMPONENTS, listOf, num } from './nwisModel.js'
 
 const str = value => (typeof value === 'string' && value.trim() ? value : null)
 const arr = value => (Array.isArray(value) ? value : [])
 const pick = (obj, ...keys) => { for (const key of keys) { const value = obj?.[key]; if (value !== undefined && value !== null) return value } return null }
 const ids = list => arr(list).map(item => (typeof item === 'string' ? item : str(item?.id) ?? str(item?.well_id) ?? str(item?.event_id))).filter(Boolean)
-const interval = value => (value && num(value.top) != null && num(value.base) != null ? { top: value.top, base: value.base } : null)
 const origin = (...sources) => sources.map(s => str(s?.dataset_origin)).find(Boolean) ?? null
+const fixed = (value, digits = 2) => (num(value) == null ? null : value.toFixed(digits))
 
-// Paginated or bare list → { items, total, as_of, dataset_origin, ...extra }.
+// B2 lists: { items, limit, offset, has_more, as_of } — there is no total.
 function envelope(data, adapt, extra = {}) {
   const items = listOf(data).map(adapt)
-  return { items, total: num(data?.total) ?? items.length, as_of: str(data?.as_of), dataset_origin: str(data?.dataset_origin), ...extra }
+  return { items, total: num(data?.total), has_more: data?.has_more === true, as_of: str(data?.as_of), dataset_origin: str(data?.dataset_origin), ...extra }
 }
 
-// ── Well ──
+// ── Well (B2 WellOut: latitude, longitude, current_md, total_depth_md; no formation/TVD — those come from risk) ──
 export function adaptFormation(f) {
-  return { name: str(pick(f, 'name', 'formation')), top: num(pick(f, 'top', 'top_tvd_m', 'top_m')), base: num(pick(f, 'base', 'base_tvd_m', 'bottom_tvd_m', 'base_m')),
-    confidence: num(f?.confidence), interpreted: f?.interpreted === true }
+  const confidence = num(f?.confidence)
+  return { name: str(pick(f, 'formation', 'name')), top: num(pick(f, 'top', 'top_tvd', 'top_md')), base: num(pick(f, 'base', 'bottom_tvd', 'bottom_md')),
+    confidence, interpreted: f?.interpreted === true || (confidence != null && confidence < 0.6), available: f?.alignment_available !== false }
 }
 export function adaptWell(w) {
-  const id = str(pick(w, 'id', 'well_id'))
+  const id = str(pick(w, 'id', 'well_id', 'offset_well_id'))
+  const status = str(w?.status)
   return {
-    id, name: str(pick(w, 'name', 'well_name')) ?? id, field: str(w?.field), status: str(w?.status), role: str(w?.role),
-    lat: num(pick(w, 'lat', 'latitude')) ?? num(w?.location?.lat) ?? num(w?.location?.coordinates?.[1]),
-    lon: num(pick(w, 'lon', 'lng', 'longitude')) ?? num(w?.location?.lon) ?? num(w?.location?.coordinates?.[0]),
+    id, name: str(pick(w, 'name', 'well_name')) ?? id, field: str(w?.field), operator: str(w?.operator), status,
+    role: str(w?.role) ?? (status && /^active$/i.test(status) ? 'active' : null),
+    lat: num(pick(w, 'latitude', 'lat')), lon: num(pick(w, 'longitude', 'lon')),
     well_type: str(w?.well_type), trajectory_type: str(w?.trajectory_type), trajectory_summary: str(w?.trajectory_summary), spud_date: str(w?.spud_date),
-    td_md_m: num(w?.td_md_m), td_tvd_m: num(w?.td_tvd_m), data_quality: num(w?.data_quality),
-    current_md_m: num(w?.current_md_m), current_tvd_m: num(w?.current_tvd_m), current_tvdss_m: num(w?.current_tvdss_m),
+    td_md_m: num(pick(w, 'total_depth_md', 'td_md_m')), td_tvd_m: num(w?.td_tvd_m), data_quality: num(w?.data_quality),
+    current_md_m: num(pick(w, 'current_md', 'current_md_m')), current_tvd_m: num(w?.current_tvd_m), current_tvdss_m: num(w?.current_tvdss_m),
     current_formation: str(w?.current_formation), hole_section: str(w?.hole_section), note: str(w?.note),
-    formations: arr(pick(w, 'formations', 'formation_intervals')).map(adaptFormation),
-    upcoming_formations: arr(w?.upcoming_formations).map(f => ({ name: str(pick(f, 'name', 'formation')), top_tvd_m: num(f?.top_tvd_m), distance_m: num(f?.distance_m), confidence: num(f?.confidence) })),
-    casing: arr(w?.casing).map(c => ({ size: str(c?.size), shoe_tvd_m: num(pick(c, 'shoe_tvd_m', 'depth')) })),
-    dataset_origin: origin(w),
+    formations: arr(w?.formations).map(adaptFormation), upcoming_formations: [], casing: [],
+    as_of: str(w?.as_of), dataset_origin: origin(w),
   }
 }
 export const adaptWellList = data => envelope(data, adaptWell)
+// GET /api/wells/{id}/formations (FormationOut: formation, top_md…, top_tvd…, confidence).
+export const adaptFormationList = data => envelope(data, f => ({ name: str(f?.formation), top_md: num(f?.top_md), base_md: num(f?.bottom_md),
+  top: num(f?.top_tvd), base: num(f?.bottom_tvd), top_tvdss: num(f?.top_tvdss), base_tvdss: num(f?.bottom_tvdss), confidence: num(f?.confidence), source: str(f?.source) }))
 
-// ── NearbyWell (backend order is the ranking) ──
+// ── NearbyWell (B2 MatchOut is flat; backend order is the ranking) ──
 export function normalizeOffset(item) {
-  const well = adaptWell(item?.well || item)
-  const components = item?.components || item?.component_scores || {}
+  const nested = item?.well ? adaptWell(item.well) : null
+  const id = str(item?.offset_well_id) ?? nested?.id ?? null
+  const legacy = item?.components || item?.component_scores || {}
   return {
-    id: well.id ?? str(item?.well_id), name: well.name ?? str(item?.well_id), well,
-    distanceKm: num(item?.distance_km), total: num(item?.total_score ?? item?.score), rank: num(item?.rank),
-    components: Object.fromEntries(SCORE_COMPONENTS.map(([key]) => [key, num(components[key])])),
-    eventCounts: Object.fromEntries(Object.entries(item?.event_counts || {}).filter(([, n]) => num(n) != null)),
-    formationAtDepth: str(item?.formation_at_depth), note: str(item?.note) ?? well.note, dataset_origin: origin(item, well),
+    id, name: nested?.name ?? id, well: nested ?? { id, name: id },
+    distanceKm: num(item?.distance_km) ?? (num(item?.distance_m) == null ? null : item.distance_m / 1000), total: num(item?.total_score ?? item?.score), rank: num(item?.rank),
+    components: Object.fromEntries(SCORE_COMPONENTS.map(([key]) => [key, num(item?.[`${key}_score`]) ?? num(legacy[key])])),
+    depthBasis: str(item?.depth_basis), explanation: arr(item?.explanation).filter(s => typeof s === 'string'),
+    // B2 MatchOut carries no event counts; null = unknown (useNearby fills it from /api/events).
+    eventCounts: item?.event_counts ? Object.fromEntries(Object.entries(item.event_counts).filter(([, n]) => num(n) != null)) : null,
+    formationAtDepth: str(item?.formation_at_depth), note: str(item?.note), dataset_origin: origin(item, nested),
   }
 }
 export const rankedOffsets = data => listOf(data).map(normalizeOffset).map((offset, index) => ({ ...offset, rank: offset.rank ?? index + 1 }))
-export const adaptNearby = data => ({ items: rankedOffsets(data), total: num(data?.total) ?? listOf(data).length, radius_km: num(data?.radius_km),
-  weights: data?.weights && typeof data.weights === 'object' ? data.weights : null, formula: str(data?.formula), as_of: str(data?.as_of), dataset_origin: str(data?.dataset_origin) })
+export function adaptNearby(data) {
+  const items = rankedOffsets(data)
+  const weights = listOf(data)[0]?.weights ?? data?.weights ?? null
+  return { items, has_more: data?.has_more === true, weights: weights && typeof weights === 'object' ? weights : null, formula: str(data?.formula),
+    as_of: str(data?.as_of), dataset_origin: str(data?.dataset_origin) ?? items[0]?.dataset_origin ?? null }
+}
 
-// ── DrillingEvent ──
+// ── DrillingEvent (B2 EventOut) ──
 export function adaptEvent(e) {
-  const source = e?.source || {}
-  const reportId = str(pick(source, 'report_id', 'document_id')) ?? str(e?.report_id)
+  const reportId = str(e?.source_report_id) ?? str(e?.source?.report_id)
+  const page = num(e?.source_page) ?? num(e?.source?.page)
   return {
-    id: str(pick(e, 'id', 'event_id')), well_id: str(e?.well_id), type: str(pick(e, 'type', 'event_type')),
-    raw_observation: str(pick(e, 'raw_observation', 'source_text', 'observation')),
-    depth_md_m: num(pick(e, 'depth_md_m', 'md_m')), depth_tvd_m: num(pick(e, 'depth_tvd_m', 'tvd_m')), formation: str(e?.formation),
-    severity: str(e?.severity), npt_hours: num(e?.npt_hours), mitigation: str(e?.mitigation), outcome: str(e?.outcome),
-    confidence: num(e?.confidence), verification: str(pick(e, 'verification', 'verification_state')),
-    source: reportId || num(pick(source, 'page')) != null ? { report_id: reportId, report_type: str(source.report_type), page: num(source.page ?? e?.page), title: str(source.title) } : null,
+    id: str(e?.id), well_id: str(e?.well_id), type: str(pick(e, 'event_type', 'type')),
+    observation: str(e?.observation), raw_observation: str(pick(e, 'raw_phrase', 'raw_observation')) ?? str(e?.observation),
+    depth_md_m: num(pick(e, 'start_depth_md', 'depth_md_m')), depth_md_end_m: num(e?.end_depth_md),
+    depth_tvd_m: num(pick(e, 'tvd', 'depth_tvd_m')), depth_tvdss_m: num(pick(e, 'tvdss', 'depth_tvdss_m')), formation: str(e?.formation),
+    severity: str(e?.severity), cause: str(e?.cause), npt_hours: num(e?.npt_hours), mitigation: str(e?.mitigation), outcome: str(e?.outcome),
+    confidence: num(e?.confidence), verification: str(pick(e, 'verification_state', 'verification')),
+    source: reportId || page != null ? { report_id: reportId, page, title: str(e?.source?.title), url: reportId ? `/api/reports/${encodeURIComponent(reportId)}/source${page != null ? `#page=${page}` : ''}` : null } : null,
     dataset_origin: origin(e),
   }
 }
 export const adaptEventList = data => envelope(data, adaptEvent)
+const eventDepth = (event, basis) => (basis === 'tvdss' ? event.depth_tvdss_m : basis === 'tvd' ? event.depth_tvd_m : event.depth_md_m)
 
-// ── FormationCorrelation ──
+// ── FormationCorrelation (B2: alignment_basis TVDSS → TVD → MD, tracks, current_bit_depth, lookahead_window) ──
 export function adaptCorrelation(d) {
+  const basis = str(d?.alignment_basis) ?? 'md'
+  const at = values => num(values?.[basis])
+  const window = d?.lookahead_window
   return {
-    well_id: str(d?.well_id), depth_ref: str(d?.depth_ref) ?? 'tvd', current_depth_m: num(pick(d, 'current_depth_m', 'current_tvd_m')),
-    lookahead_m: num(d?.lookahead_m), lookahead_window: interval(d?.lookahead_window), as_of: str(d?.as_of), dataset_origin: origin(d),
-    tracks: arr(d?.tracks).map(t => ({
-      well_id: str(pick(t, 'well_id', 'id')), name: str(t?.name) ?? str(pick(t, 'well_id', 'id')), role: str(t?.role), td_tvd_m: num(t?.td_tvd_m),
-      formations: arr(t?.formations).map(adaptFormation),
-      casing: arr(t?.casing).map(c => ({ size: str(c?.size), depth: num(pick(c, 'depth', 'shoe_tvd_m')) })),
-      events: arr(t?.events).map(ev => ({ id: str(pick(ev, 'id', 'event_id')), type: str(pick(ev, 'type', 'event_type')), depth: num(pick(ev, 'depth', 'depth_tvd_m')),
-        severity: str(ev?.severity), confidence: num(ev?.confidence), verification: str(ev?.verification), summary: str(pick(ev, 'summary', 'raw_observation')) })),
-    })),
+    well_id: str(d?.well_id), depth_ref: basis, current_depth_m: at(d?.current_bit_depth), lookahead_m: num(window?.lookahead_m),
+    lookahead_window: at(window?.start) != null && at(window?.end) != null ? { top: at(window.start), base: at(window.end) } : null,
+    warning: str(d?.warning), as_of: str(d?.as_of), dataset_origin: origin(d),
+    tracks: arr(d?.tracks).map(t => {
+      const well = adaptWell(t?.well)
+      return {
+        well_id: well.id, name: well.name, role: t?.is_active ? 'active' : 'offset', td_tvd_m: basis === 'md' ? well.td_md_m : null,
+        formations: arr(t?.formations).map(adaptFormation),
+        casing: arr(t?.casing_points).map(c => ({ size: num(c?.size_in) == null ? str(c?.source) ?? 'casing' : `${c.size_in}"`, depth: num(c?.[basis]) })),
+        events: arr(t?.events).map(adaptEvent).map(e => ({ id: e.id, type: e.type, depth: eventDepth(e, basis), severity: e.severity, confidence: e.confidence,
+          verification: e.verification, summary: e.raw_observation, source: e.source })),
+      }
+    }),
   }
 }
 
-// ── RiskAssessment (probability and confidence are separate; LLM never supplies either) ──
+// ── RiskAssessment (per hazard; probability ≠ confidence; calibrated=false; the LLM never produces either) ──
+function telemetryState(q) {
+  if (!q?.telemetry_available) return 'unavailable'
+  return q.telemetry_fresh ? 'fresh' : 'stale'
+}
+function telemetryFeatures(q) {
+  const f = q?.telemetry_features
+  if (!f || typeof f !== 'object') return []
+  return [f.robust_z != null && `Robust deviation z = ${fixed(f.robust_z, 1)} vs. local baseline`,
+    f.persistence != null && `Persistence ${f.persistence}/3 latest samples beyond 3σ`,
+    f.slope != null && `Slope ${fixed(f.slope, 4)} per second over ${f.count ?? '—'} samples`].filter(Boolean)
+}
+function confidenceNote(q) {
+  if (!q || typeof q !== 'object') return null
+  const parts = [q.analog_count != null && `${q.analog_count} analog well${q.analog_count === 1 ? '' : 's'}`,
+    q.offset_quality != null && `offset data quality ${fixed(q.offset_quality)}`, q.evidence_quality != null && `evidence quality ${fixed(q.evidence_quality)}`,
+    arr(q.depth_bases).length && `depth basis ${arr(q.depth_bases).join('/').toUpperCase()}`,
+    `telemetry ${telemetryState(q)}${q.telemetry_mode ? ` (${q.telemetry_mode})` : ''}`,
+    q.contradictory_evidence && 'contradictory accounts reduce confidence', q.calibration && `calibration ${q.calibration}`]
+  return parts.filter(Boolean).join(' · ')
+}
 export function normalizeHazard(h) {
   const evidenceIds = ids(pick(h, 'evidence_ids', 'evidence'))
+  const quality = h?.data_quality && typeof h.data_quality === 'object' ? h.data_quality : null
   return {
-    type: str(pick(h, 'type', 'hazard', 'hazard_type')), probability: num(h?.probability), confidence: num(h?.confidence),
-    trend: str(h?.trend), severity: str(h?.severity),
-    series: arr(h?.trend_series).filter(p => num(p?.probability) != null),
+    type: str(pick(h, 'type', 'hazard')), assessmentId: str(h?.assessment_id), probability: num(h?.probability), confidence: num(h?.confidence),
+    trend: h?.trend === 'unavailable' ? null : str(h?.trend), severity: str(h?.severity), series: [],
     wells: ids(pick(h, 'supporting_offset_wells', 'supporting_wells')), factors: arr(h?.top_factors).filter(f => typeof f === 'string'),
-    evidenceIds, evidenceCount: num(h?.evidence_count) ?? (Array.isArray(pick(h, 'evidence_ids', 'evidence')) ? evidenceIds.length : null),
-    historical: num(h?.historical_contribution), telemetry: num(h?.telemetry_contribution), freshnessS: num(h?.data_freshness_s),
-    telemetryFeatures: arr(h?.telemetry_features).filter(f => typeof f === 'string'), missing: arr(h?.missing_evidence).filter(f => typeof f === 'string'),
-    confidenceNote: str(h?.confidence_explanation), advisoryId: str(h?.advisory_id),
+    evidenceIds, evidenceCount: evidenceIds.length,
+    historical: num(pick(h, 'historical_exposure', 'historical_contribution')), telemetry: num(pick(h, 'live_anomaly_contribution', 'telemetry_contribution')),
+    telemetryState: telemetryState(quality), telemetryMode: str(quality?.telemetry_mode), telemetryFeatures: telemetryFeatures(quality),
+    missing: arr(quality?.missing).filter(m => typeof m === 'string'), confidenceNote: confidenceNote(quality), dataQuality: quality,
   }
 }
 export function adaptRisk(d) {
+  const md = num(d?.current_md_m), lookahead = num(d?.lookahead_m)
   return {
-    well_id: str(d?.well_id), as_of: str(d?.as_of), current_md_m: num(d?.current_md_m), current_tvd_m: num(d?.current_tvd_m), formation: str(d?.formation),
-    lookahead_m: num(d?.lookahead_m), window_md_m: interval(d?.window_md_m), model_version: str(d?.model_version), dataset_origin: origin(d),
-    hazards: arr(d?.hazards).map(normalizeHazard), evidence: arr(d?.evidence).map(adaptEvent),
+    well_id: str(d?.well_id), as_of: str(d?.as_of), current_md_m: md, current_tvd_m: num(d?.current_tvd_m), formation: str(d?.formation), lookahead_m: lookahead,
+    window_md_m: md != null && lookahead != null ? { top: md, base: md + lookahead } : null,
+    model_version: str(d?.model_version), calibrated: d?.calibrated === true, advisory_only: d?.advisory_only !== false, dataset_origin: origin(d),
+    hazards: arr(d?.hazards).map(normalizeHazard), evidence: [],
   }
 }
 
-// ── TelemetrySeries: one series per declared channel that actually has values; never fabricate channels ──
+// ── AssessmentDetail (GET /api/assessments/{id}): assessment → evidence → event → report → page ──
+export function adaptAssessment(d) {
+  return {
+    assessment_id: str(d?.assessment_id), well_id: str(d?.well_id), as_of: str(d?.as_of), current_md_m: num(d?.current_md_m), formation: str(d?.formation),
+    lookahead_m: num(d?.lookahead_m), model_version: str(d?.model_version), dataset_origin: origin(d), hazard: d?.hazard ? normalizeHazard(d.hazard) : null,
+    evidence: arr(d?.evidence).map(link => {
+      const event = adaptEvent(link?.event), atAssessment = link?.event_at_assessment ? adaptEvent(link.event_at_assessment) : null
+      return { event, atAssessment, changedSinceAssessment: atAssessment ? JSON.stringify(atAssessment) !== JSON.stringify(event) : null,
+        contribution: num(link?.contribution), reason: str(link?.reason), chunkId: str(link?.evidence_chunk_id), sourceUrl: str(link?.source_url),
+        sourceHashMatches: link?.source_sha256 != null && link?.source_sha256_at_assessment != null ? link.source_sha256 === link.source_sha256_at_assessment : null }
+    }),
+  }
+}
+
+// ── TelemetrySeries (B2: one row per sample + channels[] states; replay reference time, not the wall clock) ──
+const CHANNEL_LABELS = { rop: 'ROP', wob: 'WOB', rpm: 'RPM', md: 'MD', bit_depth: 'Bit depth', torque: 'Torque', hookload: 'Hookload',
+  standpipe_pressure: 'Standpipe pressure', flow: 'Flow', mud_weight: 'Mud weight', gas: 'Gas', pit_volume: 'Pit volume' }
+const channelLabel = name => CHANNEL_LABELS[String(name).toLowerCase()] ?? String(name).replaceAll('_', ' ')
 export function telemetrySeries(d) {
-  const samples = arr(pick(d, 'samples', 'data'))
-  return arr(d?.channels).map(channel => ({
-    id: channel?.mnemonic, label: str(channel?.label) ?? channel?.mnemonic, unit: str(channel?.unit) ?? '', quality: str(channel?.quality),
-    points: samples.map(s => ({ t: Date.parse(s?.t ?? s?.time ?? s?.timestamp), v: s?.values?.[channel?.mnemonic] ?? s?.[channel?.mnemonic], md: num(pick(s, 'md_m', 'md')) }))
-      .filter(p => Number.isFinite(p.t) && num(p.v) != null),
-  })).filter(series => series.id && series.points.length)
+  const byChannel = new Map()
+  for (const s of listOf(d)) {
+    const channel = str(s?.channel), t = Date.parse(s?.timestamp ?? s?.t)
+    if (!channel || !Number.isFinite(t) || num(s?.value) == null || (s?.quality && s.quality !== 'good')) continue
+    if (!byChannel.has(channel)) byChannel.set(channel, { unit: str(s?.unit), points: [] })
+    byChannel.get(channel).points.push({ t, v: s.value, md: num(s?.md) })
+  }
+  const states = new Map(arr(d?.channels).map(c => [c?.channel, c]))
+  return [...byChannel.entries()].map(([id, { unit, points }]) => ({ id, label: channelLabel(id), unit: unit ?? str(states.get(id)?.unit) ?? '',
+    quality: str(states.get(id)?.state), points: points.sort((a, b) => a.t - b.t) }))
 }
 export function adaptTelemetry(d) {
   const series = telemetrySeries(d)
-  const channels = arr(d?.channels).map(c => ({ mnemonic: str(c?.mnemonic), label: str(c?.label), unit: str(c?.unit), quality: str(c?.quality) })).filter(c => c.mnemonic)
-  return { well_id: str(d?.well_id), mode: str(d?.mode), source: str(d?.source), adapter: str(d?.adapter), as_of: str(d?.as_of), stale_after_s: num(d?.stale_after_s),
-    dataset_origin: origin(d), channels, series, missing: channels.filter(c => !series.some(s => s.id === c.mnemonic)) }
+  const channels = arr(d?.channels).map(c => ({ mnemonic: str(c?.channel), label: channelLabel(c?.channel), unit: str(c?.unit), quality: str(c?.state), known: c?.known === true, valueCount: num(c?.value_count) }))
+    .filter(c => c.mnemonic)
+  const states = channels.map(c => c.quality)
+  const state = !channels.length ? 'unknown' : states.every(s => s === 'unavailable') ? 'unavailable' : states.some(s => s === 'stale') ? 'stale' : states.every(s => s === 'fresh') ? 'fresh' : 'partial'
+  const mode = str(d?.source_mode) ?? str(d?.mode)
+  return { well_id: str(d?.well_id), mode, source: mode === 'replay' ? 'synthetic replay' : str(d?.source) ?? mode, adapter: str(d?.adapter),
+    as_of: str(pick(d, 'freshness_reference', 'as_of')), window_start: str(d?.window_start), window_end: str(d?.window_end), stale_after_s: num(pick(d, 'stale_after_seconds', 'stale_after_s')),
+    truncated: d?.has_more === true, dataset_origin: origin(d), state, channels, series,
+    missing: channels.filter(c => c.quality === 'unavailable' || !series.some(s => s.id === c.mnemonic)) }
 }
 
-// ── KnowledgeEvidence (POST /query, mode nwis_evidence). A legacy governed-query response is reported as unrecognised. ──
+// ── KnowledgeEvidence (POST /api/query, mode "nwis_evidence" → answer + evidence[EventOut]) ──
 export function adaptQuery(d) {
-  const recognized = Array.isArray(d?.results)
-  const results = arr(d?.results).map(r => ({
-    kind: ['well', 'event', 'report'].includes(r?.kind) ? r.kind : 'report', title: str(r?.title), excerpt: str(pick(r, 'excerpt', 'text', 'snippet')),
-    well_id: str(r?.well_id), event_id: str(r?.event_id), report_id: str(r?.report_id) ?? str(r?.source?.report_id), page: num(r?.page) ?? num(r?.source?.page),
-    depth_tvd_m: num(r?.depth_tvd_m), depth_md_m: num(r?.depth_md_m), formation: str(r?.formation), confidence: num(r?.confidence),
-    verification: str(r?.verification), mitigation: str(r?.mitigation), dataset_origin: origin(r),
-  }))
-  return { recognized, results, summary: str(d?.summary), citations: arr(d?.citations), mode: str(d?.mode), dataset_origin: origin(d) }
+  const recognized = d?.mode === 'nwis_evidence' && Array.isArray(d?.evidence)
+  const events = recognized ? d.evidence.map(adaptEvent) : [] // legacy responses also carry evidence[], in another shape
+  const results = events.map(e => ({ kind: 'event', title: `${e.id} · ${e.type ?? 'event'}`, excerpt: e.raw_observation, well_id: e.well_id, event_id: e.id,
+    report_id: e.source?.report_id ?? null, page: e.source?.page ?? null, url: e.source?.url ?? null, depth_tvd_m: e.depth_tvd_m, depth_md_m: e.depth_md_m,
+    formation: e.formation, confidence: e.confidence, verification: e.verification, mitigation: e.mitigation, dataset_origin: e.dataset_origin }))
+  // Wells and reports are the distinct sources of the cited events (grouping only; nothing is added).
+  const wells = [...new Set(events.map(e => e.well_id).filter(Boolean))].map(id => ({ kind: 'well', title: id, well_id: id,
+    excerpt: `${events.filter(e => e.well_id === id).length} cited event(s)` }))
+  const reports = [...new Map(events.filter(e => e.source?.report_id).map(e => [`${e.source.report_id}#${e.source.page}`, e])).values()]
+    .map(e => ({ kind: 'report', title: e.source.report_id, report_id: e.source.report_id, page: e.source.page, url: e.source.url, well_id: e.well_id, formation: e.formation, depth_tvd_m: e.depth_tvd_m }))
+  return { recognized, status: str(d?.status), answer: str(d?.answer), summary: str(d?.answer), citations: events.map(e => e.id), warnings: arr(d?.warnings).filter(w => typeof w === 'string'),
+    mode: str(d?.mode), model_route: str(d?.model_route), results: [...wells, ...results, ...reports], dataset_origin: origin(d) ?? events[0]?.dataset_origin ?? null }
 }
 export function groupResults(query) {
   const groups = { well: [], event: [], report: [] }
-  for (const item of query?.results || []) groups[item.kind].push(item)
+  for (const item of query?.results || []) groups[item.kind in groups ? item.kind : 'report'].push(item)
   return groups
 }
 
-// ── Advisory ──
+// ── Advisory (B2 AdvisoryOut; hazard/evidence come from its assessment) ──
 export function adaptAdvisory(a) {
   return {
-    id: str(pick(a, 'id', 'advisory_id')), well_id: str(a?.well_id), hazard: str(pick(a, 'hazard', 'hazard_type', 'type')), status: str(a?.status),
-    severity: str(a?.severity), probability: num(a?.probability), confidence: num(a?.confidence), lookahead_m: num(a?.lookahead_m),
-    interval_md_m: interval(a?.interval_md_m), formation: str(a?.formation), created_at: str(a?.created_at), evidence_ids: ids(a?.evidence_ids),
-    summary: str(pick(a, 'summary', 'advisory_text')), historical_response: arr(a?.historical_response).filter(r => typeof r === 'string'), model_route: str(a?.model_route),
-    reviews: arr(a?.reviews).map(r => ({ reviewer: str(pick(r, 'reviewer', 'reviewer_id', 'actor')), at: str(pick(r, 'at', 'reviewed_at', 'created_at')),
-      decision: str(r?.decision), feedback: str(r?.feedback), note: str(r?.note) })),
-    dataset_origin: origin(a),
+    id: str(a?.id), assessment_id: str(a?.assessment_id), text: str(pick(a, 'text', 'summary')), status: str(a?.status),
+    reviewer: str(a?.reviewer), reviewed_at: str(a?.reviewed_at), reason: str(a?.feedback), model_route: str(a?.model_route),
+    created_at: str(a?.created_at), dataset_origin: origin(a),
   }
 }
 export const adaptAdvisoryList = data => envelope(data, adaptAdvisory)
 
-// ── AuditEvent (existing tamper-evident chain) ──
-export const adaptAuditEvent = e => ({ id: pick(e, 'id', 'event_id'), sequence_number: num(e?.sequence_number), event_type: str(e?.event_type) ?? 'unknown',
-  occurred_at: str(e?.occurred_at), actor_id: str(e?.actor_id), actor_kind: str(e?.actor_kind), details: e?.details ?? e?.payload ?? null })
+// ── AuditEvent (GET /api/audit: hash-chained entries; the NWIS action is payload.action) ──
+export const adaptAuditEvent = e => {
+  const payload = e?.payload && typeof e.payload === 'object' ? e.payload : null
+  const { product, action, ...details } = payload || {} // eslint-disable-line no-unused-vars
+  return { id: pick(e, 'id'), sequence_number: num(e?.sequence_number), event_type: str(action) ?? str(e?.event_type) ?? 'unknown', raw_type: str(e?.event_type),
+    occurred_at: str(e?.occurred_at), actor_id: str(e?.actor_id), actor_kind: str(e?.actor_kind), details: payload ? details : null }
+}
 export const adaptAuditList = data => envelope(data, adaptAuditEvent)

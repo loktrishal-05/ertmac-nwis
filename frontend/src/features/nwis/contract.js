@@ -23,44 +23,45 @@ function check(value, rule, where, problems) {
 }
 const optionalList = item => Object.assign([item], { optional: true })
 
-const FORMATION = { name: 'str', top: 'num?', base: 'num?', confidence: 'num?', interpreted: 'bool?' }
-const SOURCE = { $optional: true, report_id: 'str?', page: 'num?', title: 'str?' }
-const WELL = { id: 'str', name: 'str?', field: 'str?', status: 'str?', role: 'str?', lat: 'num?', lon: 'num?', well_type: 'str?', trajectory_type: 'str?',
-  td_md_m: 'num?', td_tvd_m: 'num?', data_quality: 'num?', current_md_m: 'num?', current_tvd_m: 'num?', current_tvdss_m: 'num?',
-  current_formation: 'str?', hole_section: 'str?', formations: optionalList(FORMATION), dataset_origin: 'str?' }
-const EVENT = { id: 'str', well_id: 'str', type: 'str', raw_observation: 'str?', depth_md_m: 'num?', depth_tvd_m: 'num?', formation: 'str?', severity: 'str?',
-  npt_hours: 'num?', mitigation: 'str?', outcome: 'str?', confidence: 'num?', verification: 'str?', source: SOURCE, dataset_origin: 'str?' }
-const HAZARD = { type: 'str', probability: 'num?', confidence: 'num?', trend: 'str?', severity: 'str?', trend_series: optionalList({ probability: 'num?' }),
-  supporting_offset_wells: optionalList('str'), top_factors: optionalList('str'), evidence_ids: optionalList('str'), evidence_count: 'num?',
-  historical_contribution: 'num?', telemetry_contribution: 'num?', data_freshness_s: 'num?', telemetry_features: optionalList('str'),
-  missing_evidence: optionalList('str'), confidence_explanation: 'str?', advisory_id: 'str?' }
-const ADVISORY = { id: 'str', well_id: 'str?', hazard: 'str', status: 'str', severity: 'str?', probability: 'num?', confidence: 'num?',
-  interval_md_m: { $optional: true, top: 'num', base: 'num' }, evidence_ids: optionalList('str'), summary: 'str?', historical_response: optionalList('str'),
-  reviews: optionalList({ reviewer: 'str?', at: 'str?', decision: 'str', note: 'str?' }), dataset_origin: 'str?' }
-const AUDIT = { sequence_number: 'num', event_type: 'str', occurred_at: 'str?', actor_id: 'str?', actor_kind: 'str?', details: 'obj?' }
+// B2 schemas (backend app/schemas/nwis.py) — only the fields the adapters read.
+const WELL = { id: 'str', name: 'str', field: 'str?', latitude: 'num?', longitude: 'num?', operator: 'str?', status: 'str', spud_date: 'str?',
+  total_depth_md: 'num?', current_md: 'num?', as_of: 'str?', dataset_origin: 'str' }
+const EVENT = { id: 'str', well_id: 'str', event_type: 'str', start_depth_md: 'num?', end_depth_md: 'num?', tvd: 'num?', tvdss: 'num?', formation: 'str?',
+  severity: 'str?', observation: 'str?', cause: 'str?', mitigation: 'str?', outcome: 'str?', npt_hours: 'num?', confidence: 'num?',
+  source_report_id: 'str?', source_page: 'num?', raw_phrase: 'str?', verification_state: 'str?', dataset_origin: 'str' }
+const MATCH = { offset_well_id: 'str', distance_m: 'num?', distance_km: 'num?', geographic_score: 'num?', formation_score: 'num?', depth_score: 'num?',
+  trajectory_score: 'num?', program_score: 'num?', data_quality_score: 'num?', total_score: 'num', depth_basis: 'str?', weights: 'obj?',
+  algorithm_version: 'str?', explanation: optionalList('str'), dataset_origin: 'str' }
+const DEPTHS = { md: 'num?', tvd: 'num?', tvdss: 'num?' }
+const HAZARD = { type: 'str', assessment_id: 'str', probability: 'num?', confidence: 'num', trend: 'str', historical_exposure: 'num?',
+  live_anomaly_contribution: 'num?', supporting_offset_wells: ['str'], top_factors: ['str'], evidence_ids: ['str'], data_quality: 'obj' }
+const PAGE = { limit: 'num', offset: 'num', has_more: 'bool', as_of: 'str?' }
 
-// Lists may be a bare array or { items, total }.
-const list = item => ({ list: item })
+// Lists are B2 pages: { items, limit, offset, has_more, as_of } (no total).
+const list = (item, envelope = PAGE) => ({ list: item, envelope })
 export const CONTRACT = {
   wellList: list(WELL),
   well: WELL,
-  nearby: { envelope: { radius_km: 'num?', weights: 'obj?', formula: 'str?', as_of: 'str?', dataset_origin: 'str?' },
-    list: { well: WELL, distance_km: 'num?', total_score: 'num?', rank: 'num?', components: { geographic: 'num?', formation: 'num?', depth: 'num?', trajectory: 'num?', program: 'num?', data_quality: 'num?' },
-      event_counts: 'obj?', formation_at_depth: 'str?', note: 'str?' } },
-  correlation: { well_id: 'str?', depth_ref: 'str', current_depth_m: 'num?', lookahead_m: 'num?', lookahead_window: { $optional: true, top: 'num', base: 'num' }, as_of: 'str?', dataset_origin: 'str?',
-    tracks: [{ well_id: 'str', name: 'str?', role: 'str?', td_tvd_m: 'num?', formations: [FORMATION], casing: optionalList({ size: 'str?', depth: 'num?' }),
-      events: [{ id: 'str', type: 'str', depth: 'num?', severity: 'str?', confidence: 'num?', verification: 'str?', summary: 'str?' }] }] },
+  formationList: list({ formation: 'str', top_md: 'num', bottom_md: 'num', top_tvd: 'num?', bottom_tvd: 'num?', top_tvdss: 'num?', bottom_tvdss: 'num?', confidence: 'num' }),
+  nearby: list(MATCH),
+  correlation: { well_id: 'str', as_of: 'str', dataset_origin: 'str', alignment_basis: 'str', current_bit_depth: DEPTHS,
+    lookahead_window: { lookahead_m: 'num', start: DEPTHS, end: DEPTHS }, warning: 'str?',
+    tracks: [{ well: WELL, is_active: 'bool', formations: [{ formation: 'str', top: 'num?', base: 'num?', confidence: 'num?', alignment_available: 'bool?' }],
+      events: [EVENT], casing_points: optionalList({ md: 'num', tvd: 'num?', tvdss: 'num?', size_in: 'num?', source: 'str' }) }] },
   eventList: list(EVENT),
-  risk: { well_id: 'str?', as_of: 'str', current_md_m: 'num?', formation: 'str?', lookahead_m: 'num', window_md_m: { $optional: true, top: 'num', base: 'num' },
-    model_version: 'str?', dataset_origin: 'str?', hazards: [HAZARD], evidence: optionalList(EVENT) },
-  telemetry: { well_id: 'str?', mode: 'str', source: 'str?', adapter: 'str?', as_of: 'str?', stale_after_s: 'num?', dataset_origin: 'str?',
-    channels: [{ mnemonic: 'str', label: 'str?', unit: 'str?', quality: 'str?' }], samples: [{ t: 'str', md_m: 'num?', values: 'obj' }] },
-  query: { mode: 'str?', summary: 'str?', citations: optionalList('any'), dataset_origin: 'str?',
-    results: [{ kind: 'str', title: 'str?', excerpt: 'str?', well_id: 'str?', event_id: 'str?', report_id: 'str?', page: 'num?', depth_tvd_m: 'num?', depth_md_m: 'num?',
-      formation: 'str?', confidence: 'num?', verification: 'str?' }] },
-  advisoryList: list(ADVISORY),
-  advisory: ADVISORY,
-  auditList: list(AUDIT),
+  risk: { well_id: 'str', as_of: 'str', current_md_m: 'num?', current_tvd_m: 'num?', formation: 'str?', lookahead_m: 'num', model_version: 'str',
+    calibrated: 'bool', advisory_only: 'bool', dataset_origin: 'str', hazards: [HAZARD] },
+  assessment: { assessment_id: 'str', well_id: 'str', as_of: 'str', current_md_m: 'num?', formation: 'str?', lookahead_m: 'num', model_version: 'str', dataset_origin: 'str',
+    hazard: HAZARD, evidence: [{ event: EVENT, event_at_assessment: { ...EVENT, $optional: true }, contribution: 'num', reason: 'str', source_sha256: 'str',
+      source_sha256_at_assessment: 'str?', source_url: 'str' }] },
+  telemetry: list({ well_id: 'str', timestamp: 'str', channel: 'str', md: 'num', tvd: 'num?', value: 'num?', unit: 'str', quality: 'str' },
+    { ...PAGE, source_mode: 'str', window_start: 'str?', window_end: 'str?', freshness_reference: 'str?', stale_after_seconds: 'num?', dataset_origin: 'str',
+      channels: [{ channel: 'str', known: 'bool', unit: 'str?', state: 'str' }] }),
+  query: { mode: 'str', status: 'str', answer: 'str', evidence: [EVENT], warnings: ['str'], model_route: 'str', dataset_origin: 'str' },
+  advisoryList: list({ id: 'str', assessment_id: 'str', text: 'str', status: 'str', reviewer: 'str?', reviewed_at: 'str?', feedback: 'str?', model_route: 'str',
+    created_at: 'str', dataset_origin: 'str' }),
+  auditList: list({ id: 'str', sequence_number: 'num', event_type: 'str', occurred_at: 'str', actor_id: 'str?', actor_kind: 'str?', payload: 'obj?' }),
+  terms: { version: 'str', text: 'str', accepted: 'bool' },
 }
 
 // Returns a list of human-readable problems; [] means the response satisfies what the frontend consumes.
@@ -69,18 +70,15 @@ export function validateContract(name, data) {
   if (!spec) throw new Error(`Unknown contract ${name}`)
   const problems = []
   if (spec.list) {
-    const items = Array.isArray(data) ? data : data?.items
-    if (!Array.isArray(items)) return [`${name}: expected an array or { items: [] }`]
-    if (!Array.isArray(data) && data.total != null && !T.num(data.total)) problems.push(`${name}.total: expected num`)
-    if (spec.envelope && !Array.isArray(data)) check(data, spec.envelope, name, problems)
-    items.slice(0, 50).forEach((item, i) => check(item, spec.list, `${name}.items[${i}]`, problems))
+    if (!Array.isArray(data?.items)) return [`${name}: expected { items: [] }`]
+    check(data, spec.envelope, name, problems)
+    data.items.slice(0, 50).forEach((item, i) => check(item, spec.list, `${name}.items[${i}]`, problems))
     if (name === 'nearby') {
-      const ranks = items.map(item => item?.rank).filter(T.num)
-      if (ranks.some((r, i) => i && r < ranks[i - 1])) problems.push('nearby: items must be returned in rank order (backend order is the ranking)')
+      const scores = data.items.map(item => item?.total_score).filter(T.num)
+      if (scores.some((s, i) => i && s > scores[i - 1])) problems.push('nearby: items must be returned in ranking order (total_score descending)')
     }
     return problems
   }
   check(data, spec, name, problems)
-  if (name === 'query') for (const [i, r] of (data?.results || []).entries()) if (!['well', 'event', 'report'].includes(r?.kind)) problems.push(`query.results[${i}].kind: expected well | event | report`)
   return problems
 }

@@ -81,7 +81,7 @@ export default function NearbyMap({ center, offsets = [], radiusKm, selectedId, 
     const next = [make([center.lon, center.lat], active)]
     for (const o of offsets) {
       if (!Number.isFinite(o.well?.lat) || !Number.isFinite(o.well?.lon)) continue
-      const events = Object.values(o.eventCounts || {}).reduce((a, b) => a + b, 0)
+      const events = o.eventCounts ? Object.values(o.eventCounts).reduce((a, b) => a + b, 0) : null
       const element = document.createElement(compact ? 'div' : 'button')
       element.className = 'nw-marker'
       element.dataset.relevance = relevance(o.total)
@@ -93,7 +93,7 @@ export default function NearbyMap({ center, offsets = [], radiusKm, selectedId, 
       const dot = document.createElement('span')
       dot.className = 'nw-marker-dot'
       element.append(dot, name)
-      const summary = `${o.id}: rank ${o.rank}, score ${fmtScore(o.total)}, ${fmtKm(o.distanceKm)}, ${events} historical events`
+      const summary = `${o.id}: rank ${o.rank}, score ${fmtScore(o.total)}, ${fmtKm(o.distanceKm)}, ${events == null ? 'historical events not loaded' : `${events} historical events`}`
       if (compact) { element.setAttribute('role', 'img'); element.setAttribute('aria-label', summary) }
       else { element.type = 'button'; element.setAttribute('aria-label', summary); element.setAttribute('aria-pressed', String(o.id === selectedId)); element.addEventListener('click', () => onSelect?.(o.id)) }
       next.push(make([o.well.lon, o.well.lat], element))

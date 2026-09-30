@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useResource } from '../../hooks/useApi.js'
 import { paths } from './nwisModel.js'
 import { adaptEventList, adaptNearby, adaptRisk } from './adapters.js'
@@ -17,7 +17,18 @@ export function useNearby({ filters = {}, radiusKm, wellId } = {}) {
   const context = useNwis()
   const id = wellId ?? context.wellId
   const request = useNwisResource(id ? paths.nearby(id, { radius_km: radiusKm ?? context.radiusKm, ...filters }) : null, adaptNearby)
-  return { request, offsets: request.data?.items ?? [] }
+  const ids = request.data?.items.map(o => o.id) ?? []
+  const history = useEventsFor(ids.length ? ids : null)
+  // B2 matches are flat (no coordinates, no event counts): attach the catalogue record by id for map placement, and count
+  // the offsets' recorded events from /api/events. Counts stay null (unknown) until events load, or if the page was truncated.
+  const offsets = useMemo(() => {
+    const byId = new Map(context.wellList.map(w => [w.id, w]))
+    const complete = history.request.data && !history.request.data.has_more
+    const counts = {}
+    if (complete) for (const e of history.events) (counts[e.well_id] ??= {})[e.type] = (counts[e.well_id]?.[e.type] ?? 0) + 1
+    return (request.data?.items ?? []).map(o => ({ ...o, well: byId.get(o.id) ?? o.well, eventCounts: o.eventCounts ?? (complete ? counts[o.id] ?? {} : null) }))
+  }, [request.data, context.wellList, history.request.data, history.events])
+  return { request, offsets }
 }
 
 export function useRisk(wellId, lookaheadOverride) {
@@ -27,10 +38,16 @@ export function useRisk(wellId, lookaheadOverride) {
   return { request, hazards: request.data?.hazards ?? [] }
 }
 
+// B2 filters events by a single well_id (limit ≤ 100). Several wells: one bounded page, filtered by id here.
 export function useEventsFor(wellIds, extra = {}) {
   const key = wellIds?.join(',')
-  const request = useNwisResource(key ? paths.events({ well_id: key, ...extra }) : null, adaptEventList)
-  return { request, events: request.data?.items ?? [] }
+  const single = wellIds?.length === 1 ? wellIds[0] : undefined
+  const request = useNwisResource(key ? paths.events({ ...extra, well_id: single, limit: 100 }) : null, adaptEventList)
+  const events = useMemo(() => {
+    const wanted = new Set(key ? key.split(',') : [])
+    return (request.data?.items ?? []).filter(e => wanted.has(e.well_id))
+  }, [request.data, key])
+  return { request, events }
 }
 
 // Refresh while the tab is visible (live/replay telemetry). Bounded interval; no work in hidden tabs.
@@ -42,14 +59,4 @@ export function usePolling(refresh, ms) {
     const id = setInterval(() => { if (!document.hidden) latest.current() }, ms)
     return () => clearInterval(id)
   }, [ms])
-}
-
-// Wall clock for freshness labels, ticking at a bounded interval (render stays pure).
-export function useNow(ms = 10000) {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), ms)
-    return () => clearInterval(id)
-  }, [ms])
-  return now
 }

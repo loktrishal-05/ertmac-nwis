@@ -9,6 +9,7 @@ import { LanguageSelector } from '../ProductPages.jsx'
 import { useBackendHealth } from '../hooks/useBackendHealth.js'
 import { FIXTURE_MODE } from '../services/api.js'
 import { NwisProvider } from '../features/nwis/NwisContext.jsx'
+import { TermsGate } from '../features/nwis/components.jsx'
 import { useLanguage } from '../language.js'
 
 const THEME_KEY = 'workbench-theme'
@@ -128,7 +129,7 @@ export default function AppShell() {
     <main id="main" ref={main} tabIndex={-1} className="shell-main">
       {FIXTURE_MODE && <p className="shell-banner is-fixture" role="note"><strong>DEV FIXTURE MODE.</strong> NWIS data on these screens comes from frontend development fixtures (synthetic_demo), not from the NWIS backend. Production builds never include fixtures.</p>}
       {legacy && <p className="shell-banner" role="note"><strong>Legacy SIH26117 screen.</strong> Retained for regression only; not part of eRTMAC-NWIS. <Link to="/app/dashboard">Back to the NWIS dashboard</Link></p>}
-      <NwisProvider><Outlet /></NwisProvider>
+      <TermsGate><NwisProvider><Outlet /></NwisProvider></TermsGate>
     </main>
     <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
   </div>

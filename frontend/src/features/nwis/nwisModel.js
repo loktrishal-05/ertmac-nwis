@@ -32,18 +32,18 @@ export const SCORE_COMPONENTS = [
   ['data_quality', 'Data quality'],
 ]
 
+// Backend NWIS audit actions (payload.action on GET /api/audit).
 export const AUDIT_EVENTS = {
+  terms_accepted: 'NWIS terms accepted',
   report_ingested: 'Report ingested',
-  event_extracted: 'Event extracted',
-  event_validated: 'Event validated',
-  offset_query: 'Offset query',
-  risk_assessment: 'Risk assessment',
-  alert_created: 'Alert created',
-  alert_acknowledged: 'Alert acknowledged',
-  advisory_reviewed: 'Advisory reviewed',
+  drilling_lesson_validation: 'Event validated / rejected',
+  knowledge_query: 'Evidence query',
+  risk_assessed: 'Risk assessment recorded',
+  advisory_review: 'Advisory reviewed',
 }
+// Hazard types the backend accepts as event filters (Hazard literal in the B2 schema).
+export const EVENT_TYPES = ['mud_loss', 'stuck_pipe', 'kick_or_overpressure', 'torque_drag', 'cementing_issue', 'fishing', 'npt']
 export const auditLabel = type => AUDIT_EVENTS[String(type).toLowerCase()] || humanize(String(type).toLowerCase())
-export const isNwisAudit = type => Object.hasOwn(AUDIT_EVENTS, String(type).toLowerCase())
 
 // Audit details for display: secrets, hashes and filesystem paths are never shown.
 const HIDDEN_KEY = /(path|file|secret|token|password|credential|hash|key)$/i
@@ -66,7 +66,12 @@ export function qs(params = {}) {
 }
 const enc = encodeURIComponent
 export const paths = {
-  wells: (params = {}) => `/wells${qs({ limit: 200, ...params })}`,
+  wells: (params = {}) => `/wells${qs({ limit: 100, ...params })}`,
+  terms: '/terms',
+  termsAccept: '/terms/accept',
+  formations: id => `/wells/${enc(id)}/formations?limit=100`,
+  assess: (id, lookahead) => `/wells/${enc(id)}/assess${qs({ lookahead_m: lookahead })}`,
+  assessment: id => `/assessments/${enc(id)}`,
   well: id => `/wells/${enc(id)}`,
   nearby: (id, params = {}) => `/wells/${enc(id)}/nearby${qs(params)}`,
   correlation: (id, params = {}) => `/wells/${enc(id)}/correlation${qs(params)}`,
@@ -76,7 +81,8 @@ export const paths = {
   query: '/query',
   advisories: (params = {}) => `/advisories${qs(params)}`,
   advisoryReview: id => `/advisories/${enc(id)}/review`,
-  audit: (params = {}) => `/audit/log${qs({ limit: 100, ...params })}`,
+  audit: (params = {}) => `/audit${qs({ limit: 100, ...params })}`,
+  auditVerify: '/audit/verify',
 }
 
 // ── Normalizers: accept a bare array or a paginated envelope; never invent missing values ──
@@ -105,15 +111,6 @@ export function riskLevel(hazard) {
   if (hazard.probability == null) return 'unknown'
   return hazard.probability >= 0.6 ? 'high' : hazard.probability >= 0.3 ? 'elevated' : 'low'
 }
-
-export function freshness(asOf, now = Date.now(), staleAfterS = 120) {
-  const t = Date.parse(asOf)
-  if (!Number.isFinite(t)) return { state: 'unknown', ageS: null }
-  const ageS = Math.max(0, Math.round((now - t) / 1000))
-  return { state: ageS > staleAfterS ? 'stale' : 'fresh', ageS }
-}
-
-
 
 // Count events by formation × hazard for the dashboard distribution.
 export function eventMatrix(events) {
@@ -146,9 +143,5 @@ export const fmtM = value => (num(value) == null ? '—' : `${nf0.format(value)}
 export const fmtKm = value => (num(value) == null ? '—' : `${value < 10 ? value.toFixed(1) : Math.round(value)} km`)
 export const fmtPct = value => (num(value) == null ? '—' : `${Math.round(value * 100)}%`)
 export const fmtScore = value => (num(value) == null ? '—' : value.toFixed(2))
-export function fmtAge(seconds) {
-  if (num(seconds) == null) return 'unknown'
-  if (seconds < 90) return `${seconds} s ago`
-  if (seconds < 5400) return `${Math.round(seconds / 60)} min ago`
-  return `${Math.round(seconds / 3600)} h ago`
-}
+const nf2 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 })
+export const fmtValue = value => (num(value) == null ? '—' : nf2.format(value))

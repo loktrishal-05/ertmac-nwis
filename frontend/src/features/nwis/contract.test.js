@@ -7,88 +7,105 @@ import { createServer } from 'vite'
 import { validateContract } from './contract.js'
 import { LEGACY_QUERY_RESPONSE, SAMPLES } from './contractSamples.js'
 import { fixtureResponse } from './fixtures.js'
-import { adaptAdvisory, adaptAuditList, adaptCorrelation, adaptEvent, adaptEventList, adaptNearby, adaptQuery, adaptRisk, adaptTelemetry, adaptWell, adaptWellList } from './adapters.js'
+import { adaptAdvisory, adaptAssessment, adaptAuditList, adaptCorrelation, adaptEvent, adaptNearby, adaptQuery, adaptRisk, adaptTelemetry, adaptWell, groupResults } from './adapters.js'
 
-const CASES = [['well', 'well'], ['nearby', 'nearby'], ['correlation', 'correlation'], ['event', null], ['risk', 'risk'], ['telemetry', 'telemetry'], ['query', 'query'], ['advisory', 'advisory'], ['audit', 'auditList']]
+const PAGE = { limit: 100, offset: 0, has_more: false, as_of: null }
+const CASES = [['well', 'well'], ['nearby', 'nearby'], ['correlation', 'correlation'], ['event', 'eventList'], ['risk', 'risk'], ['assessment', 'assessment'],
+  ['telemetry', 'telemetry'], ['query', 'query'], ['advisory', 'advisoryList'], ['audit', 'auditList']]
+const LISTED = new Set(['event', 'advisory']) // single-item samples validated inside a B2 page
 
-test('schema samples (full and sparse) satisfy the frontend contract', () => {
+test('B2 schema samples (full and sparse) satisfy the frontend contract', () => {
   for (const [sample, contract] of CASES) for (const variant of ['full', 'sparse']) {
     const data = SAMPLES[sample][variant]
-    const problems = contract ? validateContract(contract, data) : validateContract('eventList', [data])
-    assert.deepEqual(problems, [], `${sample}.${variant}`)
+    assert.deepEqual(validateContract(contract, LISTED.has(sample) ? { ...PAGE, items: [data] } : data), [], `${sample}.${variant}`)
   }
 })
 
-test('development fixtures stay in sync with the contract', () => {
+test('development fixtures emit the same B2 contract', () => {
   const check = (contract, path, options) => assert.deepEqual(validateContract(contract, fixtureResponse(path, options)), [], path)
-  check('wellList', '/wells')
+  check('wellList', '/wells?limit=100')
   check('well', '/wells/ACTIVE-01')
+  check('formationList', '/wells/ACTIVE-01/formations?limit=100')
   check('nearby', '/wells/ACTIVE-01/nearby?radius_km=20')
   check('correlation', '/wells/ACTIVE-01/correlation?lookahead_m=100')
-  check('eventList', '/events')
+  check('eventList', '/events?limit=100')
   for (const lookahead of [50, 100, 150]) check('risk', `/wells/ACTIVE-01/risk?lookahead_m=${lookahead}`)
-  check('telemetry', '/wells/ACTIVE-01/telemetry')
-  check('query', '/query', { method: 'POST', body: { query: 'stuck pipe in Tipam between 2400-2700 m TVD' } })
-  check('advisoryList', '/advisories')
-  check('auditList', '/audit/log')
+  check('assessment', '/assessments/fx-100-stuck_pipe')
+  check('telemetry', '/wells/ACTIVE-01/telemetry?limit=1000')
+  check('query', '/query', { method: 'POST', body: { query: 'stuck pipe in Tipam between 2400-2700 m TVD', mode: 'nwis_evidence' } })
+  check('advisoryList', '/advisories?limit=100')
+  check('auditList', '/audit?limit=100')
+  check('terms', '/terms')
 })
 
 test('the validator reports contract violations precisely', () => {
-  assert.deepEqual(validateContract('well', { name: 'x' }), ['well.id: required str is missing'])
-  assert.match(validateContract('risk', { as_of: 'x', lookahead_m: 100, hazards: [{ type: 'stuck_pipe', probability: '72%' }] })[0], /hazards\[0\]\.probability: expected num/)
-  assert.match(validateContract('nearby', { items: [{ rank: 2, well: { id: 'A' }, components: {} }, { rank: 1, well: { id: 'B' }, components: {} }] }).at(-1), /rank order/)
-  assert.deepEqual(validateContract('eventList', { rows: [] }), ['eventList: expected an array or { items: [] }'])
-  assert.match(validateContract('query', { results: [{ kind: 'chunk' }] })[0], /well \| event \| report/)
+  assert.ok(validateContract('well', { name: 'x' }).includes('well.id: required str is missing'))
+  const bad = { ...SAMPLES.risk.full, hazards: [{ ...SAMPLES.risk.full.hazards[0], probability: '72%' }] }
+  assert.match(validateContract('risk', bad)[0], /hazards\[0\]\.probability: expected num/)
+  const unordered = { ...PAGE, items: [{ ...SAMPLES.nearby.full.items[0], total_score: 0.5 }, { ...SAMPLES.nearby.full.items[0], total_score: 0.9 }] }
+  assert.match(validateContract('nearby', unordered).at(-1), /ranking order/)
+  assert.deepEqual(validateContract('eventList', { rows: [] }), ['eventList: expected { items: [] }'])
 })
 
 test('adapters keep missing values null — never 0', () => {
   const well = adaptWell(SAMPLES.well.sparse)
-  assert.equal(well.current_tvdss_m, null)
-  assert.equal(well.data_quality, null)
-  assert.equal(well.name, 'OFF-99', 'name falls back to id, never blank')
-  assert.deepEqual(well.formations[0], { name: 'TIPAM_B', top: null, base: 2890, confidence: null, interpreted: false })
+  for (const key of ['lat', 'lon', 'td_md_m', 'current_md_m', 'field']) assert.equal(well[key], null, key)
+  assert.equal(well.role, null, 'a historical well is not the active well')
   const event = adaptEvent(SAMPLES.event.sparse)
-  for (const key of ['npt_hours', 'mitigation', 'outcome', 'depth_md_m', 'confidence', 'formation']) assert.equal(event[key], null, key)
-  assert.equal(event.source.page, null)
+  for (const key of ['npt_hours', 'mitigation', 'outcome', 'depth_md_m', 'confidence', 'formation', 'raw_observation']) assert.equal(event[key], null, key)
+  assert.deepEqual([event.source.page, event.source.url], [null, '/api/reports/OFF-03-DDR/source'])
   const hazard = adaptRisk(SAMPLES.risk.sparse).hazards[0]
-  assert.equal(hazard.probability, null)
-  assert.equal(hazard.evidenceCount, null, 'unreported evidence is not "0 records"')
-  assert.deepEqual(adaptRisk(SAMPLES.risk.sparse).evidence, [])
+  for (const key of ['probability', 'historical', 'telemetry', 'trend']) assert.equal(hazard[key], null, key)
+  assert.deepEqual([hazard.evidenceCount, hazard.telemetryState, hazard.missing], [0, 'unavailable', ['analog_offsets']])
+  assert.equal(adaptRisk(SAMPLES.risk.sparse).window_md_m, null)
   assert.equal(adaptNearby(SAMPLES.nearby.sparse).items.length, 0)
   const telemetry = adaptTelemetry(SAMPLES.telemetry.full)
-  assert.deepEqual(telemetry.series.map(s => s.id), ['TORQUE'])
-  assert.deepEqual(telemetry.missing.map(c => c.mnemonic), ['PIT'])
-  assert.equal(adaptTelemetry(SAMPLES.telemetry.sparse).series.length, 0)
+  assert.deepEqual([telemetry.series.map(s => s.id), telemetry.missing.map(c => c.mnemonic), telemetry.state], [['torque'], ['pit_volume'], 'partial'])
+  assert.deepEqual([adaptTelemetry(SAMPLES.telemetry.sparse).series.length, adaptTelemetry(SAMPLES.telemetry.sparse).state], [0, 'unknown'])
   const advisory = adaptAdvisory(SAMPLES.advisory.sparse)
-  assert.equal(advisory.interval_md_m, null)
-  assert.equal(advisory.probability, null)
-  assert.equal(adaptCorrelation(SAMPLES.correlation.sparse).lookahead_window, null)
-  assert.equal(adaptCorrelation(SAMPLES.correlation.sparse).tracks[0].events[0].depth, null)
+  assert.deepEqual([advisory.reviewer, advisory.reviewed_at, advisory.reason], [null, null, null])
+  const correlation = adaptCorrelation(SAMPLES.correlation.sparse)
+  assert.equal(correlation.lookahead_window, null)
+  assert.deepEqual([correlation.tracks[0].events[0].depth, correlation.tracks[0].formations[0].top, correlation.tracks[0].formations[0].available], [null, null, false])
+  assert.deepEqual(adaptAssessment(SAMPLES.assessment.sparse).evidence, [])
 })
 
-test('adapters absorb plausible backend field-name variants in one place', () => {
-  const well = adaptWell({ well_id: 'W-1', well_name: 'Well 1', latitude: 27.1, longitude: 95.2, formation_intervals: [{ formation: 'TIPAM_A', top_tvd_m: 2100, base_tvd_m: 2500 }] })
-  assert.deepEqual([well.id, well.name, well.lat, well.lon, well.formations[0].name, well.formations[0].top], ['W-1', 'Well 1', 27.1, 95.2, 'TIPAM_A', 2100])
-  assert.deepEqual([adaptWell({ id: 'G', location: { type: 'Point', coordinates: [95.5, 27.5] } }).lat, adaptWell({ id: 'G', location: { coordinates: [95.5, 27.5] } }).lon], [27.5, 95.5])
-  const event = adaptEvent({ event_id: 'E', well_id: 'W', event_type: 'mud_loss', source_text: 'Losses', md_m: 2500, report_id: 'DDR-1', page: 4 })
-  assert.deepEqual([event.id, event.type, event.raw_observation, event.depth_md_m, event.source.report_id, event.source.page], ['E', 'mud_loss', 'Losses', 2500, 'DDR-1', 4])
-  const hazard = adaptRisk({ hazards: [{ hazard_type: 'stuck_pipe', supporting_wells: [{ well_id: 'OFF-04' }], evidence: [{ id: 'EVT-1' }, { id: 'EVT-2' }] }] }).hazards[0]
-  assert.deepEqual([hazard.type, hazard.wells, hazard.evidenceIds, hazard.evidenceCount], ['stuck_pipe', ['OFF-04'], ['EVT-1', 'EVT-2'], 2])
-  assert.deepEqual(adaptWellList([{ id: 'A' }]).items.map(w => w.id), ['A'], 'bare arrays and envelopes both work')
-  assert.equal(adaptEventList({ items: [], total: 12 }).total, 12)
-  assert.equal(adaptAuditList([{ sequence_number: 1, event_type: 'X', payload: { a: 1 } }]).items[0].details.a, 1)
+test('adapters map B2 field names in one place', () => {
+  const active = adaptWell(SAMPLES.well.full)
+  assert.deepEqual([active.role, active.lat, active.lon, active.td_md_m, active.current_md_m], ['active', 27.4, 95.3, 3200, 2450])
+  const nearby = adaptNearby(SAMPLES.nearby.full)
+  const top = nearby.items[0]
+  assert.deepEqual([top.id, top.rank, top.distanceKm, top.components.formation, top.components.data_quality, top.depthBasis, top.explanation.length], ['OFF-04', 1, 1.5473, 1, 0.95, 'tvd', 2])
+  assert.equal(nearby.items[1].components.program, null)
+  assert.equal(nearby.weights.formation, 0.3, 'weights come from the backend match items')
+  const event = adaptEvent(SAMPLES.event.full)
+  assert.deepEqual([event.type, event.depth_md_m, event.depth_tvd_m, event.verification, event.source.url], ['stuck_pipe', 2410, 2410, 'unverified', '/api/reports/OFF-04-DDR/source#page=1'])
+  assert.match(event.raw_observation, /^Well: OFF-04/)
+  const risk = adaptRisk(SAMPLES.risk.full)
+  assert.deepEqual([risk.calibrated, risk.advisory_only, risk.window_md_m], [false, true, { top: 2450, base: 2550 }])
+  const hazard = risk.hazards[0]
+  assert.deepEqual([hazard.assessmentId, hazard.historical, hazard.telemetry, hazard.telemetryState, hazard.telemetryFeatures.length], ['a1b2c3', 0.7, 0.15, 'fresh', 3])
+  assert.match(hazard.confidenceNote, /10 analog wells.*telemetry fresh \(replay\)/)
+  const link = adaptAssessment(SAMPLES.assessment.full).evidence[0]
+  assert.deepEqual([link.sourceHashMatches, link.changedSinceAssessment, link.sourceUrl], [true, false, '/api/reports/OFF-04-DDR/source#page=1'])
+  const correlation = adaptCorrelation(SAMPLES.correlation.full)
+  assert.deepEqual([correlation.depth_ref, correlation.current_depth_m, correlation.lookahead_window], ['tvd', 2450, { top: 2450, base: 2550 }])
+  assert.deepEqual(correlation.tracks.map(t => t.role), ['active', 'offset'])
+  assert.deepEqual(correlation.tracks[1].casing, [{ size: '13.375"', depth: 1100 }])
+  const audit = adaptAuditList(SAMPLES.audit.full).items[0]
+  assert.equal(audit.event_type, 'advisory_review')
+  assert.ok(!('product' in audit.details) && !('action' in audit.details))
 })
 
-test('POST /query: only an NWIS results list is treated as evidence; a legacy governed response is flagged', () => {
+test('POST /api/query: only an nwis_evidence answer with evidence[] is treated as evidence; a legacy governed response is flagged', () => {
   const nwis = adaptQuery(SAMPLES.query.full)
-  assert.equal(nwis.recognized, true)
-  assert.deepEqual(nwis.results.map(r => r.kind), ['event', 'report'])
-  assert.equal(nwis.results[1].page, null)
+  assert.deepEqual([nwis.recognized, nwis.status, nwis.summary, nwis.citations], [true, 'completed', 'Two cited stuck-pipe events in TIPAM_A.', ['EVT-d425ce494054e5fa', 'EVT-2']])
+  const groups = groupResults(nwis)
+  assert.deepEqual([groups.well.length, groups.event.length, groups.report.length], [1, 2, 2])
+  const refused = adaptQuery(SAMPLES.query.sparse)
+  assert.deepEqual([refused.recognized, refused.status, refused.results], [true, 'refused', []])
   const legacy = adaptQuery(LEGACY_QUERY_RESPONSE)
-  assert.equal(legacy.recognized, false)
-  assert.deepEqual(legacy.results, [])
-  assert.equal(adaptQuery({ results: [{ kind: 'chunk', source: { report_id: 'R', page: 3 } }] }).results[0].kind, 'report')
-  assert.equal(adaptQuery({ results: [{ kind: 'event', source: { report_id: 'R', page: 3 } }] }).results[0].page, 3)
+  assert.deepEqual([legacy.recognized, legacy.results], [false, []])
 })
 
 test('domain components render full and sparse contract data without crashing or inventing zeros', async () => {
@@ -100,25 +117,25 @@ test('domain components render full and sparse contract data without crashing or
     const render = element => renderToStaticMarkup(createElement(MemoryRouter, null, element))
 
     const fullRisk = adaptRisk(SAMPLES.risk.full)
-    assert.match(render(createElement(RiskCard, { hazard: fullRisk.hazards[0], lookahead: 100, onWhy: () => {} })), /72%.*Why this alert\?/s)
-    const sparseCard = render(createElement(RiskCard, { hazard: adaptRisk(SAMPLES.risk.sparse).hazards[0], lookahead: 150 }))
-    assert.match(sparseCard, /Not reported/)
-    assert.doesNotMatch(sparseCard, /0 records|>0%</)
+    assert.match(render(createElement(RiskCard, { hazard: fullRisk.hazards[0], lookahead: 100, onWhy: () => {} })), /75%.*uncalibrated estimate.*Why this alert\?/s)
+    const sparseRisk = adaptRisk(SAMPLES.risk.sparse)
+    const sparseCard = render(createElement(RiskCard, { hazard: sparseRisk.hazards[0], lookahead: 150 }))
+    assert.match(sparseCard, /Insufficient evidence/)
+    assert.doesNotMatch(sparseCard, />0%</)
     assert.match(sparseCard, /data-level="unknown"/)
-    render(createElement(EvidenceDrawer, { hazard: fullRisk.hazards[0], risk: fullRisk, offsets: adaptNearby(SAMPLES.nearby.full).items }))
-    render(createElement(EvidenceDrawer, { hazard: adaptRisk(SAMPLES.risk.sparse).hazards[0], risk: adaptRisk(SAMPLES.risk.sparse) }))
+    render(createElement(EvidenceDrawer, { hazard: fullRisk.hazards[0], risk: fullRisk, offsets: adaptNearby(SAMPLES.nearby.full).items, wellId: 'ACTIVE-01' }))
+    render(createElement(EvidenceDrawer, { hazard: sparseRisk.hazards[0], risk: sparseRisk }))
 
     const sparseEvent = render(createElement(EventCard, { event: adaptEvent(SAMPLES.event.sparse) }))
     assert.match(sparseEvent, /No source wording stored/)
     assert.doesNotMatch(sparseEvent, /0 h|page 0/)
-    assert.match(render(createElement(EventCard, { event: adaptEvent(SAMPLES.event.full) })), /DDR-OFF04-2019-07-13.*page 2/s)
+    assert.match(render(createElement(EventCard, { event: adaptEvent(SAMPLES.event.full) })), /href="\/api\/reports\/OFF-04-DDR\/source#page=1".*OFF-04-DDR.*page 1/s)
 
-    const offset = adaptNearby(SAMPLES.nearby.full).items[0]
-    assert.match(render(createElement(OffsetScoreBreakdown, { offset: { ...offset, components: { ...offset.components, program: null } } })), /—/)
-    assert.match(render(createElement(EventDots, { counts: {} })), /None/)
+    const offset = adaptNearby(SAMPLES.nearby.full).items[1]
+    assert.match(render(createElement(OffsetScoreBreakdown, { offset })), /—/)
+    assert.match(render(createElement(EventDots, { counts: {} })), /—/)
 
     render(createElement(CorrelationTracks, { data: adaptCorrelation(SAMPLES.correlation.full) }))
-    const sparseCorrelation = render(createElement(CorrelationTracks, { data: adaptCorrelation(SAMPLES.correlation.sparse) }))
-    assert.match(sparseCorrelation, /No correlation tracks returned|unknown/)
+    render(createElement(CorrelationTracks, { data: adaptCorrelation(SAMPLES.correlation.sparse) }))
   } finally { await server.close() }
 })

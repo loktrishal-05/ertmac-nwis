@@ -23,27 +23,30 @@ Unknown paths (for example `/health`) fall through to the real backend, so backe
 
 ## What each fixture provides
 
+Every response uses the B2 shapes in `frontend_api_contract.md`; `contract.test.js` validates the fixtures against the same contract as the live backend.
+Replay time is fixed at `2026-09-29T16:00:00Z`, as in the B2 demo seed.
+
 | Path | Fixture content |
 |---|---|
 | `/auth/me` | Dev-only session `fixture-engineer` (role `reviewer`). **Not a credential**: no password exists, and login is not faked. |
-| `/wells`, `/wells/{id}` | `ACTIVE-01` (drilling, MD 2,450 m / TVD 2,382 m, TIPAM_A) and offsets `OFF-01`…`OFF-13` in "NWIS Demo Field (synthetic)". Positions are arbitrary synthetic coordinates. |
-| `/wells/ACTIVE-01/nearby` | Radius-filtered offsets with six hand-authored component scores and weights. The story: `OFF-02` is closest (1.1 km, across a fault) but ranks low; `OFF-04`/`OFF-09` rank first. `OFF-12` is close but never reached the interval. |
-| `/wells/ACTIVE-01/correlation` | TVD tracks with five formations (NAMSANG, GIRUJAN, TIPAM_A, TIPAM_B, BARAIL), interpreted/unknown intervals, casing shoes and events. |
-| `/events` | 27 events across 10 hazard types with source wording, mitigation, outcome, NPT, confidence, verification and report/page citations. |
-| `/wells/ACTIVE-01/risk` | Four hazards per look-ahead window (50/100/150 m) with trend series, supporting wells, evidence IDs, telemetry features, missing evidence and a confidence explanation. |
-| `/wells/ACTIVE-01/telemetry` | 120 replay samples anchored to "now" (mode `replay`); torque rises in the last 25 samples. `PIT` is declared but has no values, to exercise the "never draw missing channels" rule. |
-| `/query` (POST) | Keyword filter over fixture events (no model call). |
-| `/advisories`, `/advisories/{id}/review` | Three advisories. Review requires a valid decision and a note of at least 5 characters, and appends an audit event. |
-| `/audit/log`, `/audit/verify` | In-memory NWIS audit events. The verification result is labelled "Fixture chain: not a real tamper-evidence check". |
+| `/terms`, `/terms/accept` | Terms already accepted. |
+| `/wells`, `/wells/{id}`, `/wells/{id}/formations` | `ACTIVE-01` (status `ACTIVE`, MD 2,450 m) and historical offsets `OFF-01`…`OFF-13` with synthetic coordinates and formation tables. |
+| `/wells/ACTIVE-01/nearby` | Flat match items with six hand-authored component scores, weights and explanation lines. `OFF-02` is closest but ranks low; `OFF-04`/`OFF-09` rank first. |
+| `/wells/ACTIVE-01/correlation` | TVD alignment, top 10 offsets as tracks with formations, events and casing points. |
+| `/events` | 27 events over the 7 B2 hazard types with source wording, mitigation, outcome, NPT, confidence, verification and report/page. |
+| `/wells/ACTIVE-01/risk`, `/assess`, `/assessments/{id}` | Four hazards per look-ahead (50/100/150 m; other values 422), `calibrated:false`, historical exposure plus a bounded live anomaly, assessment ids `fx-{lookahead}-{hazard}` with evidence links. |
+| `/wells/ACTIVE-01/telemetry` | 61 one-minute replay samples per channel before the replay time; torque rises at the end; `pit_volume` is declared but empty (state `unavailable`). |
+| `/query` (POST) | Keyword filter over fixture events (no model call), `mode: nwis_evidence`, `status: completed`. |
+| `/advisories`, `/advisories/{id}/review` | Three advisories (pending, acknowledged, dismissed). Review requires `{status, reason ≥ 5}`, returns 409 when already reviewed, and appends an audit entry. |
+| `/audit`, `/audit/verify` | In-memory entries with `payload.action`. Verification is labelled "Fixture chain: not a real tamper-evidence check". |
 
-Nothing in the fixtures is Oil India data. The values mirror the master report's synthetic demo design (§42) and exist only so the
-screens can be built and browser-tested before the Codex backend lands.
+Nothing in the fixtures is Oil India data. They exist so screens can be exercised without the backend.
 
 ## Dev fixtures vs schema samples vs production
 
 | | Dev fixtures (`fixtures.js`) | Schema samples (`contractSamples.js`) |
 |---|---|---|
-| Purpose | click through the UI before the backend exists | contract/render tests (full + sparse/null variants) |
+| Purpose | click through the UI without a running backend | contract/render tests (full + sparse/null variants) |
 | Loaded by | `services/api.js`, only when `DEV && VITE_NWIS_FIXTURES=1` | tests only |
 | In production bundle | never (`npm run verify:dist` fails the check if they appear) | never |
 

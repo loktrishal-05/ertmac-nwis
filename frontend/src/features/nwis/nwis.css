@@ -274,3 +274,14 @@ tr[aria-selected="true"] td { background: color-mix(in srgb, var(--ai) 7%, trans
 .nw-offset-table .nw-score { min-width: 76px; } .nw-offset-table .nw-score-track { min-width: 32px; }
 .nw-offset-table th { white-space: nowrap; font-size: var(--fs-xs); }
 .nw-offset-table td, .nw-offset-table th { padding-inline: 8px; }
+
+/* B2 integration: contribution values, match explanations, closest-vs-top note, advisory snippets, calibration and terms. */
+.nw-contrib { display: grid; gap: 4px; margin: 0; font-size: var(--fs-sm); }
+.nw-contrib div { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.nw-contrib dt { color: var(--text-muted); } .nw-contrib dd { margin: 0; font-weight: 600; min-width: 96px; text-align: right; }
+.nw-explain { margin: var(--space-2) 0 0; padding-left: 1.1em; color: var(--text-muted); font-size: var(--fs-sm); }
+.nw-callout-inline { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid color-mix(in srgb, var(--ai) 35%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--ai) 6%, var(--surface-1)); font-size: var(--fs-sm); }
+.nw-alert-text { display: block; flex-basis: 100%; color: var(--text-muted); overflow-wrap: anywhere; }
+.nw-uncalibrated { border-color: color-mix(in srgb, var(--human) 55%, transparent); color: var(--human); }
+.nw-terms { max-width: 640px; margin: var(--space-6) auto; display: grid; gap: var(--space-3); }
+.nw-terms h2, .nw-terms p { margin: 0; } .nw-terms button { justify-self: start; }

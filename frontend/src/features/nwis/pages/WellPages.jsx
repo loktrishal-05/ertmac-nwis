@@ -1,10 +1,10 @@
 import { Fragment, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { Icon, PageHeader } from '../../../components/ui.jsx'
-import { PRIMARY_HAZARDS, SCORE_COMPONENTS, closestExplanation, fmtKm, fmtM, fmtPct, fmtScore, humanize, listOf, paths } from '../nwisModel.js'
+import { PRIMARY_HAZARDS, SCORE_COMPONENTS, closestExplanation, fmtKm, fmtM, fmtPct, fmtScore, fmtValue, humanize, listOf, paths } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
 import { useEventsFor, useNearby, useNwisResource, useRisk } from '../hooks.js'
-import { adaptCorrelation, adaptTelemetry, adaptWell, adaptWellList } from '../adapters.js'
+import { adaptCorrelation, adaptFormationList, adaptTelemetry, adaptWell, adaptWellList } from '../adapters.js'
 import CorrelationTracks from '../CorrelationTracks.jsx'
 import { DataQualityBadge, DrillingEventChip, EventDots, EvidenceDrawer, LookaheadControl, NwisState, OffsetScoreBreakdown, RiskCard, ScoreBar, Sparkline, SyntheticDataBadge, VerificationBadge, WellContextBar } from '../components.jsx'
 import { Panel } from './OverviewPages.jsx'
@@ -15,39 +15,49 @@ export function WellsPage() {
   const { wellId, set } = useNwis()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
-  const [status, setStatus] = useState('')
-  const wells = useNwisResource(paths.wells({ q: q.trim() || undefined, status: status || undefined }), adaptWellList)
-  const list = listOf(wells.data)
+  const wells = useNwisResource(paths.wells(), adaptWellList)
+  const needle = q.trim().toLowerCase()
+  const list = listOf(wells.data).filter(w => !needle || `${w.id} ${w.name} ${w.field ?? ''}`.toLowerCase().includes(needle))
   return <>
-    <PageHeader title="Well catalogue" description="Wells known to NWIS with location, trajectory class and record quality. Filtering happens on the server." />
+    <PageHeader title="Well catalogue" description="Wells known to NWIS with surface location, status and total depth." />
     <form className="nw-filters" role="search" onSubmit={event => event.preventDefault()}>
       <label>Search wells<input value={q} onChange={e => setQ(e.target.value)} placeholder="Well name or ID" maxLength={80} /></label>
-      <label>Status<select value={status} onChange={e => setStatus(e.target.value)}><option value="">Any</option>{['drilling', 'completed', 'suspended', 'abandoned'].map(s => <option key={s} value={s}>{humanize(s)}</option>)}</select></label>
     </form>
-    <Panel title={`${wells.data?.total ?? list.length} wells`} data={wells.data}>
+    <Panel title={`${list.length} well${list.length === 1 ? '' : 's'}${wells.data?.has_more ? ' (first page)' : ''}`} data={wells.data}>
       <NwisState request={wells} what="the well catalogue" empty={wells.data && !list.length ? 'No wells match' : undefined} />
       {list.length > 0 && <div className="table-scroll" tabIndex={0} role="region" aria-label="Well catalogue"><table>
-        <thead><tr><th>Well</th><th>Field</th><th>Status</th><th>Type</th><th>Trajectory</th><th>Spud</th><th>TD (MD)</th><th>Data quality</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
+        <thead><tr><th>Well</th><th>Field</th><th>Status</th><th>Operator</th><th>Surface location</th><th>Spud</th><th>TD (MD)</th><th>Current MD</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
         <tbody>{list.map(w => <tr key={w.id} data-active={w.id === wellId || undefined}>
           <td><Link to={`/app/wells/${encodeURIComponent(w.id)}`}><strong>{w.name}</strong></Link>{w.id === wellId && <span className="nw-badge nw-context-badge">Active context</span>}</td>
-          <td>{w.field || '—'}</td><td><span className="nw-status" data-status={w.status}>{humanize(w.status)}</span></td><td>{humanize(w.well_type)}</td><td>{w.trajectory_type || '—'}</td>
-          <td>{w.spud_date?.slice(0, 4) || '—'}</td><td className="num">{fmtM(w.td_md_m)}</td><td><DataQualityBadge value={w.data_quality} /></td>
+          <td>{w.field || '—'}</td><td><span className="nw-status" data-status={w.status}>{humanize(w.status)}</span></td><td>{w.operator || '—'}</td><td className="nw-mono small">{w.lat != null && w.lon != null ? `${w.lat.toFixed(3)}°, ${w.lon.toFixed(3)}°` : '—'}</td>
+          <td>{w.spud_date?.slice(0, 4) || '—'}</td><td className="num">{fmtM(w.td_md_m)}</td><td className="num">{fmtM(w.current_md_m)}</td>
           <td>{isDrilling(w) && w.id !== wellId ? <button type="button" className="ghost" onClick={() => { set({ wellId: w.id }); navigate('/app/dashboard') }}>Set active</button> : null}</td></tr>)}</tbody></table></div>}
     </Panel>
   </>
 }
 
 function TelemetryStrip({ wellId }) {
-  const telemetry = useNwisResource(paths.telemetry(wellId, { window_s: 1800 }), adaptTelemetry)
+  const telemetry = useNwisResource(paths.telemetry(wellId, { limit: 1000 }), adaptTelemetry)
   const series = telemetry.data?.series ?? []
   if (!telemetry.data) return <NwisState request={telemetry} what="telemetry" />
   return <>
-    <p className="nw-live-flag"><span className="nw-badge nw-replay">{telemetry.data.mode === 'live' ? 'LIVE' : 'SIMULATED / REPLAY DATA'}</span><span className="muted small">Latest value per channel the backend provides · <Link to="/app/live">Live drilling</Link></span></p>
+    <p className="nw-live-flag"><span className="nw-badge nw-replay">{telemetry.data.mode === 'live' ? 'LIVE' : 'SIMULATED / REPLAY DATA'}</span><span className="muted small">Latest value per channel the backend provides · channel state {telemetry.data.state} at {telemetry.data.as_of ? new Date(telemetry.data.as_of).toLocaleString() : '—'} · <Link to="/app/live">Live drilling</Link></span></p>
     {series.length ? <ul className="nw-tele-strip">{series.map(s => { const last = s.points.at(-1)
-      return <li key={s.id}><span className="nw-tele-name">{s.label}</span><strong>{last.v}<small> {s.unit}</small></strong>
+      return <li key={s.id}><span className="nw-tele-name">{s.label}</span><strong>{fmtValue(last.v)}<small> {s.unit}</small></strong>
         <Sparkline values={s.points.slice(-30).map(p => p.v)} label={`${s.label} last ${Math.min(30, s.points.length)} samples`} width={96} height={26} /></li> })}</ul>
       : <p className="muted">No channels with values were returned.</p>}
   </>
+}
+
+function FormationTable({ wellId }) {
+  const formations = useNwisResource(paths.formations(wellId), adaptFormationList)
+  const rows = formations.data?.items ?? []
+  return <Panel title="Formation intervals" data={formations.data}>
+    <NwisState request={formations} what="formation intervals" empty={formations.data && !rows.length ? 'No formation intervals recorded' : undefined} />
+    {rows.length > 0 && <div className="table-scroll" tabIndex={0} role="region" aria-label="Formation intervals"><table><thead><tr><th>Formation</th><th>Top MD</th><th>Base MD</th><th>Top TVD</th><th>Base TVD</th><th>Confidence</th></tr></thead>
+      <tbody>{rows.map((f, i) => <tr key={`${f.name}-${i}`}><td>{f.name}</td><td className="num">{fmtM(f.top_md)}</td><td className="num">{fmtM(f.base_md)}</td><td className="num">{fmtM(f.top)}</td><td className="num">{fmtM(f.base)}</td>
+        <td className="num">{f.confidence == null ? 'unknown' : fmtPct(f.confidence)}</td></tr>)}</tbody></table></div>}
+  </Panel>
 }
 
 function OffsetWellView({ well }) {
@@ -55,13 +65,9 @@ function OffsetWellView({ well }) {
   const history = useEventsFor([well.id])
   return <>
     <div className="nw-dash-grid">
-      <Panel title="Stratigraphy" data={well}>
-        {(well.formations || []).length ? <div className="table-scroll" tabIndex={0} role="region" aria-label="Formations"><table><thead><tr><th>Formation</th><th>Top TVD</th><th>Base TVD</th><th>Confidence</th></tr></thead>
-          <tbody>{well.formations.map(f => <tr key={f.name}><td>{f.name}{f.interpreted ? ' (interpreted)' : ''}</td><td className="num">{fmtM(f.top)}</td><td className="num">{fmtM(f.base)}</td><td className="num">{f.confidence == null ? 'unknown' : fmtPct(f.confidence)}</td></tr>)}</tbody></table></div>
-          : <p className="muted">No formation intervals recorded.</p>}
-      </Panel>
+      <FormationTable wellId={well.id} />
       <Panel title="Offset actions">
-        <p className="muted">This is a historical offset well. Risk look-ahead and telemetry apply only to wells that are drilling.</p>
+        <p className="muted">This is a historical offset well. Risk look-ahead and telemetry apply only to the active well.</p>
         <div className="toolbar"><button type="button" aria-pressed={compare.includes(well.id)} onClick={() => toggle('compare', well.id, 4)}>{compare.includes(well.id) ? 'In comparison' : 'Add to comparison'}</button>
           <Link className="button ghost" to="/app/correlation">Open correlation</Link><Link className="button ghost" to={`/app/events?well=${encodeURIComponent(well.id)}`}>All events</Link></div>
         {well.note && <p className="nw-note">{well.note}</p>}
@@ -87,14 +93,11 @@ function ActiveCockpit({ well }) {
     <Panel title={`Current hazards · next ${lookahead} m`} data={risk.request.data} action={<LookaheadControl />}>
       <NwisState request={risk.request} what="the risk look-ahead" />
       {hazards.length > 0 && <>
-        <p className="muted small">{evidenceTotal == null ? 'Evidence count not reported' : `${evidenceTotal} evidence records`} across {hazards.length} hazards · model {risk.request.data?.model_version || 'not reported'}</p>
+        <p className="muted small">{evidenceTotal ? `${evidenceTotal} cited events` : 'No cited events'} across {hazards.length} hazards · formation at bit {risk.request.data?.formation || 'not recorded'} · model {risk.request.data?.model_version || 'not reported'} · uncalibrated</p>
         <div className="nw-risk-grid">{hazards.map(h => <RiskCard key={h.type} hazard={h} lookahead={lookahead} onWhy={setWhy} compact />)}</div></>}
     </Panel>
     <div className="nw-dash-grid">
-      <Panel title="Upcoming formations" data={well}>
-        {(well.upcoming_formations || []).length ? <ul className="nw-upcoming">{well.upcoming_formations.map(f => <li key={f.name}><strong>{f.name}</strong><span>top {fmtM(f.top_tvd_m)} TVD</span><span className="nw-badge">in {fmtM(f.distance_m)}</span>{f.confidence != null && <span className="muted small">confidence {fmtPct(f.confidence)}</span>}</li>)}</ul>
-          : <p className="muted">No planned stratigraphic model supplied.</p>}
-      </Panel>
+      <FormationTable wellId={well.id} />
       <Panel title="Top offset wells" data={nearby.request.data} action={<Link className="button ghost" to="/app/offset-analysis">Offset analysis</Link>}>
         <NwisState request={nearby.request} what="offsets" />
         <ol className="nw-why-offsets">{nearby.offsets.slice(0, 3).map(o => { const strong = SCORE_COMPONENTS.filter(([k]) => o.components[k] != null).sort(([a], [b]) => o.components[b] - o.components[a]).slice(0, 2)
@@ -102,7 +105,7 @@ function ActiveCockpit({ well }) {
             <p className="muted small">Strongest: {strong.map(([k, label]) => `${label.toLowerCase()} ${fmtScore(o.components[k])}`).join(', ')}</p></li> })}</ol>
       </Panel>
     </div>
-    <EvidenceDrawer hazard={why} risk={risk.request.data} offsets={nearby.offsets} onClose={() => setWhy(null)} />
+    <EvidenceDrawer hazard={why} risk={risk.request.data} offsets={nearby.offsets} wellId={well.id} onRecorded={risk.request.refresh} onClose={() => setWhy(null)} />
   </>
 }
 
@@ -112,7 +115,7 @@ export function WellCockpitPage() {
   const well = useNwisResource(paths.well(id), adaptWell)
   const w = well.data
   return <>
-    <PageHeader title={w?.name || id} description={w ? `${w.field || 'Field not recorded'} · ${humanize(w.status)} · ${humanize(w.well_type)} · ${w.trajectory_type || 'trajectory unknown'}` : 'Well record'}
+    <PageHeader title={w?.name || id} description={w ? `${w.field || 'Field not recorded'} · ${humanize(w.status)} · ${w.operator || 'operator not recorded'}` : 'Well record'}
       actions={w && isDrilling(w) && w.id !== wellId ? <button type="button" onClick={() => set({ wellId: w.id })}>Make active context</button> : null} />
     <NwisState request={well} what={`well ${id}`} />
     {w && <>
@@ -158,7 +161,7 @@ export function OffsetAnalysisPage() {
       <strong> {explain.top.id}</strong> ranks #1 at {fmtKm(explain.top.distanceKm)} with formation {fmtScore(explain.top.components.formation)} and depth overlap {fmtScore(explain.top.components.depth)}.
       {explain.closest.note && <> <em>{explain.closest.note}</em></>}</p></aside>}
     <Panel title="Ranked offsets" data={nearby.request.data} action={compare.length > 0 && <button type="button" className="primary" onClick={() => navigate('/app/correlation')}>Correlate {compare.length} selected</button>}>
-      {weights && <p className="nw-formula"><span>Score = {SCORE_COMPONENTS.map(([k, label]) => weights[k] != null ? `${weights[k]}·${label.toLowerCase()}` : null).filter(Boolean).join(' + ')}</span>{nearby.request.data?.formula && <span className="muted small"> ({nearby.request.data.formula})</span>}</p>}
+      {weights && <p className="nw-formula"><span>Score = {SCORE_COMPONENTS.map(([k, label]) => weights[k] != null ? `${fmtScore(weights[k])}·${label.toLowerCase()}` : null).filter(Boolean).join(' + ')}</span>{nearby.request.data?.formula && <span className="muted small"> ({nearby.request.data.formula})</span>}</p>}
       <NwisState request={nearby.request} what="offset ranking" empty={nearby.request.data && !nearby.offsets.length ? 'No offsets in this radius' : undefined} />
       {rows.length > 0 && <div className="table-scroll" tabIndex={0} role="region" aria-label="Offset ranking with component scores"><table className="nw-offset-table">
         <thead><tr><th>Rank</th><th>Well</th><th>Distance</th><th>Total</th>{SCORE_COMPONENTS.map(([k, label]) => <th key={k}>{label}</th>)}<th>Events</th><th>Actions</th></tr></thead>
@@ -175,8 +178,8 @@ export function OffsetAnalysisPage() {
               <button type="button" className="ghost" aria-pressed={out} onClick={() => toggle('excluded', o.id)}>{out ? 'Include' : 'Exclude'}</button></span></td></tr>
             {open === o.id && <tr className="nw-expand"><td colSpan={SCORE_COMPONENTS.length + 6}><div className="nw-expand-body">
               <OffsetScoreBreakdown offset={o} weights={weights} />
-              <div><p>{o.well.trajectory_type} · {humanize(o.well.well_type)} · TD {fmtM(o.well.td_md_m)} MD · <DataQualityBadge value={o.well.data_quality} /></p>
-                {o.formationAtDepth && <p>At the active well's current TVD this well is in <strong>{o.formationAtDepth}</strong>.</p>}
+              <div><p>Depth basis {o.depthBasis?.toUpperCase() ?? '—'} · TD {fmtM(o.well.td_md_m)} MD · <DataQualityBadge value={o.components.data_quality} /></p>
+                {o.explanation.length > 0 && <ul className="nw-explain">{o.explanation.map(line => <li key={line}>{line}</li>)}</ul>}
                 {o.note && <p className="nw-note">{o.note}</p>}<Link to={`/app/wells/${encodeURIComponent(o.id)}`}>Open well record</Link></div></div></td></tr>}
           </Fragment> })}</tbody></table></div>}
       <p className="muted small">Pin, compare and exclude are session view preferences. They do not change the backend ranking or the risk engine until the backend accepts analyst overrides.</p>
@@ -187,8 +190,11 @@ export function OffsetAnalysisPage() {
 export function CorrelationPage() {
   const { wellId, lookahead, compare, toggle } = useNwis()
   const nearby = useNearby({ radiusKm: 20 })
-  const correlation = useNwisResource(wellId ? paths.correlation(wellId, { offsets: compare, lookahead_m: lookahead, depth_ref: 'tvd' }) : null, adaptCorrelation)
-  const shown = (correlation.data?.tracks || []).filter(t => t.role !== 'active').map(t => t.well_id)
+  const correlation = useNwisResource(wellId ? paths.correlation(wellId, { lookahead_m: lookahead }) : null, adaptCorrelation)
+  const offsetTracks = (correlation.data?.tracks || []).filter(t => t.role !== 'active')
+  const chosen = compare.length ? offsetTracks.filter(t => compare.includes(t.well_id)) : offsetTracks.slice(0, 3)
+  const data = correlation.data ? { ...correlation.data, tracks: [...correlation.data.tracks.filter(t => t.role === 'active'), ...chosen] } : null
+  const shown = chosen.map(t => t.well_id)
   return <>
     <PageHeader title="Formation correlation" description="Active well and selected offsets on one TVD axis, with formation intervals, drilling events, casing points and the look-ahead window. Interpreted intervals are hatched; unknown tops are marked." />
     <WellContextBar lookahead />
@@ -200,7 +206,7 @@ export function CorrelationPage() {
     </section>
     <Panel title={`Correlation · ${[correlation.data?.tracks?.[0]?.name || wellId, ...shown].filter(Boolean).join(' · ')}`} data={correlation.data}>
       <NwisState request={correlation} what="the correlation" />
-      {correlation.data && <CorrelationTracks data={correlation.data} />}
+      {data && <><p className="muted small">Alignment basis <strong>{data.depth_ref.toUpperCase()}</strong> (backend prefers TVDSS, then TVD, then MD) · {offsetTracks.length} ranked offsets returned; showing {chosen.length}.{data.warning ? ` ${data.warning}` : ''}</p><CorrelationTracks data={data} /></>}
     </Panel>
   </>
 }

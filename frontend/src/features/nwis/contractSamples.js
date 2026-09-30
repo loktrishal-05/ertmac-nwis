@@ -1,70 +1,95 @@
-// SCHEMA TEST SAMPLES for the NWIS contract — imported by tests only, never by the app, never a fallback.
-// Each type has a representative `full` payload and a `sparse` payload exercising nulls / empty lists the backend may send.
+// SCHEMA TEST SAMPLES for the NWIS B2 contract — imported by tests only, never by the app, never a fallback.
+// `full` payloads are trimmed from real B2 responses (synthetic_demo seed); `sparse` payloads exercise the nulls and empty lists B2 may send.
 // Values are synthetic (dataset_origin = synthetic_demo); they are not Oil India data.
 const O = 'synthetic_demo'
 const AS_OF = '2026-09-29T16:00:00Z'
+const PAGE = { limit: 100, offset: 0, has_more: false, as_of: AS_OF }
+
+const WELL = { id: 'ACTIVE-01', name: 'ACTIVE-01', field: 'SYNTHETIC-ASSAM-DEMO', latitude: 27.4, longitude: 95.3, operator: 'Synthetic demo operator', status: 'ACTIVE',
+  spud_date: '2025-01-01', total_depth_md: 3200, current_md: 2450, as_of: AS_OF, dataset_origin: O }
+const OFF04 = { ...WELL, id: 'OFF-04', name: 'OFF-04', latitude: 27.412, longitude: 95.308, status: 'historical', current_md: null }
+const EVENT = { id: 'EVT-d425ce494054e5fa', well_id: 'OFF-04', event_type: 'stuck_pipe', start_depth_md: 2410, end_depth_md: 2415, tvd: 2410, tvdss: null, formation: 'TIPAM_A',
+  severity: 'warning', observation: 'Historical synthetic stuck_pipe reported', cause: null, mitigation: 'Engineering review and documented site procedure used',
+  outcome: 'Synthetic incident resolved', npt_hours: 2, confidence: 0.9, source_report_id: 'OFF-04-DDR', source_page: 1, source_span: null,
+  raw_phrase: 'Well: OFF-04; Event: stuck_pipe; Formation: TIPAM_A; MD: 2410.00-2415.00 m', verification_state: 'unverified', dataset_origin: O }
+const SPARSE_EVENT = { id: 'EVT-900', well_id: 'OFF-03', event_type: 'mud_loss', start_depth_md: null, end_depth_md: null, tvd: 2410, tvdss: null, formation: null, severity: null,
+  observation: null, cause: null, mitigation: null, outcome: null, npt_hours: null, confidence: null, source_report_id: 'OFF-03-DDR', source_page: null, source_span: null,
+  raw_phrase: null, verification_state: 'review_needed', dataset_origin: O }
+const HAZARD = { type: 'stuck_pipe', assessment_id: 'a1b2c3', probability: 0.7455, confidence: 0.855, trend: 'rising', historical_exposure: 0.7, live_anomaly_contribution: 0.15,
+  supporting_offset_wells: ['OFF-04', 'OFF-09'], top_factors: ['formation_match', 'historical_event_prevalence', 'live_anomaly'], evidence_ids: [EVENT.id],
+  data_quality: { analog_count: 10, offset_quality: 0.95, evidence_quality: 0.9, telemetry_available: true, telemetry_fresh: true,
+    telemetry_features: { robust_z: 3.4, persistence: 3, slope: 0.0021, count: 31 }, telemetry_mode: 'replay', depth_bases: ['tvd'], contradictory_evidence: false,
+    calibration: 'unavailable', missing: [] } }
+const SPARSE_HAZARD = { type: 'kick_or_overpressure', assessment_id: 'd4e5f6', probability: null, confidence: 0.2, trend: 'unavailable', historical_exposure: null,
+  live_anomaly_contribution: null, supporting_offset_wells: [], top_factors: [], evidence_ids: [],
+  data_quality: { analog_count: 0, telemetry_available: false, telemetry_fresh: false, calibration: 'unavailable', missing: ['analog_offsets'] } }
 
 export const SAMPLES = {
-  well: {
-    full: { id: 'ACTIVE-01', name: 'ACTIVE-01', field: 'Demo field', status: 'drilling', role: 'active', lat: 27.4, lon: 95, well_type: 'development', trajectory_type: 'deviated',
-      td_md_m: 3250, td_tvd_m: null, data_quality: 0.88, current_md_m: 2450, current_tvd_m: 2382, current_tvdss_m: 2276, current_formation: 'TIPAM_A', hole_section: '12-1/4"',
-      formations: [{ name: 'TIPAM_A', top: 2140, base: 2520, confidence: 0.86, interpreted: false }], dataset_origin: O },
-    sparse: { id: 'OFF-99', name: null, lat: null, lon: null, status: 'completed', current_tvdss_m: null, data_quality: null, formations: [{ name: 'TIPAM_B', top: null, base: 2890, confidence: null }], dataset_origin: O },
-  },
+  well: { full: WELL, sparse: { id: 'OFF-99', name: 'OFF-99', field: null, latitude: null, longitude: null, operator: null, status: 'historical', spud_date: null,
+    total_depth_md: null, current_md: null, as_of: null, dataset_origin: O } },
   nearby: {
-    full: { radius_km: 5, weights: { geographic: 0.15, formation: 0.25 }, formula: 'Σ wᵢ·componentᵢ', as_of: AS_OF, dataset_origin: O, total: 2, items: [
-      { rank: 1, distance_km: 3.1, total_score: 0.89, well: { id: 'OFF-04', lat: 27.39, lon: 95.03, dataset_origin: O },
-        components: { geographic: 0.8, formation: 0.95, depth: 0.92, trajectory: 0.85, program: 0.8, data_quality: 0.9 }, event_counts: { stuck_pipe: 1 }, formation_at_depth: 'TIPAM_A', note: null },
-      { rank: 2, distance_km: 1.1, total_score: 0.45, well: { id: 'OFF-02', lat: 27.39, lon: 95 },
-        components: { geographic: 0.95, formation: 0.22, depth: 0.3, trajectory: 0.45, program: 0.5, data_quality: 0.58 }, event_counts: {}, note: 'Across mapped fault' }] },
-    sparse: { items: [], total: 0, radius_km: 2, weights: null, as_of: AS_OF, dataset_origin: O },
+    full: { ...PAGE, items: [
+      { offset_well_id: 'OFF-04', distance_m: 1547.3, distance_km: 1.5473, geographic_score: 0.734, formation_score: 1, depth_score: 1, trajectory_score: 1, program_score: 1,
+        data_quality_score: 0.95, total_score: 0.955, depth_basis: 'tvd', weights: { geographic: 0.15, formation: 0.3, depth: 0.2, trajectory: 0.15, program: 0.1, data_quality: 0.1 },
+        algorithm_version: 'nwis-hybrid-v2', dataset_origin: O, explanation: ['1.5 km from the active well (geographic 0.73)', 'penetrated the active formation TIPAM_A'] },
+      { offset_well_id: 'OFF-02', distance_m: 773.6, distance_km: 0.7736, geographic_score: 0.857, formation_score: 1, depth_score: 1, trajectory_score: 0.744, program_score: null,
+        data_quality_score: 0.95, total_score: 0.935, depth_basis: 'tvd', weights: null, algorithm_version: 'nwis-hybrid-v2', dataset_origin: O, explanation: [] }] },
+    sparse: { ...PAGE, items: [] },
   },
   correlation: {
-    full: { well_id: 'ACTIVE-01', depth_ref: 'tvd', current_depth_m: 2382, lookahead_m: 100, lookahead_window: { top: 2382, base: 2477 }, as_of: AS_OF, dataset_origin: O,
+    full: { well_id: 'ACTIVE-01', as_of: AS_OF, dataset_origin: O, alignment_basis: 'tvd', current_bit_depth: { md: 2450, tvd: 2450, tvdss: null },
+      lookahead_window: { lookahead_m: 100, start: { md: 2450, tvd: 2450, tvdss: null }, end: { md: 2550, tvd: 2550, tvdss: null } },
+      warning: 'Formation analogs do not establish geological continuity. Missing datums remain unavailable.',
       tracks: [
-        { well_id: 'ACTIVE-01', name: 'ACTIVE-01', role: 'active', td_tvd_m: null, formations: [{ name: 'TIPAM_A', top: 2140, base: 2520, confidence: 0.86 }], casing: [{ size: '13-3/8"', depth: 1100 }], events: [] },
-        { well_id: 'OFF-04', role: 'offset', td_tvd_m: 3070, formations: [{ name: 'TIPAM_A', top: 2130, base: 2510, confidence: 0.86 }],
-          events: [{ id: 'EVT-102', type: 'stuck_pipe', depth: 2455, severity: 'high', confidence: 0.91, verification: 'verified', summary: 'String stuck after connection.' }] }] },
-    sparse: { depth_ref: 'tvd', current_depth_m: null, lookahead_window: null, dataset_origin: O,
-      tracks: [{ well_id: 'OFF-03', formations: [{ name: 'TIPAM_B', top: null, base: null, confidence: null, interpreted: true }], events: [{ id: 'EVT-117', type: 'stuck_pipe', depth: null }] }] },
+        { well: WELL, is_active: true, formations: [{ interval_id: 'ACTIVE-01-F2', formation: 'TIPAM_A', top: 2300, base: 2800, confidence: 0.95, source: 'synthetic formation table', alignment_available: true }],
+          events: [], casing_points: null },
+        { well: OFF04, is_active: false, formations: [{ interval_id: 'OFF-04-F2', formation: 'TIPAM_A', top: 2300, base: 2800, confidence: 0.95, source: 'synthetic formation table', alignment_available: true }],
+          events: [EVENT], casing_points: [{ md: 1100, tvd: 1100, tvdss: null, size_in: 13.375, source: 'WCR' }] }] },
+    sparse: { well_id: 'ACTIVE-01', as_of: AS_OF, dataset_origin: O, alignment_basis: 'md', current_bit_depth: { md: null, tvd: null, tvdss: null },
+      lookahead_window: { lookahead_m: 100, start: { md: null, tvd: null, tvdss: null }, end: { md: null, tvd: null, tvdss: null } }, warning: null,
+      tracks: [{ well: { ...OFF04, id: 'OFF-03', name: 'OFF-03' }, is_active: false,
+        formations: [{ interval_id: 'OFF-03-F3', formation: 'TIPAM_B', top: null, base: null, confidence: null, alignment_available: false }], events: [SPARSE_EVENT], casing_points: null }] },
   },
-  event: {
-    full: { id: 'EVT-102', well_id: 'OFF-04', type: 'stuck_pipe', raw_observation: 'String stuck at 2,529 m MD after connection.', depth_md_m: 2529, depth_tvd_m: 2455, formation: 'TIPAM_A',
-      severity: 'high', npt_hours: 14, mitigation: 'Pipe-release pill, jarring.', outcome: 'Freed after 9 h.', confidence: 0.91, verification: 'verified',
-      source: { report_id: 'DDR-OFF04-2019-07-13', report_type: 'DDR', page: 2, title: 'Daily Drilling Report' }, dataset_origin: O },
-    sparse: { id: 'EVT-900', well_id: 'OFF-03', type: 'mud_loss', raw_observation: null, depth_md_m: null, depth_tvd_m: 2410, formation: null, severity: null,
-      npt_hours: null, mitigation: null, outcome: null, confidence: null, verification: 'needs_review', source: { report_id: 'DDR-OFF03', page: null }, dataset_origin: O },
-  },
+  event: { full: EVENT, sparse: SPARSE_EVENT },
   risk: {
-    full: { well_id: 'ACTIVE-01', as_of: AS_OF, current_md_m: 2450, formation: 'TIPAM_A', lookahead_m: 100, window_md_m: { top: 2450, base: 2550 }, model_version: 'hybrid-0.1', dataset_origin: O,
-      hazards: [{ type: 'stuck_pipe', probability: 0.72, confidence: 0.78, trend: 'rising', trend_series: [{ md_m: 2440, probability: 0.67 }, { md_m: 2450, probability: 0.72 }],
-        supporting_offset_wells: ['OFF-04', 'OFF-09'], top_factors: ['formation_match'], evidence_ids: ['EVT-102'], evidence_count: 1,
-        historical_contribution: 0.64, telemetry_contribution: 0.36, data_freshness_s: 20, telemetry_features: ['Torque +21%'], missing_evidence: [], confidence_explanation: 'Two analogs.', advisory_id: 'ADV-0012' }],
-      evidence: [] },
-    sparse: { as_of: AS_OF, lookahead_m: 150, dataset_origin: O,
-      hazards: [{ type: 'kick_or_overpressure', probability: null, confidence: null }] },
+    full: { well_id: 'ACTIVE-01', as_of: AS_OF, current_md_m: 2450, current_tvd_m: 2450, formation: 'TIPAM_A', lookahead_m: 100, model_version: 'nwis-hybrid-v2',
+      calibrated: false, advisory_only: true, dataset_origin: O, hazards: [HAZARD] },
+    sparse: { well_id: 'ACTIVE-01', as_of: AS_OF, current_md_m: null, current_tvd_m: null, formation: null, lookahead_m: 150, model_version: 'nwis-hybrid-v2',
+      calibrated: false, advisory_only: true, dataset_origin: O, hazards: [SPARSE_HAZARD] },
+  },
+  assessment: {
+    full: { assessment_id: HAZARD.assessment_id, well_id: 'ACTIVE-01', as_of: AS_OF, current_md_m: 2450, formation: 'TIPAM_A', lookahead_m: 100, model_version: 'nwis-hybrid-v2',
+      dataset_origin: O, hazard: HAZARD, evidence: [{ event: EVENT, event_at_assessment: EVENT, evidence_chunk_id: null, contribution: 0.12, reason: 'offset analog at equivalent TVD',
+        source_sha256: 'abc', source_sha256_at_assessment: 'abc', source_url: '/api/reports/OFF-04-DDR/source#page=1' }] },
+    sparse: { assessment_id: 'd4e5f6', well_id: 'ACTIVE-01', as_of: AS_OF, current_md_m: null, formation: null, lookahead_m: 150, model_version: 'nwis-hybrid-v2',
+      dataset_origin: O, hazard: SPARSE_HAZARD, evidence: [] },
   },
   telemetry: {
-    full: { well_id: 'ACTIVE-01', mode: 'replay', source: 'synthetic_replay', adapter: 'replay', as_of: AS_OF, stale_after_s: 120, dataset_origin: O,
-      channels: [{ mnemonic: 'TORQUE', label: 'Torque', unit: 'kN·m', quality: 'ok' }, { mnemonic: 'PIT', label: 'Pit volume', unit: 'm3', quality: 'missing' }],
-      samples: [{ t: '2026-09-29T15:59:00Z', md_m: 2449, values: { TORQUE: 15.2, PIT: null } }, { t: AS_OF, md_m: 2450, values: { TORQUE: 18.9 } }] },
-    sparse: { mode: 'replay', as_of: null, dataset_origin: O, channels: [], samples: [] },
+    full: { ...PAGE, as_of: AS_OF, dataset_origin: O, source_mode: 'replay', window_start: '2026-09-29T15:00:00Z', window_end: AS_OF, freshness_reference: AS_OF, stale_after_seconds: 300,
+      items: [
+        { well_id: 'ACTIVE-01', timestamp: '2026-09-29T15:59:00Z', channel: 'torque', md: 2449, tvd: 2449, value: 15.2, unit: 'kN.m', quality: 'good', dataset_origin: O },
+        { well_id: 'ACTIVE-01', timestamp: AS_OF, channel: 'torque', md: 2450, tvd: 2450, value: 18.9, unit: 'kN.m', quality: 'good', dataset_origin: O },
+        { well_id: 'ACTIVE-01', timestamp: AS_OF, channel: 'pit_volume', md: 2450, tvd: 2450, value: null, unit: 'm3', quality: 'missing', dataset_origin: O }],
+      channels: [{ channel: 'torque', known: true, unit: 'kN.m', sample_count: 2, value_count: 2, state: 'fresh' },
+        { channel: 'pit_volume', known: true, unit: 'm3', sample_count: 1, value_count: 0, state: 'unavailable' }] },
+    sparse: { ...PAGE, as_of: null, dataset_origin: O, source_mode: 'replay', window_start: null, window_end: null, freshness_reference: null, stale_after_seconds: 300, items: [], channels: [] },
   },
   query: {
-    full: { mode: 'nwis_evidence', summary: null, citations: [], dataset_origin: O, results: [
-      { kind: 'event', title: 'EVT-102 · stuck_pipe', excerpt: 'String stuck…', well_id: 'OFF-04', event_id: 'EVT-102', report_id: 'DDR-OFF04-2019-07-13', page: 2, depth_tvd_m: 2455, formation: 'TIPAM_A', confidence: 0.91, verification: 'verified' },
-      { kind: 'report', title: 'Well Completion Report · OFF-04', report_id: 'WCR-OFF04', page: null, well_id: 'OFF-04' }] },
-    sparse: { mode: 'nwis_evidence', results: [] },
+    full: { mode: 'nwis_evidence', execution_id: '00000000-0000-4000-8000-000000000001', status: 'completed', answer: 'Two cited stuck-pipe events in TIPAM_A.',
+      evidence: [EVENT, { ...EVENT, id: 'EVT-2', source_page: null }], offsets: [], risk: null, warnings: [], model_route: 'deterministic', as_of: AS_OF, dataset_origin: O },
+    sparse: { mode: 'nwis_evidence', execution_id: '00000000-0000-4000-8000-000000000002', status: 'refused', answer: 'NWIS answers drilling-evidence questions only.',
+      evidence: [], offsets: [], risk: null, warnings: ['out_of_scope'], model_route: 'deterministic', as_of: AS_OF, dataset_origin: O },
   },
   advisory: {
-    full: { id: 'ADV-0012', well_id: 'ACTIVE-01', hazard: 'stuck_pipe', status: 'open', severity: 'warning', probability: 0.72, confidence: 0.78, lookahead_m: 100,
-      interval_md_m: { top: 2450, base: 2550 }, formation: 'TIPAM_A', created_at: AS_OF, evidence_ids: ['EVT-102'], summary: 'Two verified analogs…',
-      historical_response: ['OFF-04: pipe-release pill'], model_route: 'template', reviews: [{ reviewer: 'engineer', at: AS_OF, decision: 'acknowledge', feedback: 'useful', note: 'Seen.' }], dataset_origin: O },
-    sparse: { id: 'ADV-0099', hazard: 'mud_loss', status: 'open', probability: null, confidence: null, interval_md_m: null, evidence_ids: [], summary: null, reviews: [] },
+    full: { id: 'ADV-1', assessment_id: HAZARD.assessment_id, text: 'Sustained stuck-pipe exposure in the next 100 m; cited analogs OFF-04, OFF-09.', status: 'acknowledged',
+      reviewer: '5f0c1d7e-0000-4000-8000-000000000000', reviewed_at: AS_OF, feedback: 'Seen; hole cleaning checked.', model_route: 'template', dataset_origin: O, created_at: AS_OF },
+    sparse: { id: 'ADV-2', assessment_id: 'd4e5f6', text: 'Advisory text.', status: 'pending_review', reviewer: null, reviewed_at: null, feedback: null, model_route: 'template',
+      dataset_origin: O, created_at: AS_OF },
   },
   audit: {
-    full: [{ id: 1, sequence_number: 5007, event_type: 'ALERT_ACKNOWLEDGED', occurred_at: AS_OF, actor_id: 'engineer', actor_kind: 'user', details: { advisory_id: 'ADV-0012', source_path: 'C:\\data\\x.pdf' } }],
-    sparse: { items: [{ sequence_number: 1, event_type: 'RISK_ASSESSMENT', occurred_at: null, actor_id: null, details: null }], total: 1 },
+    full: { ...PAGE, items: [{ id: '882fd695', chain_id: 'workbench-governance-v1', sequence_number: 7, occurred_at: AS_OF, actor_id: 'bc9b07bc', actor_kind: 'user',
+      event_type: 'PRODUCT_INTEGRATION_EVENT', payload: { action: 'advisory_review', product: 'SIH26121', advisory_id: 'ADV-1', status: 'acknowledged', source_path: 'C:\\data\\x.pdf' } }] },
+    sparse: { ...PAGE, items: [{ id: 'x', sequence_number: 1, occurred_at: AS_OF, actor_id: null, actor_kind: null, event_type: 'PRODUCT_INTEGRATION_EVENT', payload: null }] },
   },
 }
 

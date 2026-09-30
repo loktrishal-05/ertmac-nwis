@@ -1,9 +1,9 @@
 import { Suspense, lazy, useState } from 'react'
 import { Link } from 'react-router'
 import { PageHeader } from '../../../components/ui.jsx'
-import { HAZARDS, PRIMARY_HAZARDS, eventMatrix, fmtAge, fmtKm, fmtM, fmtPct, fmtScore, freshness, hazardLabel, humanize, listOf, paths } from '../nwisModel.js'
+import { PRIMARY_HAZARDS, eventMatrix, fmtKm, fmtM, fmtPct, fmtScore, hazardLabel, humanize, listOf, paths } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
-import { useEventsFor, useNearby, useNow, useNwisResource, useRisk } from '../hooks.js'
+import { useEventsFor, useNearby, useNwisResource, useRisk } from '../hooks.js'
 import { adaptAdvisoryList, adaptTelemetry } from '../adapters.js'
 import { DataQualityBadge, DrillingEventChip, NwisState, OffsetScoreBreakdown, RiskCard, SyntheticDataBadge, WellContextBar } from '../components.jsx'
 
@@ -25,10 +25,8 @@ export function DashboardPage() {
   const advisories = useNwisResource(wellId ? paths.advisories({ well_id: wellId }) : null, adaptAdvisoryList)
   const telemetry = useNwisResource(wellId ? paths.telemetry(wellId, { window_s: 600 }) : null, adaptTelemetry)
   const offsetIds = nearby.offsets.map(o => o.id)
-  const history = useEventsFor(offsetIds.length ? offsetIds : null, { limit: 500 })
+  const history = useEventsFor(offsetIds.length ? offsetIds : null)
   const usable = nearby.offsets.filter(o => (o.total ?? 0) >= 0.55)
-  const now = useNow()
-  const fresh = freshness(telemetry.data?.as_of, now, telemetry.data?.stale_after_s)
   const matrix = eventMatrix(history.events)
   const verified = history.events.filter(e => e.verification === 'verified').length
   const unassigned = history.events.filter(e => !e.formation).length
@@ -70,13 +68,14 @@ export function DashboardPage() {
         <Panel title="Recent alerts" data={advisories.data} action={<Link className="button ghost" to="/app/advisories">Advisories</Link>}>
           <NwisState request={advisories} what="advisories" empty={advisories.data && !listOf(advisories.data).length ? 'No alerts for this well' : undefined} />
           <ul className="nw-alert-list">{listOf(advisories.data).slice(0, 4).map(a => <li key={a.id}>
-            <Link to={`/app/advisories?id=${encodeURIComponent(a.id)}`}><DrillingEventChip type={a.hazard} /></Link>
-            <span className="nw-status" data-status={a.status}>{humanize(a.status)}</span><span className="muted small">{fmtPct(a.probability)} · {a.created_at ? new Date(a.created_at).toLocaleTimeString() : ''}</span></li>)}</ul>
+            <Link to={`/app/advisories?id=${encodeURIComponent(a.id)}`} title={a.id}>Advisory {a.id.slice(0, 12)}</Link>
+            <span className="nw-status" data-status={a.status}>{humanize(a.status)}</span><span className="muted small">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</span>
+            {a.text && <span className="small nw-alert-text">{a.text.slice(0, 140)}{a.text.length > 140 ? '…' : ''}</span>}</li>)}</ul>
         </Panel>
         <Panel title="Data quality" data={well}>
           <dl className="nw-quality">
             <div><dt>Active-well record</dt><dd><DataQualityBadge value={well?.data_quality} /></dd></div>
-            <div><dt>Telemetry freshness</dt><dd>{telemetry.error ? <span className="nw-status" data-status="stale">Unavailable</span> : telemetry.data ? <span className="nw-status" data-status={fresh.state}>{humanize(fresh.state)} · {fmtAge(fresh.ageS)}</span> : '—'}{telemetry.data?.mode && <span className="nw-badge nw-replay">{String(telemetry.data.mode).toUpperCase()}</span>}</dd></div>
+            <div><dt>Telemetry freshness</dt><dd>{telemetry.error ? <span className="nw-status" data-status="stale">Unavailable</span> : telemetry.data ? <span className="nw-status" data-status={telemetry.data.state === 'fresh' ? 'fresh' : 'stale'}>{humanize(telemetry.data.state)} at {telemetry.data.as_of ? new Date(telemetry.data.as_of).toLocaleString() : '—'}</span> : '—'}{telemetry.data?.mode && <span className="nw-badge nw-replay">{String(telemetry.data.mode).toUpperCase()}</span>}</dd></div>
             <div><dt>Offset events verified</dt><dd>{history.events.length ? `${verified} of ${history.events.length} (${fmtPct(verified / history.events.length)})` : '—'}</dd></div>
             <div><dt>Missing formation mappings</dt><dd>{history.events.length ? unassigned : '—'}</dd></div>
           </dl>
@@ -84,7 +83,7 @@ export function DashboardPage() {
       </div>
 
       <Panel title="Historical events by formation and hazard" data={history.request.data} action={<Link className="button ghost" to="/app/events">Drilling events</Link>}>
-        <p className="muted small">Events recorded in the offset wells currently within {radiusKm} km.</p>
+        <p className="muted small">Events recorded in the offset wells currently within {radiusKm} km.{history.request.data?.has_more ? ' Only the first 100 events were returned; counts are partial.' : ''}</p>
         <NwisState request={history.request} what="historical events" empty={history.request.data && !history.events.length ? 'No historical events recorded for these offsets' : undefined} />
         {history.events.length > 0 && <div className="table-scroll" tabIndex={0} role="region" aria-label="Event distribution"><table className="nw-matrix">
           <thead><tr><th scope="col">Formation</th>{matrix.types.map(t => <th key={t} scope="col">{hazardLabel(t)}</th>)}<th scope="col">Total</th></tr></thead>
@@ -97,30 +96,16 @@ export function DashboardPage() {
   </>
 }
 
-const FILTERS = {
-  hazard: Object.keys(HAZARDS),
-  well_type: ['development', 'exploratory'],
-  trajectory_type: ['vertical', 'deviated', 'J-shape', 'S-shape', 'horizontal'],
-}
-
 export function MapPage() {
   const { well, radiusKm, toggle, compare } = useNwis()
-  const [filters, setFilters] = useState({})
   const [selected, setSelected] = useState(null)
-  const nearby = useNearby({ filters })
+  const nearby = useNearby()
   const choice = nearby.offsets.find(o => o.id === selected) || null
-  const formations = (well?.formations || []).map(f => f.name)
-  const update = (key, value) => setFilters(current => ({ ...current, [key]: value || undefined }))
+  const closest = nearby.offsets.reduce((a, b) => (a == null || (b.distanceKm ?? Infinity) < (a.distanceKm ?? Infinity) ? b : a), null)
   return <>
     <PageHeader title="Nearby wells map" description="The backend runs the radius query and scores each offset; the map draws its result. Select a well to open its offset context." />
     <WellContextBar radius />
-    <form className="nw-filters" onSubmit={event => event.preventDefault()} aria-label="Offset filters">
-      <label>Formation<select value={filters.formation || ''} onChange={e => update('formation', e.target.value)}><option value="">Any</option>{formations.map(f => <option key={f}>{f}</option>)}</select></label>
-      <label>Hazard history<select value={filters.hazard || ''} onChange={e => update('hazard', e.target.value)}><option value="">Any</option>{FILTERS.hazard.map(h => <option key={h} value={h}>{hazardLabel(h)}</option>)}</select></label>
-      <label>Well type<select value={filters.well_type || ''} onChange={e => update('well_type', e.target.value)}><option value="">Any</option>{FILTERS.well_type.map(v => <option key={v} value={v}>{humanize(v)}</option>)}</select></label>
-      <label>Trajectory<select value={filters.trajectory_type || ''} onChange={e => update('trajectory_type', e.target.value)}><option value="">Any</option>{FILTERS.trajectory_type.map(v => <option key={v}>{v}</option>)}</select></label>
-      <label>Min data quality<select value={filters.min_quality || ''} onChange={e => update('min_quality', e.target.value)}><option value="">Any</option><option value="0.5">≥ 0.50</option><option value="0.75">≥ 0.75</option></select></label>
-    </form>
+    {closest && nearby.offsets[0] && closest.id !== nearby.offsets[0].id && <p className="nw-callout-inline"><strong>{closest.id}</strong> is the closest well ({fmtKm(closest.distanceKm)}) but <strong>{nearby.offsets[0].id}</strong> ({fmtKm(nearby.offsets[0].distanceKm)}) ranks first on similarity. <Link to="/app/offset-analysis">Compare component scores</Link></p>}
     <div className="nw-map-layout">
       <section className="panel nw-panel nw-map-panel" aria-label="Map">
         {well ? <Suspense fallback={<MapFallback />}><NearbyMap center={{ id: well.id, label: well.name, lat: well.lat, lon: well.lon }} offsets={nearby.offsets} radiusKm={radiusKm} selectedId={selected} onSelect={setSelected} /></Suspense>
@@ -129,11 +114,11 @@ export function MapPage() {
       <aside className="panel nw-panel nw-offset-detail" aria-live="polite" aria-label="Selected offset">
         {choice ? <>
           <div className="section-heading"><h2>{choice.id}</h2><span className="nw-rank">#{choice.rank}</span></div>
-          <p className="muted small">{fmtKm(choice.distanceKm)} from {well?.name} · total score <strong>{fmtScore(choice.total)}</strong> · {choice.well.trajectory_type} · TD {fmtM(choice.well.td_md_m)} MD</p>
-          <p><DataQualityBadge value={choice.well.data_quality} /> {choice.formationAtDepth && <span className="nw-badge">At active TVD: {choice.formationAtDepth}</span>}</p>
+          <p className="muted small">{fmtKm(choice.distanceKm)} from {well?.name} · similarity <strong>{fmtScore(choice.total)}</strong> · depth basis {choice.depthBasis?.toUpperCase() ?? '—'} · TD {fmtM(choice.well.td_md_m)} MD</p>
+          <p><DataQualityBadge value={choice.components.data_quality} /></p>
+          {choice.explanation.length > 0 && <ul className="nw-explain">{choice.explanation.map(line => <li key={line}>{line}</li>)}</ul>}
           {choice.note && <p className="nw-note">{choice.note}</p>}
           <OffsetScoreBreakdown offset={choice} weights={nearby.request.data?.weights} />
-          <p className="nw-chips">{Object.entries(choice.eventCounts).map(([type, count]) => <DrillingEventChip key={type} type={type}> ×{count}</DrillingEventChip>)}{!Object.keys(choice.eventCounts).length && <span className="muted small">No historical events recorded.</span>}</p>
           <div className="toolbar"><Link className="button" to={`/app/wells/${encodeURIComponent(choice.id)}`}>Open well</Link>
             <button type="button" aria-pressed={compare.includes(choice.id)} onClick={() => toggle('compare', choice.id, 4)}>{compare.includes(choice.id) ? 'In comparison' : 'Add to comparison'}</button>
             <Link className="button ghost" to="/app/correlation">Correlation</Link></div>
@@ -143,9 +128,9 @@ export function MapPage() {
     <section className="panel nw-panel"><div className="section-heading"><h2>Offsets returned for {radiusKm} km</h2><span className="nw-panel-meta"><SyntheticDataBadge data={nearby.request.data} /></span></div>
       <NwisState request={nearby.request} what="nearby offsets" empty={nearby.request.data && !nearby.offsets.length ? 'No offset wells match this radius and these filters' : undefined} />
       {nearby.offsets.length > 0 && <div className="table-scroll" tabIndex={0} role="region" aria-label="Nearby offset wells"><table>
-        <thead><tr><th>Rank</th><th>Well</th><th>Distance</th><th>Total score</th><th>Trajectory</th><th>Events</th><th>Data quality</th><th><span className="visually-hidden">Select</span></th></tr></thead>
+        <thead><tr><th>Rank</th><th>Well</th><th>Distance</th><th>Total score</th><th>Trajectory similarity</th><th>Events</th><th>Data quality</th><th><span className="visually-hidden">Select</span></th></tr></thead>
         <tbody>{nearby.offsets.map(o => <tr key={o.id} aria-selected={o.id === selected}><td className="num">{o.rank}</td><td>{o.id}</td><td className="num">{fmtKm(o.distanceKm)}</td><td className="num">{fmtScore(o.total)}</td>
-          <td>{o.well.trajectory_type || '—'}</td><td className="num">{Object.values(o.eventCounts).reduce((a, b) => a + b, 0)}</td><td><DataQualityBadge value={o.well.data_quality} /></td>
+          <td className="num">{fmtScore(o.components.trajectory)}</td><td className="num">{o.eventCounts ? Object.values(o.eventCounts).reduce((a, b) => a + b, 0) : '—'}</td><td><DataQualityBadge value={o.components.data_quality} /></td>
           <td><button type="button" className="ghost" aria-pressed={o.id === selected} onClick={() => setSelected(o.id)}>Select</button></td></tr>)}</tbody></table></div>}
     </section>
   </>
