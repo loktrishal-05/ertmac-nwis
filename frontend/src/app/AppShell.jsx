@@ -23,6 +23,9 @@ function useTheme() {
   return [theme, () => setTheme(value => value === 'dark' ? 'light' : 'dark')]
 }
 
+// Self-service accounts get a generated internal username (acct_…); people see their name or email instead.
+const accountName = user => user?.display_name || user?.email || user?.username || ''
+
 export default function AppShell() {
   const session = useSession()
   const navigate = useNavigate()
@@ -106,9 +109,9 @@ export default function AppShell() {
         <button type="button" className="icon-button" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
           <Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
         <details className="user-menu" ref={menu}>
-          <summary aria-label="Account menu"><Icon name="user" /><span className="user-name">{session.user?.username}</span></summary>
+          <summary aria-label="Account menu"><Icon name="user" /><span className="user-name">{accountName(session.user)}</span></summary>
           <div className="menu-panel">
-            <p><strong>{session.user?.username}</strong><br /><span className="muted">Server role: {role}</span></p>
+            <p><strong>{accountName(session.user)}</strong>{session.user?.email && <><br /><span className="muted">{session.user.email}</span></>}<br /><span className="muted">Server role: {role}</span></p>
             <Link to="/app/profile">Profile</Link>
             <button type="button" onClick={signOut}>Sign out</button>
             {session.error && <p role="alert">Sign-out failed. {session.error.message}</p>}

@@ -25,7 +25,7 @@ export async function apiRequest(path, { signal, method = 'GET', body, timeout =
     const data = await response.json().catch(() => null)
     if (!response.ok) {
       const detail = data?.detail
-      const message = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(item => item.msg).join(' ') : `Request failed (${response.status})`
+      const message = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(item => String(item.msg ?? '').replace(/^(Value|Assertion) error, /, '')).join(' ') : `Request failed (${response.status})`
       const error = new Error(message)
       error.status = response.status
       error.data = data

@@ -21,7 +21,7 @@
 .tag-bubble { position: absolute; left: clamp(-2px, calc(2.4vw - 12px), 24px); top: var(--space-9); display: grid; place-items: center; width: 48px; height: 48px; border: 1.5px solid var(--ai-cyan); border-radius: 50%; background: var(--brand-navy); color: #8fe3f0; font: 700 10px/1.1 var(--font-mono); letter-spacing: 0.02em; text-align: center; }
 .tag-bubble span:first-child { border-bottom: 1px solid currentColor; padding-bottom: 2px; }
 .story, .hero { position: relative; min-height: 100vh; padding: var(--space-9) clamp(var(--space-6), 8vw, 9rem); }
-.story:not(.correlation) { min-height: 72vh; }
+.story:not(.correlation, .sources, .unify, .workflow) { min-height: 72vh; } /* Pinned scenes keep a full screen; the rest avoid dead scroll. */
 .story-copy { max-width: 640px; }
 .story h2 { font: 700 var(--fs-3xl)/1.05 var(--font-brand); font-stretch: 108%; letter-spacing: -0.025em; text-wrap: balance; }
 .story p { color: var(--text-muted); font-size: var(--fs-lg); }
@@ -40,8 +40,8 @@ figcaption { max-width: 65ch; margin-top: var(--space-2); color: var(--text-fain
   /* Portrait crops land on the film's mid band, where generated labels sit: keep it a soft ambient texture on phones. */
   .hero-video { object-position: 58% 50%; transform: scale(1.12); filter: blur(6px) brightness(0.85); } }
 .hero-logo { width: 72px; height: 72px; filter: drop-shadow(0 0 22px rgba(53, 215, 232, 0.35)); }
-.film-toggle { position: absolute; right: clamp(var(--space-4), 4vw, var(--space-7)); bottom: 24px; z-index: 3; border-color: rgba(255, 255, 255, 0.22); background: rgba(2, 14, 33, 0.55); color: #e6eef7; }
-.hero-copy { position: relative; z-index: 2; display: grid; justify-items: start; gap: var(--space-5); max-width: min(44rem, 50vw); }
+.film-toggle { position: absolute; right: clamp(var(--space-4), 4vw, var(--space-7)); bottom: 24px; z-index: 4; border-color: rgba(255, 255, 255, 0.22); background: rgba(2, 14, 33, 0.55); color: #e6eef7; }
+.hero-copy { position: relative; z-index: 3; display: grid; justify-items: start; gap: var(--space-5); max-width: min(44rem, 50vw); }
 .hero-kicker { margin: 0; color: #8fe3f0 !important; font: 700 var(--fs-xs) var(--font-mono) !important; letter-spacing: 0.14em; text-transform: uppercase; }
 .hero-title { margin: 0; color: #f5f9fe; font: 700 clamp(2.8rem, 5vw, 5rem)/1 var(--font-brand); font-stretch: 110%; letter-spacing: -0.035em; }
 .hero-title em { color: #8fe3f0; font-style: normal; }
@@ -216,3 +216,72 @@ figcaption { max-width: 65ch; margin-top: var(--space-2); color: var(--text-fain
 .landing.motion .plan-figure:not(.is-shown) .plan-well { opacity: 0; }
 .plan-well { transition: opacity 0.6s var(--ease-out); }
 .plan-well:nth-of-type(2) { transition-delay: 0.08s; } .plan-well:nth-of-type(3) { transition-delay: 0.16s; } .plan-well:nth-of-type(4) { transition-delay: 0.24s; } .plan-well:nth-of-type(5) { transition-delay: 0.32s; } .plan-well:nth-of-type(6) { transition-delay: 0.4s; }
+
+/* ── Cinematic layer ─────────────────────────────────────────────────────────────────────────────────────────────
+   Hero: the approved film stays as a dim subsurface backdrop; the NWIS symbol assembles from GPU dots above it. */
+.hero .hero-video { opacity: 0.32; }
+.hero-canvas { position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%; pointer-events: none; }
+.hero-mark { position: absolute; right: 8vw; top: 22vh; z-index: 2; width: min(34vw, 440px); height: auto; filter: drop-shadow(0 0 40px rgba(53, 215, 232, 0.35)); pointer-events: none; }
+@media (max-width: 900px) { .hero-mark { left: 50%; right: auto; top: 11vh; width: min(58vw, 300px); transform: translateX(-50%); } }
+
+/* Five knowledge sources, scattered: cards drift and tilt apart on scroll (pinned on desktop). */
+.sources { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: var(--space-7); min-height: 100vh; }
+.stat { font-size: var(--fs-md) !important; } .stat .fact-num { font: 700 var(--fs-2xl) var(--font-brand); }
+.source-field { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.source-card { padding: var(--space-4); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-top-color: color-mix(in srgb, var(--accent) 85%, transparent); border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.7), 0 0 26px -12px var(--accent); will-change: transform; }
+.source-card:nth-child(5) { grid-column: 1 / -1; justify-self: center; width: 60%; }
+.source-card header { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); font-weight: 700; }
+.source-card .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.source-card footer { margin-top: var(--space-2); color: var(--text-faint); font-size: var(--fs-xs); }
+.source-card code { color: #cbd8e8; font: 600 var(--fs-xs) var(--font-mono); }
+.source-card svg { width: 100%; height: 56px; fill: none; stroke: var(--accent); stroke-width: 2; }
+.source-card svg rect { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke-width: 1; }
+.source-card svg text { fill: #cbd8e8; stroke: none; font: 600 10px var(--font-mono); }
+.source-card svg circle { fill: var(--accent); stroke: none; }
+.doc-lines { display: grid; gap: 6px; margin: 0 0 var(--space-2); } .doc-lines span { height: 6px; border-radius: 3px; background: rgba(128, 176, 232, 0.2); } .doc-lines span:nth-child(2n) { width: 70%; }
+.ticket { margin: 0; color: #e8eff8 !important; font-size: var(--fs-sm) !important; }
+
+/* One offset-well memory: the canvas ring with the NWIS core (logo + words) inside it. */
+.unify { display: grid; place-items: center; min-height: 100vh; padding: 0; overflow: hidden; text-align: center; }
+.unify-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.unify-copy { position: absolute; top: var(--space-8); left: 50%; z-index: 2; width: min(92vw, 720px); transform: translateX(-50%); }
+.unify-core { --core: 1; position: relative; top: 6vh; z-index: 1; display: grid; justify-items: center; gap: 4px; opacity: var(--core); transform: scale(calc(0.7 + var(--core) * 0.3)); pointer-events: none; }
+.unify-core img { width: clamp(72px, 9vw, 112px); height: auto; filter: drop-shadow(0 0 28px rgba(53, 215, 232, 0.5)); }
+.unify-core strong { color: #f5f9fe; font: 800 clamp(1.1rem, 1.6vw, 1.5rem)/1 var(--font-brand); letter-spacing: 0.08em; }
+.unify-core span { color: #8fe3f0; font: 600 var(--fs-xs) var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.unify-notes { position: absolute; bottom: var(--space-8); left: 50%; z-index: 2; display: grid; gap: var(--space-3); width: min(90vw, 640px); transform: translateX(-50%); }
+.landing.motion .unify-notes > * { grid-area: 1 / 1; } /* Cross-fade in place; without motion they simply stack. */
+.unify-note { margin: 0; color: #f2f7fc !important; font-size: var(--fs-xl) !important; font-weight: 600; }
+
+/* Find · Rank · Align · Assess · Review: a filling rail lights each station in turn. */
+.workflow { display: grid; align-content: center; gap: var(--space-6); min-height: 100vh; }
+.flow-track { height: 2px; background: rgba(128, 176, 232, 0.15); }
+.flow-progress { display: block; height: 100%; width: calc(var(--flow, 1) * 100%); background: linear-gradient(90deg, var(--ai-cyan), var(--ai-green)); box-shadow: 0 0 12px rgba(53, 215, 232, 0.6); }
+.stations { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.station { padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); transition: opacity var(--dur-slow), border-color var(--dur-slow), transform var(--dur-slow) var(--ease-out), box-shadow var(--dur-slow); }
+.landing.motion .station:not(.is-active) { opacity: 0.35; transform: translateY(10px); }
+.station.is-active { border-color: rgba(53, 215, 232, 0.6); box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.8), 0 0 24px -12px rgba(53, 215, 232, 0.7); }
+.station-index { color: var(--ai-cyan); font: 700 var(--fs-sm) var(--font-mono); }
+.station h3 { margin: var(--space-2) 0; }
+.station p { margin: 0; font-size: var(--fs-sm) !important; }
+
+/* Section choreography helpers. */
+.trace-scan { stroke: #8fe3f0; stroke-width: 1.5; opacity: 0; filter: drop-shadow(0 0 4px #35d7e8); }
+.plan-sweep { transform-origin: 0 0; animation: plan-sweep 5.5s linear infinite; pointer-events: none; }
+.plan-sweep path { fill: rgba(53, 215, 232, 0.08); stroke: rgba(53, 215, 232, 0.35); stroke-width: 1; }
+@keyframes plan-sweep { to { transform: rotate(360deg); } }
+.landing.motion .plan-figure:not(.is-shown) .plan-sweep { opacity: 0; }
+.risk-num { font-variant-numeric: tabular-nums; }
+.quote-text .char { display: inline; }
+.topology { position: relative; }
+.topology .node { position: relative; z-index: 1; }
+.topo-links { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.topo-link { fill: none; stroke: rgba(53, 215, 232, 0.45); stroke-width: 1.2; stroke-dasharray: 1; }
+@media (prefers-reduced-motion: reduce) { .plan-sweep { animation: none; opacity: 0; } }
+@media (max-width: 1024px) {
+  .sources { grid-template-columns: 1fr; }
+  .stations { grid-template-columns: 1fr; }
+  .source-field { grid-template-columns: 1fr; } .source-card:nth-child(5) { width: 100%; }
+}
+.trace-line { stroke-dasharray: 1; } /* pathLength=1: the scrubbed dashoffset draws the trace behind the scan line */

@@ -83,6 +83,15 @@
 .policy-checklist li.ok { color: #7fe3b4; }
 .auth-card button.primary { width: 100%; min-height: 48px; border-radius: 12px; background: #eaf6fb; color: #031226; font-size: var(--fs-md); }
 .auth-card button.primary:hover:not(:disabled) { background: #ffffff; }
+.auth-divider { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-4) 0; color: #8ea3bb; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.12em; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(201, 217, 234, 0.18); }
+.auth-card .google-button { display: flex; align-items: center; justify-content: center; gap: var(--space-3); width: 100%; min-height: 48px; border: 1px solid rgba(201, 217, 234, 0.28); border-radius: 12px; background: rgba(255, 255, 255, 0.04); color: #eef6fb; font-weight: 600; text-decoration: none; }
+.auth-card .google-button:hover { border-color: rgba(201, 217, 234, 0.55); background: rgba(255, 255, 255, 0.08); }
+.auth-card .auth-links button.ghost { min-height: 0; padding: 0; border: 0; background: none; color: #c9d9ea; font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; }
+.auth-card .auth-links button.ghost:disabled { color: #8ea3bb; text-decoration: none; }
+.auth-success { display: grid; gap: var(--space-4); padding: var(--space-4); border: 1px solid rgba(47, 224, 164, 0.4); border-radius: 12px; background: rgba(47, 224, 164, 0.08); color: #d7f7ec; }
+.auth-success p { margin: 0; }
+.auth-success .button.primary { justify-self: start; min-height: 44px; padding: 0 var(--space-6); border-radius: 12px; background: #eaf6fb; color: #031226; }
 .auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-5); font-size: var(--fs-sm); }
 .auth-links a { color: #c9d9ea; text-decoration-color: rgba(201, 217, 234, 0.4); text-underline-offset: 3px; }
 .auth-links a:hover { color: #fff; }

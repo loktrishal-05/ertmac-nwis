@@ -61,11 +61,13 @@ export const passwordValid = (password, context) => passwordChecks(password, con
 export const validateOtp = code => (/^\d{6}$/.test(code || '') ? null : 'Enter the 6-digit code.')
 
 // Until the backend reports a capability, every self-service flow stays off. Never pretend.
-export const NO_CAPABILITIES = { signup: false, email_recovery: false, admin_recovery: false, google: false }
+export const NO_CAPABILITIES = { signup: false, email_recovery: false, email_delivery: 'none', admin_recovery: false, google: false }
 export function capabilitiesFrom(data) {
   if (!data || typeof data !== 'object') return NO_CAPABILITIES
   return { signup: data.signup === true && ['open', 'approval'].includes(data.signup_mode), signup_mode: data.signup_mode,
-    email_recovery: data.email_recovery === true, admin_recovery: data.admin_recovery === true, google: data.google === true }
+    email_recovery: data.email_recovery === true, admin_recovery: data.admin_recovery === true, google: data.google === true,
+    // 'local' = codes land in a development inbox on the server (not real mailboxes); 'smtp' = a configured mail relay.
+    email_delivery: ['local', 'smtp'].includes(data.email_delivery) ? data.email_delivery : 'none' }
 }
 
 export function recoveryIdentifier(value) {
