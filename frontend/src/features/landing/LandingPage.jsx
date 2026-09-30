@@ -1,14 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import { useGSAP } from '@gsap/react'
 import { useSession } from '../../app/session.jsx'
-import { Logo } from '../../components/ui.jsx'
+import { BrandMark, Icon, Logo } from '../../components/ui.jsx'
 import { FACTS, PRODUCT, SCENARIO, STORY } from './landingModel.js'
 import { createAtmosphere } from './atmosphere.js'
-import SubsurfaceCanvas from './SubsurfaceCanvas.jsx'
+import { playbackMode, readMediaEnvironment } from '../auth/authModel.js'
+import AmbientVideo from './AmbientVideo.jsx'
 import './landing.css'
 
 // One fixed backdrop for the whole page. Reduced motion draws a single still frame; Save-Data or no WebGL keep the CSS gradient.
@@ -88,10 +89,12 @@ function PlanView() {
 
 export default function LandingPage() {
   const root = useRef(null)
-  const hero = useRef(null)
   const session = useSession()
   const signedIn = session.status === 'authenticated'
   const enter = signedIn ? '/app/dashboard' : '/login'
+  // Films are decorative: reduced motion, Save-Data or a slow link keep the posters; the visitor can pause them at any time.
+  const [still] = useState(() => playbackMode(readMediaEnvironment()) !== 'video')
+  const [filmPaused, setFilmPaused] = useState(false)
 
   useMagneticGlass(root)
   useEffect(() => { document.title = `${PRODUCT.name} · ${PRODUCT.subtitle}` }, [])
@@ -116,7 +119,6 @@ export default function LandingPage() {
       })
       gsap.from('.hero-title .line', { yPercent: 105, duration: 1.3, stagger: 0.12, delay: 0.3, ease: 'expo.out' })
       gsap.from('.hero-copy > :not(h1)', { y: 24, opacity: 0, filter: 'blur(8px)', duration: 1.1, stagger: 0.1, delay: 0.7, ease: 'expo.out', clearProps: 'filter' })
-      ScrollTrigger.create({ trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true, onUpdate: self => hero.current?.setScroll(self.progress) })
       gsap.to('.hero-copy', { yPercent: -12, opacity: 0.2, ease: 'none', scrollTrigger: { trigger: '#hero', start: '35% top', end: 'bottom top', scrub: true } })
       gsap.utils.toArray('[data-reveal]').forEach(element => gsap.from(element, { y: 36, opacity: 0, filter: 'blur(10px)', duration: 1, ease: 'expo.out', clearProps: 'filter', scrollTrigger: { trigger: element, start: 'top 86%', once: true } }))
       // Reports → structured events: the source sentence is highlighted, then the record fills in field by field.
@@ -159,9 +161,10 @@ export default function LandingPage() {
     <main id="main">
       <section id="hero" className="hero">
         <Tag id="hero" />
-        <SubsurfaceCanvas className="hero-canvas" apiRef={hero} />
+        <AmbientVideo className="hero-video" src="/media/nwis-hero-subsurface.mp4" poster="/media/nwis-hero-subsurface-poster.webp" still={still} paused={filmPaused} eager />
         <div className="hero-scrim" aria-hidden="true" />
         <div className="hero-copy">
+          <BrandMark size={72} className="hero-logo" />
           <p className="hero-kicker">{PRODUCT.context.join(' · ')}</p>
           <h1 className="hero-title"><span className="line-mask"><span className="line">eRTMAC sees the live well.</span></span> <span className="line-mask"><span className="line"><em>NWIS remembers nearby wells.</em></span></span></h1>
           <p className="lede">Know what nearby wells learned before the bit reaches the same interval. {PRODUCT.name}, the {PRODUCT.subtitle}: AI-powered offset-well knowledge and decision support for drilling operations.</p>
@@ -169,6 +172,8 @@ export default function LandingPage() {
           <p className="hero-facts" aria-label="Prototype design facts">{FACTS.map(([value, label]) => <span key={label}><span className="fact-num">{value}</span> {label}</span>)}</p>
         </div>
         <a className="scroll-cue" href="#reports" aria-label="Scroll to the story"><span /></a>
+        {!still && <button type="button" className="icon-button film-toggle" onClick={() => setFilmPaused(value => !value)} aria-pressed={filmPaused}
+          aria-label={filmPaused ? 'Play background video' : 'Pause background video'}><Icon name={filmPaused ? 'play' : 'pause'} size={18} /></button>}
       </section>
 
       <section id="reports" className="story reports">
@@ -190,6 +195,8 @@ export default function LandingPage() {
       </section>
 
       <section id="nearby" className="story nearby">
+        <AmbientVideo className="nearby-film" src="/media/nwis-nearby-wells-intelligence.mp4" poster="/media/nwis-nearby-wells-intelligence-poster.webp" still={still} paused={filmPaused} />
+        <div className="nearby-scrim" aria-hidden="true" />
         <Tag id="nearby" />
         <div className="story-copy" data-reveal><h2>Nearby is not the same as analogous</h2>
           <p>A radius query finds candidate offsets around the active well. A transparent similarity score then ranks them by formation, depth overlap, trajectory, program context and data quality, so a formation-matched well can outrank a closer one across a fault.</p>
@@ -236,7 +243,7 @@ export default function LandingPage() {
           <p className="risk-p">{pct(p)}<small> next 100 m</small></p>
           <p className="risk-c">Confidence {pct(c)}</p><span className="risk-bar" aria-hidden="true"><span className="risk-fill" style={{ width: pct(p) }} /></span>
         </article>)}</div>
-        <p className="scenario-note">Illustrative synthetic scenario. Probabilities come from the hybrid risk engine; the language model only explains the evidence.</p>
+        <p className="scenario-note">Illustrative synthetic scenario. Probabilities are uncalibrated prototype estimates from the hybrid risk engine; the language model only explains the evidence.</p>
       </section>
 
       <section id="evidence" className="story evidence">
@@ -244,7 +251,7 @@ export default function LandingPage() {
         <div className="story-copy" data-reveal><h2>Why this alert? The evidence, not a black box</h2>
           <p>Every alert opens to the supporting offset wells and their similarity, the historical event depths, the cited report passages, the telemetry features, what evidence is missing and why confidence is what it is.</p></div>
         <aside className="drawer-mock" data-glass data-reveal aria-label="Illustration of the evidence drawer">
-          <p className="drawer-eyebrow">Why this alert?</p><h3>Stuck pipe · 72% over the next 100 m</h3>
+          <p className="drawer-eyebrow">Why this alert?</p><h3>Stuck pipe · 72% (uncalibrated) over the next 100 m</h3>
           <dl><div><dt>Supporting wells</dt><dd>OFF-04 (#1, 0.89) · OFF-09 (#2, 0.85)</dd></div><div><dt>Event depths</dt><dd>2,455 m and 2,470 m TVD · Tipam A</dd></div><div><dt>Live feature</dt><dd>Torque +21% over 25 samples</dd></div><div><dt>Missing</dt><dd>One offset depth has low OCR confidence</dd></div></dl>
           <blockquote>“String stuck at 2,529 m MD after connection; unable to rotate…” <cite>DDR-OFF04 · p.2</cite></blockquote>
           <p className="drawer-foot">Advisory only. The drilling engineer reviews, acknowledges or records insufficient evidence; every decision is audited.</p>

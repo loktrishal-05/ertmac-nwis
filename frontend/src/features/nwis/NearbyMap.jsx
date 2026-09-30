@@ -79,6 +79,7 @@ export default function NearbyMap({ center, offsets = [], radiusKm, selectedId, 
     active.setAttribute('aria-label', `${center.label || center.id} (active well)`)
     active.textContent = center.label || center.id
     const next = [make([center.lon, center.lat], active)]
+    const labelled = []
     for (const o of offsets) {
       if (!Number.isFinite(o.well?.lat) || !Number.isFinite(o.well?.lon)) continue
       const events = o.eventCounts ? Object.values(o.eventCounts).reduce((a, b) => a + b, 0) : null
@@ -97,8 +98,25 @@ export default function NearbyMap({ center, offsets = [], radiusKm, selectedId, 
       if (compact) { element.setAttribute('role', 'img'); element.setAttribute('aria-label', summary) }
       else { element.type = 'button'; element.setAttribute('aria-label', summary); element.setAttribute('aria-pressed', String(o.id === selectedId)); element.addEventListener('click', () => onSelect?.(o.id)) }
       next.push(make([o.well.lon, o.well.lat], element))
+      labelled.push({ element, label: name, first: o.id === selectedId ? -1 : o.rank ?? Infinity })
     }
     markers.current = next
+    // Declutter: dots always stay; labels are placed selected-first, then by backend rank (the first is always shown), and a
+    // label that would overlap the active well or an already placed label is hidden until hover/focus. Re-run after every
+    // move/zoom so zooming in reveals more names.
+    labelled.sort((a, b) => a.first - b.first)
+    const declutter = () => {
+      const placed = [active.getBoundingClientRect()]
+      labelled.forEach(({ element, label }, index) => {
+        element.removeAttribute('data-label-hidden')
+        const r = label.getBoundingClientRect()
+        if (index && placed.some(p => r.left < p.right + 2 && r.right > p.left - 2 && r.top < p.bottom + 2 && r.bottom > p.top - 2)) element.dataset.labelHidden = 'true'
+        else placed.push(r)
+      })
+    }
+    instance.on('moveend', declutter)
+    const frame = requestAnimationFrame(declutter)
+    return () => { instance.off('moveend', declutter); cancelAnimationFrame(frame) }
   }, [status, offsets, radiusKm, selectedId, onSelect, center?.lat, center?.lon, center?.id, center?.label, compact])
 
   if (!hasCenter) return <p className="chart-empty">The active well has no surface coordinates, so the map cannot be drawn.</p>

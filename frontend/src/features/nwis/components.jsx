@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { Link } from 'react-router'
-import { ErrorState, Icon, LoadingState } from '../../components/ui.jsx'
+import { AgentAvatar, ErrorState, Icon, LoadingState } from '../../components/ui.jsx'
 import { LOOKAHEAD_M, RADIUS_PRESETS_KM, SCORE_COMPONENTS, fmtKm, fmtM, fmtPct, fmtScore, hazardLabel, humanize, isSynthetic, num, paths, riskLevel } from './nwisModel.js'
 import { adaptAssessment } from './adapters.js'
 import { useRequest, useResource } from '../../hooks/useApi.js'
@@ -113,11 +113,12 @@ export function WellContextBar({ radius = false, lookahead = false }) {
   </section>
 }
 
-export function ScoreBar({ value, label }) {
+// `percent` shows the value the way every other confidence is shown (fmtPct); the raw decimal stays in the tooltip.
+export function ScoreBar({ value, label, percent = false }) {
   const v = num(value)
-  return <span className="nw-score" title={label ? `${label}: ${fmtScore(v)}` : undefined}>
+  return <span className="nw-score" title={label ? `${label}: ${v == null ? 'not reported' : v}` : undefined}>
     <span className="nw-score-track" aria-hidden="true"><span style={{ width: `${Math.round((v ?? 0) * 100)}%` }} data-missing={v == null || undefined} /></span>
-    <span className="nw-score-num">{fmtScore(v)}</span></span>
+    <span className="nw-score-num">{percent ? fmtPct(v) : fmtScore(v)}</span></span>
 }
 
 export function OffsetScoreBreakdown({ offset, weights }) {
@@ -160,7 +161,7 @@ export function RiskCard({ hazard, lookahead, onWhy, compact = false }) {
   return <article className="nw-risk" data-level={level} aria-labelledby={titleId}>
     <header><h3 id={titleId}>{hazardLabel(hazard.type)} risk</h3><TrendBadge trend={hazard.trend} /></header>
     <p className="nw-risk-main"><span className="nw-prob">{noProbability ? '—' : fmtPct(hazard.probability)}</span><span className="muted">{noProbability ? 'Insufficient evidence' : 'uncalibrated estimate'} · next {lookahead} m<br /><span className="nw-level">{noProbability ? 'No usable analogs' : humanize(level)}</span></span></p>
-    <div className="nw-meter"><span>Confidence</span><ScoreBar value={hazard.confidence} label="Confidence" /></div>
+    <div className="nw-meter"><span>Confidence</span><ScoreBar value={hazard.confidence} label="Confidence" percent /></div>
     <dl className="nw-risk-facts">
       <div><dt>Supporting wells</dt><dd>{hazard.wells.length ? hazard.wells.join(', ') : 'None'}</dd></div>
       <div><dt>Evidence</dt><dd>{hazard.evidenceCount ? `${hazard.evidenceCount} cited event${hazard.evidenceCount === 1 ? '' : 's'}` : 'No cited events'}</dd></div>
@@ -195,7 +196,7 @@ export function EvidenceDrawer({ hazard, risk, offsets = [], onClose, wellId, on
   return <dialog ref={dialog} className="nw-drawer" aria-labelledby={titleId} onClose={onClose}>
     {hazard && <>
       <header className="nw-drawer-head">
-        <div><p className="nw-eyebrow">Why this alert?</p><h2 id={titleId}>{hazardLabel(hazard.type)} · {hazard.probability == null ? 'insufficient evidence' : `${fmtPct(hazard.probability)} (uncalibrated)`} over the next {risk?.lookahead_m} m</h2>
+        <div><p className="nw-eyebrow nw-agent-heading"><AgentAvatar size={22} />Why this alert?</p><h2 id={titleId}>{hazardLabel(hazard.type)} · {hazard.probability == null ? 'insufficient evidence' : `${fmtPct(hazard.probability)} (uncalibrated)`} over the next {risk?.lookahead_m} m</h2>
           <p className="muted small">Confidence {fmtPct(hazard.confidence)} · {risk?.model_version || 'model version not reported'} · as of {risk?.as_of ? new Date(risk.as_of).toLocaleString() : '—'} · assessment <code>{hazard.assessmentId?.slice(0, 12) ?? '—'}</code></p></div>
         <button type="button" className="icon-button" onClick={() => dialog.current?.close()} aria-label="Close evidence"><Icon name="close" /></button>
       </header>

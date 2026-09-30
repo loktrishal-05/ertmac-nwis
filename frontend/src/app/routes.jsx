@@ -17,7 +17,7 @@ export const routes = [{
   id: 'root',
   element: <RootLayout />,
   errorElement: <RouteError />,
-  hydrateFallbackElement: <LoadingState label="Loading eRTMAC-NWIS…" />,
+  hydrateFallbackElement: <LoadingState brand label="Loading eRTMAC-NWIS…" />,
   children: [
     { index: true, lazy: lazyNamed(() => import('../features/landing/LandingPage.jsx'), 'default'), handle: { title: 'eRTMAC-NWIS' } },
     {

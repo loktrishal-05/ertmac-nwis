@@ -10,7 +10,7 @@ export const PRODUCT = {
 }
 
 export const FACTS = [
-  [4, 'hazard classes assessed separately'],
+  [7, 'hazard classes assessed separately'],
   [3, 'look-ahead windows · 50 / 100 / 150 m'],
   [6, 'similarity components shown per offset'],
   [0, 'automatic rig or equipment actions'],
@@ -21,7 +21,7 @@ export const STORY = [
   { id: 'reports', tag: 'DDR-01' },
   { id: 'nearby', tag: 'GEO-02' },
   { id: 'correlation', tag: 'TVD-03' },
-  { id: 'telemetry', tag: 'LIVE-04' },
+  { id: 'telemetry', tag: 'RPL-04' },
   { id: 'lookahead', tag: 'RISK-05' },
   { id: 'evidence', tag: 'CITE-06' },
   { id: 'architecture', tag: 'SYS-07' },

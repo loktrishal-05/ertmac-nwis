@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Icon, PageHeader } from '../../../components/ui.jsx'
+import { AgentAvatar, Icon, PageHeader } from '../../../components/ui.jsx'
 import { apiRequest } from '../../../services/api.js'
 import { useRequest, useResource } from '../../../hooks/useApi.js'
 import { useNwisResource } from '../hooks.js'
 import { adaptAdvisoryList, adaptAssessment, adaptAuditList } from '../adapters.js'
-import { auditLabel, fmtM, fmtPct, hazardLabel, humanize, listOf, paths, safeDetails } from '../nwisModel.js'
+import { auditLabel, personLabel, fmtM, fmtPct, hazardLabel, humanize, listOf, paths, safeDetails } from '../nwisModel.js'
 import { useNwis } from '../NwisContext.jsx'
+import { useSession } from '../../../app/session.jsx'
 import { NwisState, SyntheticDataBadge } from '../components.jsx'
 import { EventCard } from './IntelligencePages.jsx'
 import { Panel } from './OverviewPages.jsx'
@@ -45,6 +46,7 @@ function AdvisoryReview({ advisory, onDone }) {
 }
 
 function AdvisoryDetail({ advisory, onDone }) {
+  const { user } = useSession()
   const assessment = useNwisResource(advisory.assessment_id ? paths.assessment(advisory.assessment_id) : null, adaptAssessment)
   const a = assessment.data
   const h = a?.hazard
@@ -59,9 +61,9 @@ function AdvisoryDetail({ advisory, onDone }) {
     </dl>}
     <section><h3>Observed facts · cited evidence</h3>
       {a && (a.evidence.length ? <div className="nw-event-grid is-single">{a.evidence.map(link => <EventCard key={link.event.id} event={link.event} />)}</div> : <p className="muted">The assessment cites no events.</p>)}</section>
-    <section className="nw-summary"><h3>NWIS advisory</h3><p>{advisory.text || 'No advisory text.'}</p><p className="muted small">Generated route: {advisory.model_route || 'not reported'}. Advisory text only; the engineer decides.</p></section>
+    <section className="nw-summary"><h3 className="nw-agent-heading"><AgentAvatar size={24} />NWIS advisory</h3><p>{advisory.text || 'No advisory text.'}</p><p className="muted small">Generated route: {advisory.model_route || 'not reported'}. Advisory text only; the engineer decides.</p></section>
     {advisory.status === 'pending_review' ? <AdvisoryReview advisory={advisory} onDone={onDone} />
-      : <section><h3>Review</h3><p><strong>{humanize(advisory.status)}</strong> · {advisory.reviewer || 'reviewer not recorded'} · {advisory.reviewed_at ? new Date(advisory.reviewed_at).toLocaleString() : 'time not recorded'}</p>
+      : <section><h3>Review</h3><p><strong>{humanize(advisory.status)}</strong> · <span title={advisory.reviewer || undefined}>{personLabel(advisory.reviewer, user) || 'reviewer not recorded'}</span> · {advisory.reviewed_at ? new Date(advisory.reviewed_at).toLocaleString() : 'time not recorded'}</p>
         {advisory.reason && <p>{advisory.reason}</p>}<p className="small"><Link to="/app/audit">View audit</Link></p></section>}
   </article>
 }
@@ -90,6 +92,7 @@ export function AdvisoriesPage() {
 
 // ── Audit: GET /api/audit (NWIS entries; non-admins see their own) and the chain check at /audit/verify. ──
 export function NwisAuditPage() {
+  const { user } = useSession()
   const log = useNwisResource(paths.audit(), adaptAuditList)
   const verify = useResource(paths.auditVerify)
   const rows = listOf(log.data)
@@ -103,7 +106,7 @@ export function NwisAuditPage() {
       <NwisState request={log} what="the audit log" empty={log.data && !rows.length ? 'No audit events recorded yet' : undefined} />
       {rows.length > 0 && <ol className="nw-audit">{rows.map(e => <li key={e.id ?? e.sequence_number}>
         <span className="nw-audit-seq">#{e.sequence_number}</span>
-        <div><strong>{auditLabel(e.event_type)}</strong> <span className="muted small">{e.occurred_at ? new Date(e.occurred_at).toLocaleString() : ''} · {e.actor_id || e.actor_kind || 'system'}</span>
+        <div><strong>{auditLabel(e.event_type)}</strong> <span className="muted small">{e.occurred_at ? new Date(e.occurred_at).toLocaleString() : ''} · <span title={e.actor_id || undefined}>{personLabel(e.actor_id, user) || e.actor_kind || 'system'}</span></span>
           <dl className="nw-audit-details">{safeDetails(e.details).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></div></li>)}</ol>}
     </section>
   </>

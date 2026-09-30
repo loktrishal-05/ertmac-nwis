@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { closestExplanation, isSynthetic, listOf, paths, riskLevel, safeDetails } from './nwisModel.js'
+import { closestExplanation, isSynthetic, listOf, paths, personLabel, riskLevel, safeDetails } from './nwisModel.js'
 import { adaptQuery, adaptTelemetry, groupResults, normalizeHazard, rankedOffsets, telemetrySeries } from './adapters.js'
 import { fixtureResponse } from './fixtures.js'
 
@@ -58,6 +58,13 @@ test('knowledge results group by well, event and report', () => {
   const groups = groupResults(adaptQuery({ mode: 'nwis_evidence', evidence: [event('E1', 'stuck_pipe'), event('E2', 'mud_loss')] }))
   assert.deepEqual([groups.well.length, groups.event.length, groups.report.length], [1, 2, 1], 'wells and reports are distinct sources of the cited events')
   assert.deepEqual(listOf(null), [])
+})
+
+test('people are shown by name only when it is the signed-in user; otherwise a short id, never a raw UUID', () => {
+  const me = { id: 'bc9b07bc-6f5f-49ae-9853-a3152169d3b2', username: 'dev_reviewer' }
+  assert.equal(personLabel(me.id, me), 'dev_reviewer (you)')
+  assert.equal(personLabel('5f0c1d7e-0000-4000-8000-000000000000', me), 'user 5f0c1d7e')
+  assert.equal(personLabel(null, me), null)
 })
 
 test('audit details hide secrets, hashes and filesystem paths', () => {

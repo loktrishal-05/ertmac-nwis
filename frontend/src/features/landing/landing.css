@@ -28,11 +28,19 @@
 .disclaimer { padding: var(--space-3) var(--space-4); border: 1px solid rgba(242, 169, 59, 0.32); border-radius: 12px; background: rgba(242, 169, 59, 0.06); color: #f1dfbf !important; font-size: var(--fs-md) !important; }
 figcaption { max-width: 65ch; margin-top: var(--space-2); color: var(--text-faint); font-size: var(--fs-xs); }
 
-/* Hero: subsurface section with the copy on the left, the drilling scene on the right. */
+/* Hero: the approved subsurface film behind the copy. Generated labels in the film sit mid/upper right; the scrims keep the
+   real copy on a dark, calm area and fade the film into the page. */
 .hero { display: grid; align-content: center; min-height: 100vh; min-height: 100svh; padding-top: 7rem; overflow: hidden; }
-.hero-canvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; }
-.hero-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(2, 10, 24, 0.82) 0%, rgba(2, 10, 24, 0.55) 36%, rgba(2, 10, 24, 0) 60%); pointer-events: none; }
-@media (max-width: 900px) { .hero-scrim { background: linear-gradient(to top, rgba(2, 10, 24, 0.94) 0%, rgba(2, 10, 24, 0.7) 60%, rgba(2, 10, 24, 0.2) 85%); } }
+.hero-video { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: 64% 100%; background: var(--brand-navy);
+  transform: scale(1.32); transform-origin: 66% 100%; } /* pushes the film's generated label band above the fold, under the header */
+.hero-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(2, 10, 24, 0.92) 0%, rgba(2, 10, 24, 0.74) 34%, rgba(2, 10, 24, 0.3) 62%, rgba(2, 10, 24, 0.38) 100%),
+    linear-gradient(180deg, rgba(2, 10, 24, 0.85) 0%, rgba(2, 10, 24, 0.35) 30%, rgba(2, 10, 24, 0) 48%, rgba(2, 10, 24, 0) 72%, var(--brand-navy) 100%); }
+@media (max-width: 900px) { .hero-scrim { background: linear-gradient(to top, var(--brand-navy) 0%, rgba(2, 10, 24, 0.9) 45%, rgba(2, 10, 24, 0.55) 75%, rgba(2, 10, 24, 0.7) 100%); }
+  /* Portrait crops land on the film's mid band, where generated labels sit: keep it a soft ambient texture on phones. */
+  .hero-video { object-position: 58% 50%; transform: scale(1.12); filter: blur(6px) brightness(0.85); } }
+.hero-logo { width: 72px; height: 72px; filter: drop-shadow(0 0 22px rgba(53, 215, 232, 0.35)); }
+.film-toggle { position: absolute; right: clamp(var(--space-4), 4vw, var(--space-7)); bottom: 24px; z-index: 3; border-color: rgba(255, 255, 255, 0.22); background: rgba(2, 14, 33, 0.55); color: #e6eef7; }
 .hero-copy { position: relative; z-index: 2; display: grid; justify-items: start; gap: var(--space-5); max-width: min(44rem, 50vw); }
 .hero-kicker { margin: 0; color: #8fe3f0 !important; font: 700 var(--fs-xs) var(--font-mono) !important; letter-spacing: 0.14em; text-transform: uppercase; }
 .hero-title { margin: 0; color: #f5f9fe; font: 700 clamp(2.8rem, 5vw, 5rem)/1 var(--font-brand); font-stretch: 110%; letter-spacing: -0.035em; }
@@ -56,6 +64,8 @@ figcaption { max-width: 65ch; margin-top: var(--space-2); color: var(--text-fain
   .hero-actions .button { min-height: 46px; padding: 0 var(--space-5); }
   .hero-facts { grid-template-columns: 1fr; }
   .scroll-cue { display: none; }
+  .hero-logo { width: 56px; height: 56px; }
+  .film-toggle { top: 76px; bottom: auto; }
 }
 
 /* Reports → structured events */
@@ -73,8 +83,14 @@ figcaption { max-width: 65ch; margin-top: var(--space-2); color: var(--text-fain
 .record-row { display: grid; grid-template-columns: 7.5rem 1fr; gap: var(--space-2); padding-bottom: 6px; border-bottom: 1px solid rgba(128, 176, 232, 0.12); }
 .record dt { color: #8fe3f0; } .record dd { margin: 0; color: #e8eff8; }
 
-/* Nearby: radius finds candidates, similarity ranks analogs */
-.nearby { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--space-7); }
+/* Nearby: radius finds candidates, similarity ranks analogs. The supporting film sits behind, darkened and cropped away from
+   its generated labels; the illustration and copy stay the source of truth. */
+.nearby { z-index: 0; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--space-7); }
+.nearby-film { position: absolute; inset: 0; z-index: -2; display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%; opacity: 0.55;
+  transform: scale(1.15); transform-origin: 45% 100%; } /* crops the film's generated title/metric band off the top */
+.nearby-scrim { position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, var(--brand-navy) 0%, rgba(2, 14, 33, 0.62) 20%, rgba(2, 14, 33, 0.62) 80%, var(--brand-navy) 100%),
+    linear-gradient(90deg, rgba(2, 14, 33, 0.78) 0%, rgba(2, 14, 33, 0.35) 55%, rgba(2, 14, 33, 0.55) 100%); }
 .rank-list { display: grid; gap: var(--space-2); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
 .rank-list li { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: baseline; padding: var(--space-3) var(--space-4); border: 1px solid rgba(53, 215, 232, 0.35); border-radius: var(--radius-md); background: rgba(4, 19, 41, 0.6); }
 .rank-list li span { color: var(--text-muted); font-size: var(--fs-sm); }

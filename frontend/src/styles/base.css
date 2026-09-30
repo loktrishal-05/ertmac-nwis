@@ -49,9 +49,10 @@ fieldset:disabled label { color: var(--text-faint); }
 .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--stale); }
 .health-connected .dot { background: var(--ok); } .health-disconnected .dot { background: var(--danger); }
 
-/* eRTMAC-NWIS wordmark: inline SVG + text, so it follows the surface colour in light and dark themes. */
+/* eRTMAC-NWIS wordmark: approved symbol image + real text, so the name follows the surface colour in light and dark themes. */
 .brand-logo { --brand-accent: var(--ai-cyan); display: inline-flex; align-items: center; gap: 10px; color: var(--text); line-height: 1; }
-.brand-mark { flex-shrink: 0; }
+.brand-mark { flex-shrink: 0; object-fit: contain; user-select: none; }
+.agent-avatar { flex-shrink: 0; object-fit: contain; vertical-align: middle; user-select: none; }
 .brand-words { display: grid; gap: 3px; }
 .brand-name { font: 800 1.18rem/1 var(--font-brand); font-stretch: 105%; letter-spacing: -0.01em; white-space: nowrap; }
 .brand-name b { color: var(--brand-accent); font-weight: 800; }
@@ -116,6 +117,10 @@ fieldset:disabled label { color: var(--text-faint); }
 .planned { border-style: dashed; } .planned .badge-planned { margin-bottom: var(--space-3); }
 .state { display: flex; align-items: flex-start; gap: var(--space-3); margin: var(--space-4) 0; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-2); color: var(--text-muted); }
 .state-error { border-color: var(--danger); } .state-empty { flex-direction: column; }
+.state-brand { flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); min-height: 40vh; border: 0; background: transparent; text-align: center; }
+.brand-pulse { animation: brand-pulse 1.8s ease-in-out infinite; }
+@keyframes brand-pulse { 50% { opacity: 0.55; transform: scale(0.94); } }
+@media (prefers-reduced-motion: reduce) { .brand-pulse { animation: none; } }
 .spinner { width: 18px; height: 18px; border: 2px solid var(--line-strong); border-top-color: var(--ai-cyan); border-radius: 50%; animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .policy-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }

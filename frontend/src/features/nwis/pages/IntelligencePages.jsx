@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Icon, PageHeader } from '../../../components/ui.jsx'
+import { AgentAvatar, Icon, PageHeader } from '../../../components/ui.jsx'
 import { TimeSeriesChart } from '../../../components/charts.jsx'
 import { useRequest } from '../../../hooks/useApi.js'
 import { EVENT_TYPES, LOOKAHEAD_M, PRIMARY_HAZARDS, fmtM, fmtPct, fmtValue, hazardLabel, humanize, listOf, paths, riskLevel } from '../nwisModel.js'
@@ -161,7 +161,7 @@ export function KnowledgeSearchPage() {
   const total = groups.well.length + groups.event.length + groups.report.length
   const run = text => search.run(paths.query, { method: 'POST', timeout: 120000, body: { query: text, well_id: wellId || undefined, mode: 'nwis_evidence', request_id: crypto.randomUUID() } })
   return <>
-    <PageHeader title="Knowledge search" description="Search historical drilling evidence in natural language. Results are grouped by well, event and report, and every result carries its source, page, depth and formation." />
+    <PageHeader title="Knowledge search" description="Search historical drilling evidence in natural language. Results are grouped by well, event and report, and every result carries its source, page, depth and formation." actions={<AgentAvatar size={48} />} />
     <section className="panel nw-panel">
       <form onSubmit={event => { event.preventDefault(); if (query.trim()) run(query.trim()) }}>
         <label>Question or search<textarea rows={2} value={query} onChange={e => setQuery(e.target.value)} maxLength={1000} required placeholder="e.g. Show stuck-pipe incidents in Tipam between 2400-2700 m TVD" /></label>
@@ -170,12 +170,13 @@ export function KnowledgeSearchPage() {
       </form>
       <div className="nw-examples"><span className="muted small">Try:</span>{EXAMPLES.map(x => <button key={x} type="button" className="ghost" onClick={() => { setQuery(x); run(x) }}>{x}</button>)}</div>
     </section>
-    <NwisState request={search} what="knowledge search" />
+    {search.loading ? <div className="state state-loading nw-agent-state" role="status" aria-live="polite"><AgentAvatar size={28} className="brand-pulse" />Searching cited evidence in the ranked offsets…</div>
+      : <NwisState request={search} what="knowledge search" />}
     {result && !result.recognized && <div className="state state-error" role="alert"><strong>Unrecognised search response</strong><p>The backend answered, but not in the NWIS evidence format (no evidence list). Nothing is shown rather than guessing.</p></div>}
     {result?.recognized && <>
       <p className="nw-result-summary">{total} results{result.mode ? ` · ${result.mode}` : ''} <SyntheticDataBadge data={result} /></p>
       {result.status === 'refused' && <div className="state state-empty" role="status"><strong>Refused</strong><p>{result.answer || 'NWIS does not answer this request.'}</p></div>}
-      {result.summary && result.status !== 'refused' && <section className="panel nw-panel"><h2>Cited answer</h2><p>{result.summary}</p>{!result.citations.length && <p className="api-error">No citations were returned with this summary; treat it as unsupported.</p>}</section>}
+      {result.summary && result.status !== 'refused' && <section className="panel nw-panel"><h2 className="nw-agent-heading"><AgentAvatar size={26} />Cited answer</h2><p>{result.summary}</p>{!result.citations.length && <p className="api-error">No citations were returned with this summary; treat it as unsupported.</p>}</section>}
       {!total && <div className="state state-empty"><strong>No matching evidence</strong><p>NWIS returned no cited records. It will not answer without evidence.</p></div>}
       <div className="nw-result-groups">{[['well', 'Wells'], ['event', 'Events'], ['report', 'Reports']].map(([key, label]) => groups[key].length > 0 && <section key={key} className="panel nw-panel" aria-labelledby={`rg-${key}`}>
         <h2 id={`rg-${key}`}>{label} <span className="muted small">{groups[key].length}</span></h2><ul className="nw-results">{groups[key].map((item, i) => <ResultItem key={`${key}-${i}`} item={item} />)}</ul></section>)}</div>

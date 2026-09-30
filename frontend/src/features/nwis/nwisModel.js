@@ -43,6 +43,13 @@ export const AUDIT_EVENTS = {
 }
 // Hazard types the backend accepts as event filters (Hazard literal in the B2 schema).
 export const EVENT_TYPES = ['mud_loss', 'stuck_pipe', 'kick_or_overpressure', 'torque_drag', 'cementing_issue', 'fishing', 'npt']
+// B2 records reviewer / actor as a user id. Only the signed-in user's own name is known to the browser (from /auth/me);
+// anyone else is shown by a shortened id rather than a raw UUID. No extra lookup contract is assumed.
+export function personLabel(id, me) {
+  if (id == null || id === '') return null
+  if (me?.id != null && String(me.id) === String(id)) return `${me.display_name || me.username || 'you'} (you)`
+  return `user ${String(id).slice(0, 8)}`
+}
 export const auditLabel = type => AUDIT_EVENTS[String(type).toLowerCase()] || humanize(String(type).toLowerCase())
 
 // Audit details for display: secrets, hashes and filesystem paths are never shown.

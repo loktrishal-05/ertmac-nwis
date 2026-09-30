@@ -47,27 +47,22 @@ export function Icon({ name, size = 20, ...props }) {
 export const BRAND_NAME = 'eRTMAC-NWIS'
 export const BRAND_SUBTITLE = 'Nearby Wells Intelligence System'
 
-// eRTMAC-NWIS mark: a search radius around a surface location, a deviated trajectory descending through formation tops.
-export function BrandMark({ size = 32, ...props }) {
-  return <svg className="brand-mark" width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false" {...props}>
-    <circle cx="20" cy="12" r="10.5" stroke="var(--brand-accent, #35d7e8)" strokeOpacity="0.45" strokeDasharray="2.4 2.4" />
-    <circle cx="20" cy="12" r="5.5" stroke="var(--brand-accent, #35d7e8)" strokeOpacity="0.8" />
-    <path d="M6 27h11 M24 27h10 M6 33h7 M22 33h12" stroke="currentColor" strokeOpacity="0.45" strokeWidth="1.6" strokeLinecap="round" />
-    <path d="M20 12v10c0 6 3 10 9 14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-    <circle cx="20" cy="12" r="2.4" fill="var(--brand-accent, #35d7e8)" />
-    <circle cx="29" cy="36" r="2" fill="#f2a93b" />
-  </svg>
+// Approved eRTMAC-NWIS symbol (public/brand). The product name is always real text next to it, never baked into the image.
+const APP_LOGO = { src: '/brand/nwis-app-logo-128.webp', srcSet: '/brand/nwis-app-logo-128.webp 128w, /brand/nwis-app-logo-256.webp 256w' }
+export function BrandMark({ size = 32, className = '', alt = '' }) {
+  return <img className={`brand-mark ${className}`} src={APP_LOGO.src} srcSet={APP_LOGO.srcSet} sizes={`${size}px`} width={size} height={size} alt={alt} decoding="async" draggable="false" />
 }
 
 export function Logo({ variant = 'horizontal', className = '', decorative = false }) {
   return <span className={`brand-logo brand-${variant} ${className}`} role={decorative ? undefined : 'img'} aria-label={decorative ? undefined : `${BRAND_NAME}, ${BRAND_SUBTITLE}`}>
-    <BrandMark size={variant === 'mark' ? 40 : 32} />
+    <BrandMark size={variant === 'mark' ? 120 : 36} />
     {variant !== 'mark' && <span className="brand-words" aria-hidden="true"><span className="brand-name">eRTMAC<b>-NWIS</b></span><span className="brand-sub">{BRAND_SUBTITLE}</span></span>}
   </span>
 }
 
-export function AgentAvatar({ size = 40, className = '' }) {
-  return <img className={`brand-img agent-avatar ${className}`} src="/assets/branding/agent-mark.png" width={size} height={size} alt="AI agent" decoding="async" />
+// NWIS intelligence identity: only on evidence synthesis / explanation surfaces, never as a user avatar. Decorative by default.
+export function AgentAvatar({ size = 40, className = '', alt = '' }) {
+  return <img className={`agent-avatar ${className}`} src="/brand/nwis-agent-logo-128.webp" width={size} height={size} alt={alt} decoding="async" draggable="false" />
 }
 
 export function PageHeader({ title, description, actions }) {
@@ -77,7 +72,8 @@ export function PageHeader({ title, description, actions }) {
   </header>
 }
 
-export function LoadingState({ label = 'Loading…' }) {
+export function LoadingState({ label = 'Loading…', brand = false }) {
+  if (brand) return <div className="state state-loading state-brand" role="status" aria-live="polite"><BrandMark size={56} className="brand-pulse" /><span>{label}</span></div>
   return <div className="state state-loading" role="status" aria-live="polite"><span className="spinner" aria-hidden="true" />{label}</div>
 }
 

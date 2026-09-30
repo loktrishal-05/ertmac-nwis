@@ -285,3 +285,13 @@ tr[aria-selected="true"] td { background: color-mix(in srgb, var(--ai) 7%, trans
 .nw-uncalibrated { border-color: color-mix(in srgb, var(--human) 55%, transparent); color: var(--human); }
 .nw-terms { max-width: 640px; margin: var(--space-6) auto; display: grid; gap: var(--space-3); }
 .nw-terms h2, .nw-terms p { margin: 0; } .nw-terms button { justify-self: start; }
+
+/* NWIS intelligence identity: the agent mark labels evidence synthesis / explanation surfaces only. */
+.nw-agent-heading { display: flex; align-items: center; gap: var(--space-2); }
+.nw-agent-state { align-items: center; }
+
+/* Map labels hidden by the declutter pass reappear on hover / keyboard focus; the dot never hides. */
+.nw-marker[data-label-hidden] .nw-marker-label { display: none; }
+.nw-marker[data-label-hidden]:is(:hover, :focus-visible) .nw-marker-label { display: inline-flex; }
+.nw-marker:not([data-label-hidden]) { z-index: 2; } /* named markers draw above the unnamed dots around them */
+.nw-marker:is(:hover, :focus-visible) { z-index: 5; }
