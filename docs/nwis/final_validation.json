@@ -1,0 +1,157 @@
+{
+  "application_sha": "244b86c082174ceb9703625f70dc7d6851806705",
+  "claude_frontend_sha": "2e00e83f03898756420746b1f33557db99dbe119",
+  "frontend": {
+    "lint_errors": 0,
+    "lint_warnings": 3,
+    "unit_passed": 51,
+    "unit_failed": 0,
+    "unit_skipped": 0,
+    "build": "passed",
+    "bundle": "passed",
+    "browser_viewports": "blocked: no connected browser; Playwright permission pending"
+  },
+  "backend": {
+    "distinct_tests_passed": 200,
+    "failed": 0,
+    "skipped": 0,
+    "migration": "0018_nwis",
+    "drift": "none"
+  },
+  "golden": {
+    "http_checks": 63,
+    "pdf_hash_checks": 10,
+    "probability": 0.7455033407089751,
+    "confidence": 0.855,
+    "calibrated": false,
+    "latency_median_ms": {
+      "wells": 21.0,
+      "nearby": 160.39,
+      "correlation": 241.34,
+      "risk": 233.51,
+      "assessment": 55.7,
+      "telemetry": 136.16,
+      "knowledge_query": 3521.32
+    }
+  },
+  "runtime": {
+    "readiness": {
+      "status": "ready",
+      "checks": {
+        "fastapi": true,
+        "configuration": true,
+        "postgresql": true,
+        "qdrant": true,
+        "model": true
+      },
+      "model_check": "runtime reachable and configured model installed; no inference performed"
+    },
+    "counts": {
+      "nwis_wells": 12,
+      "nwis_trajectory_points": 396,
+      "nwis_formation_intervals": 48,
+      "nwis_drilling_reports": 11,
+      "nwis_drilling_events": 66,
+      "nwis_telemetry_samples": 610
+    },
+    "source_files_verified": 11,
+    "qdrant": {
+      "collection": "nwis_evidence_v1",
+      "status": "green",
+      "points": 66
+    }
+  },
+  "auth": {
+    "real_smtp": "disposable Mailpit",
+    "email_verification": true,
+    "malformed_rejected": true,
+    "otp_replay_rejected": true,
+    "generic_recovery": true,
+    "reset_replay_rejected": true,
+    "old_sessions_revoked": true,
+    "new_password_login": true,
+    "logout": true
+  },
+  "held_out": {
+    "backend_sha": "244b86c082174ceb9703625f70dc7d6851806705",
+    "blind_sha256": "27dae3fd35eab263d0c9484d67c59961c8f50dbca9d6d3283a75ecf80ecaaf65",
+    "attempts": 1,
+    "cases": [
+      {
+        "id": "BLIND-001",
+        "passed": true,
+        "actual": {
+          "start_depth_md": null,
+          "verification_state": "review_needed",
+          "source_page": 7
+        }
+      },
+      {
+        "id": "BLIND-002",
+        "passed": true,
+        "actual": {
+          "start_depth_md": 3048.0,
+          "npt_hours": null
+        }
+      },
+      {
+        "id": "BLIND-003",
+        "passed": true,
+        "actual": {
+          "included": true,
+          "distance_m": 0.0
+        }
+      },
+      {
+        "id": "BLIND-004",
+        "passed": true,
+        "actual": {
+          "all_hazard_probabilities": null,
+          "confidence": 0
+        }
+      },
+      {
+        "id": "BLIND-005",
+        "passed": true,
+        "actual": {
+          "alerts": 0
+        }
+      },
+      {
+        "id": "BLIND-006",
+        "passed": true,
+        "actual": {
+          "http_status": 403
+        }
+      },
+      {
+        "id": "BLIND-007",
+        "passed": true,
+        "actual": {
+          "status": "refused",
+          "evidence": [],
+          "risk": null
+        }
+      },
+      {
+        "id": "BLIND-008",
+        "passed": true,
+        "actual": {
+          "stale_evidence_rejected": true
+        }
+      }
+    ],
+    "passed": 8,
+    "total": 8,
+    "status": "completed"
+  },
+  "security": {
+    "tracked_text_files": 832,
+    "compared_private_values": 2,
+    "findings": [],
+    "scope": "current tracked text, known live-secret comparison, exact env history paths"
+  },
+  "deployed": false,
+  "pushed": false,
+  "main_merged": false
+}
