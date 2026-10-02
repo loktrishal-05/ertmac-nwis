@@ -1,0 +1,13 @@
+# Free Hugging Face Spaces sleep after 48 h without traffic; ping the public API so evaluators never hit a cold start.
+name: keep-demo-awake
+on:
+  schedule: [{ cron: '17 */6 * * *' }]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ping public NWIS API (waits through a cold start)
+        run: curl -fsS --retry 20 --retry-delay 15 --retry-all-errors --max-time 30 https://sovereign-ai-workbench-nine.vercel.app/api/health
