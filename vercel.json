@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "cd frontend && npm ci",
-  "buildCommand": "cd frontend && VITE_API_BASE_URL=/api VITE_NWIS_FIXTURES=0 npm run build && npm run verify:dist",
+  "buildCommand": "python3 backend/app/services/onnx_models.py models-onnx && cd frontend && VITE_API_BASE_URL=/api VITE_NWIS_FIXTURES=0 npm run build && npm run verify:dist",
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.py": {
