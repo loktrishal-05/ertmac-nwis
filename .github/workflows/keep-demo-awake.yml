@@ -1,8 +1,11 @@
-# Keeps the free managed services behind the hosted demo active: a real evaluator login + hybrid search touches
-# Neon Postgres, Qdrant Cloud and the ONNX reranker. Uses only the public demo account shown on the sign-in page.
+# Uptime monitor for the hosted demo; a failed run makes GitHub email the repository owner.
+# Hourly: site, backend and evaluator login (Neon). Every 6 h (and on manual runs) also a hybrid search, which
+# keeps Qdrant Cloud and the ONNX reranker active. Uses only the public demo account shown on the sign-in page.
 name: keep-demo-awake
 on:
-  schedule: [{ cron: '17 */6 * * *' }]
+  schedule:
+    - cron: '17 * * * *'
+    - cron: '47 */6 * * *'
   workflow_dispatch:
 permissions: {}
 jobs:
@@ -12,12 +15,20 @@ jobs:
     env:
       SITE: https://sovereign-ai-workbench-nine.vercel.app
     steps:
-      - name: Health, evaluator login and hybrid search
+      - name: Site, backend and evaluator login
         run: |
           set -eu
-          curl -fsS --retry 10 --retry-delay 15 --retry-all-errors --max-time 30 "$SITE/api/health"
-          H=(-H "Origin: $SITE" -H 'Content-Type: application/json' -b jar -c jar --max-time 150 -fsS)
+          curl -fsS --retry 5 --retry-delay 20 --retry-all-errors --max-time 30 -o /dev/null "$SITE/"
+          curl -fsS --retry 5 --retry-delay 20 --retry-all-errors --max-time 30 "$SITE/api/health"
+          H=(-H "Origin: $SITE" -H 'Content-Type: application/json' -b jar -c jar --max-time 150 -fsS --retry 3 --retry-delay 20 --retry-all-errors)
           curl "${H[@]}" -d '{"username":"evaluator","password":"Evaluate-NWIS-2026"}' "$SITE/api/auth/login" >/dev/null
           curl "${H[@]}" -d '{"version":"nwis-advisory-v1","accepted":true}' "$SITE/api/terms/accept" >/dev/null
+          curl "${H[@]}" "$SITE/api/wells?limit=1" | grep -q '"items"'
+          echo "site, backend, Neon and login OK"
+      - name: Hybrid search (Qdrant Cloud + reranker)
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '47 */6 * * *'
+        run: |
+          set -eu
+          H=(-H "Origin: $SITE" -H 'Content-Type: application/json' -b jar -c jar --max-time 150 -fsS --retry 2 --retry-delay 30 --retry-all-errors)
           curl "${H[@]}" -d "{\"request_id\":\"$(uuidgen)\",\"query\":\"stuck pipe in Tipam formation\",\"well_id\":\"ACTIVE-01\",\"retrieval\":\"hybrid\"}" "$SITE/api/query" | grep -q '"status":"completed"'
-          echo "demo backend, Neon, Qdrant Cloud and reranker answered"
+          echo "Qdrant Cloud and reranker answered"
