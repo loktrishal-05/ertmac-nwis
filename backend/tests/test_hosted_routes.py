@@ -30,6 +30,15 @@ class HostedRoutesTest(unittest.TestCase):
             with self.subTest(path):
                 self.assertIsNone(routes.upstream(path))
 
+    def test_pasted_qdrant_secrets_are_trimmed(self):
+        import os
+        from unittest.mock import patch
+        from app.core.config import Settings
+        with patch.dict(os.environ, {"QDRANT_API_KEY": " key-value\n", "QDRANT_URL": "https://x.cloud.qdrant.io:6333\n",
+                                     "WORKBENCH_HOSTED_DEMO": "true", "WORKBENCH_DEPLOYMENT_MODE": "public"}):
+            loaded = Settings()
+        self.assertEqual((loaded.qdrant_api_key, loaded.qdrant_url), ("key-value", "https://x.cloud.qdrant.io:6333"))
+
 
 if __name__ == "__main__":
     unittest.main()

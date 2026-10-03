@@ -45,8 +45,9 @@ def ensure_index():
             with SessionLocal() as session:
                 index_events(session)
             _indexed.set()
-        except Exception:  # the query itself still reports a clear error; retry on the next search
-            logging.exception("NWIS evidence index check failed")
+        except Exception as error:  # the query itself still reports a clear error; retry on the next search
+            # Type only: client exceptions can embed request headers (the Qdrant API key).
+            logging.error("NWIS evidence index check failed: %s", type(error).__name__)
 
 
 async def app(scope, receive, send):
