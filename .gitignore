@@ -68,3 +68,4 @@ Thumbs.db
 *.sqlite3
 !/data/nwis-hosted/nwis/reports/*.pdf
 .vercel
+/models-onnx
