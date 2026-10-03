@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd frontend && npm ci",
+  "buildCommand": "cd frontend && VITE_API_BASE_URL=/api VITE_NWIS_FIXTURES=0 npm run build && npm run verify:dist",
+  "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "memory": 2048,
+      "maxDuration": 120,
+      "excludeFiles": "{frontend/**,infra/**,backend/tests/**,data/nwis_demo/**,**/__pycache__/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
+  ],
+  "headers": [{
+    "source": "/api/:path*",
+    "headers": [
+      { "key": "Cache-Control", "value": "no-store" },
+      { "key": "CDN-Cache-Control", "value": "no-store" },
+      { "key": "Vercel-CDN-Cache-Control", "value": "no-store" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Referrer-Policy", "value": "no-referrer" }
+    ]
+  }]
+}
