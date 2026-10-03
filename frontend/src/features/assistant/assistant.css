@@ -1,0 +1,37 @@
+/* NWIS help assistant: floating launcher + panel. Uses the shared design tokens, so it follows light/dark themes. */
+.nw-assistant-fab {
+  position: fixed; right: var(--space-5); bottom: var(--space-5); z-index: 60;
+  width: 56px; height: 56px; padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-pill);
+  background: var(--surface-1); box-shadow: var(--shadow-1); display: grid; place-items: center; cursor: pointer;
+}
+.nw-assistant-fab:hover { border-color: var(--ai); }
+.nw-assistant-fab:focus-visible { outline: 2px solid var(--ai); outline-offset: 3px; }
+
+.nw-assistant {
+  position: fixed; right: var(--space-5); bottom: var(--space-5); z-index: 60;
+  width: min(380px, calc(100vw - 2 * var(--space-4))); max-height: min(560px, calc(100vh - 2 * var(--space-5)));
+  display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface-1); color: var(--text);
+  box-shadow: var(--shadow-1); font-size: var(--fs-sm);
+}
+.nw-assistant header { display: flex; align-items: center; gap: var(--space-2); }
+.nw-assistant header strong { flex: 1; font-size: var(--fs-md); }
+.nw-assistant-scope { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); }
+.nw-assistant-log { flex: 1; min-height: 120px; overflow-y: auto; margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); align-content: start; }
+.nw-msg p { margin: 0; white-space: pre-wrap; line-height: 1.5; }
+.nw-msg-user { justify-self: end; max-width: 85%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-3); }
+.nw-msg-assistant { padding: var(--space-2) var(--space-3); border-left: 3px solid var(--ai); border-radius: var(--radius-md); background: var(--surface-2); }
+.nw-msg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
+.nw-msg-actions button.ghost { min-height: 28px; padding: 0 var(--space-2); font-size: var(--fs-xs); }
+.nw-assistant form { display: flex; gap: var(--space-2); }
+.nw-assistant form input { flex: 1; min-width: 0; }
+.nw-assistant-ai { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--fs-xs); }
+
+@media (max-width: 520px) {
+  .nw-assistant { right: var(--space-2); left: var(--space-2); bottom: var(--space-2); width: auto; }
+  .nw-assistant-fab { right: var(--space-3); bottom: var(--space-3); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nw-assistant { animation: nw-assistant-in var(--dur, 180ms) var(--ease-out, ease-out); }
+  @keyframes nw-assistant-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+}
