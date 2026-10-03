@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     nwis_only: bool = Field(default=False, validation_alias="WORKBENCH_NWIS_ONLY")
     # "onnx" runs the same BGE models as int8 ONNX (no torch), for small serverless runtimes.
     retrieval_runtime: Literal["torch", "onnx"] = Field(default="torch", validation_alias="RETRIEVAL_RUNTIME")
+
+    @field_validator("qdrant_url", "qdrant_api_key", mode="before")
+    @classmethod
+    def strip_pasted_whitespace(cls, value):
+        # Dashboard-pasted secrets often carry a trailing newline, which is an illegal HTTP header value.
+        return value.strip() if isinstance(value, str) else value
     embedding_model: str = Field(default="BAAI/bge-base-en-v1.5", validation_alias="EMBEDDING_MODEL")
     embedding_dimension: int = Field(default=768, validation_alias="EMBEDDING_DIMENSION")
     chunk_target_tokens: int = Field(default=400, validation_alias="CHUNK_TARGET_TOKENS")
