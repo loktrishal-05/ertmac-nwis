@@ -66,3 +66,5 @@ Thumbs.db
 *.log
 *.sqlite
 *.sqlite3
+!/data/nwis-hosted/nwis/reports/*.pdf
+.vercel

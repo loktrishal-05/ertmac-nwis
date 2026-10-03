@@ -1,0 +1,20 @@
+# Vercel Python function (api/index.py) for the hosted NWIS demo only. Pins match backend/requirements-linux.lock;
+# the full on-prem backend still installs backend/requirements*.txt. No torch: retrieval runs as int8 ONNX.
+fastapi==0.141.1
+starlette==1.7.0
+anyio==4.15.1
+pydantic==2.13.5
+pydantic-settings==2.15.0
+email-validator==2.3.0
+SQLAlchemy==2.0.54
+psycopg==3.3.6
+psycopg-binary==3.3.6
+httpx==0.28.1
+qdrant-client==1.17.1
+langgraph==1.2.11
+langgraph-checkpoint==4.2.0
+langchain-core==1.6.3
+argon2-cffi==23.1.0
+numpy==2.4.6
+tokenizers==0.23.2
+onnxruntime==1.23.2

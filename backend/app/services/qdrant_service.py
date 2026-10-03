@@ -17,7 +17,7 @@ PAYLOAD_INDEXES["synthetic"] = models.PayloadSchemaType.BOOL
 
 class QdrantService:
     def __init__(self, client=None):
-        self.client = client or QdrantClient(url=settings.qdrant_url, timeout=10, trust_env=False)
+        self.client = client or QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key, timeout=10, trust_env=False)
         self.collection = settings.qdrant_collection
         self._lock = Lock()
 

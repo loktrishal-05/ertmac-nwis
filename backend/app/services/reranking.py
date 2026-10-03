@@ -22,9 +22,24 @@ class Reranker:
             model = AutoModelForSequenceClassification.from_pretrained(str(path), local_files_only=True, trust_remote_code=False, use_safetensors=True)
             self._model = model.to("cuda" if torch.cuda.is_available() else "cpu").eval()
 
+    def _score_onnx(self, query, texts):
+        from app.services.onnx_models import load, run
+        if self._model is None:
+            self._tokenizer, self._model = load("bge-reranker-base", truncate=True)
+        scores = []
+        for offset in range(0, len(texts), 8):
+            scores.extend(run(self._model, self._tokenizer.encode_batch([(query, t) for t in texts[offset:offset + 8]])).reshape(-1).tolist())
+        return scores
+
     def score(self, query, texts):
         if not texts:
             return []
+        if settings.retrieval_runtime == "onnx":
+            with self._lock:
+                scores = self._score_onnx(query, texts)
+            if len(scores) != len(texts) or not all(math.isfinite(s) for s in scores):
+                raise RuntimeError("Invalid reranker scores")
+            return scores
         import torch
         with self._lock:
             self._load()
