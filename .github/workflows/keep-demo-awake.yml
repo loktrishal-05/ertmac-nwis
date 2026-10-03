@@ -1,4 +1,5 @@
-# Free Hugging Face Spaces sleep after 48 h without traffic; ping the public API so evaluators never hit a cold start.
+# Keeps the free managed services behind the hosted demo active: a real evaluator login + hybrid search touches
+# Neon Postgres, Qdrant Cloud and the ONNX reranker. Uses only the public demo account shown on the sign-in page.
 name: keep-demo-awake
 on:
   schedule: [{ cron: '17 */6 * * *' }]
@@ -8,6 +9,15 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SITE: https://sovereign-ai-workbench-nine.vercel.app
     steps:
-      - name: Ping public NWIS API (waits through a cold start)
-        run: curl -fsS --retry 20 --retry-delay 15 --retry-all-errors --max-time 30 https://sovereign-ai-workbench-nine.vercel.app/api/health
+      - name: Health, evaluator login and hybrid search
+        run: |
+          set -eu
+          curl -fsS --retry 10 --retry-delay 15 --retry-all-errors --max-time 30 "$SITE/api/health"
+          H=(-H "Origin: $SITE" -H 'Content-Type: application/json' -b jar -c jar --max-time 150 -fsS)
+          curl "${H[@]}" -d '{"username":"evaluator","password":"Evaluate-NWIS-2026"}' "$SITE/api/auth/login" >/dev/null
+          curl "${H[@]}" -d '{"version":"nwis-advisory-v1","accepted":true}' "$SITE/api/terms/accept" >/dev/null
+          curl "${H[@]}" -d "{\"request_id\":\"$(uuidgen)\",\"query\":\"stuck pipe in Tipam formation\",\"well_id\":\"ACTIVE-01\",\"retrieval\":\"hybrid\"}" "$SITE/api/query" | grep -q '"status":"completed"'
+          echo "demo backend, Neon, Qdrant Cloud and reranker answered"

@@ -195,7 +195,7 @@ export function KnowledgeSearchPage() {
   const total = groups.well.length + groups.event.length + groups.report.length
   const run = text => {
     setAsked(text)
-    search.run(paths.query, { method: 'POST', timeout: 120000, body: { query: text, well_id: wellId || undefined, mode: 'nwis_evidence', request_id: crypto.randomUUID() } })
+    search.run(paths.query, { method: 'POST', timeout: 120000, body: { query: text, well_id: wellId || undefined, mode: 'nwis_evidence', retrieval: 'hybrid', request_id: crypto.randomUUID() } })
   }
   return <>
     <PageHeader title="Knowledge search" description="Search historical drilling evidence in natural language. Results are grouped by well, event and report, and every result carries its source, page, depth and formation." actions={<AgentAvatar size={48} />} />

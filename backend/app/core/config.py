@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     database_connect_timeout: int = Field(default=5, ge=1, le=30)
     qdrant_url: str = Field(default="http://127.0.0.1:6333", validation_alias="QDRANT_URL")
     qdrant_collection: str = Field(default="knowledge_chunks_v1", validation_alias="QDRANT_COLLECTION")
+    qdrant_api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY", repr=False)
+    # Public synthetic-data demo on managed cloud services (Vercel + Neon + Qdrant Cloud). Off for every real deployment.
+    hosted_demo: bool = Field(default=False, validation_alias="WORKBENCH_HOSTED_DEMO")
+    nwis_only: bool = Field(default=False, validation_alias="WORKBENCH_NWIS_ONLY")
+    # "onnx" runs the same BGE models as int8 ONNX (no torch), for small serverless runtimes.
+    retrieval_runtime: Literal["torch", "onnx"] = Field(default="torch", validation_alias="RETRIEVAL_RUNTIME")
     embedding_model: str = Field(default="BAAI/bge-base-en-v1.5", validation_alias="EMBEDDING_MODEL")
     embedding_dimension: int = Field(default=768, validation_alias="EMBEDDING_DIMENSION")
     chunk_target_tokens: int = Field(default=400, validation_alias="CHUNK_TARGET_TOKENS")
@@ -156,7 +162,9 @@ class Settings(BaseSettings):
         validate_model_url(self.model_base_url, self.model_allowed_hosts_set)
         validate_model_name(self.model_name)
         from app.core.locality import classify_database, classify_http_url, local_filesystem
-        if classify_database(self.database_url) == 'invalid' or classify_http_url(self.qdrant_url) == 'invalid':
+        if self.hosted_demo and self.deployment_mode != 'public':
+            raise ValueError('Hosted demo mode is only allowed for public synthetic-data deployments')
+        if not self.hosted_demo and (classify_database(self.database_url) == 'invalid' or classify_http_url(self.qdrant_url) == 'invalid'):
             raise ValueError('PostgreSQL and Qdrant must use local/private on-premise endpoints')
         if not local_filesystem(self.data_root) or not local_filesystem(self.model_root):
             raise ValueError('Data and model roots must be local filesystem paths')
