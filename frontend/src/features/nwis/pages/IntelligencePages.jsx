@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { AgentAvatar, Icon, PageHeader } from '../../../components/ui.jsx'
 import { TimeSeriesChart } from '../../../components/charts.jsx'
@@ -9,6 +9,7 @@ import { useNearby, useNwisResource, usePolling, useRisk } from '../hooks.js'
 import { adaptEventList, adaptFormationList, adaptQuery, adaptRisk, adaptTelemetry, groupResults } from '../adapters.js'
 import { DrillingEventChip, EvidenceDrawer, NwisState, RiskCard, SyntheticDataBadge, VerificationBadge, WellContextBar } from '../components.jsx'
 import { Panel } from './OverviewPages.jsx'
+import { MODELS, buildMessages } from '../browserLlmModel.js'
 
 // ── Drilling events ──
 export function EventCard({ event: e }) {
@@ -152,14 +153,50 @@ function ResultItem({ item }) {
   </li>
 }
 
+// Optional AI summary: Qwen 3.5 runs on the viewer's own GPU (WebGPU + ONNX); the cited answer never depends on it.
+function BrowserSummary({ question, items }) {
+  const [s, setS] = useState({ state: 'idle', text: '' })
+  const worker = useRef(null)
+  useEffect(() => () => worker.current?.terminate(), [])
+  const evidence = items.slice(0, 8)
+  if (!evidence.length) return null
+  if (!globalThis.navigator?.gpu) return <p className="muted small">AI summary needs a WebGPU browser (recent Chrome or Edge on a desktop). The cited answer above is complete without it.</p>
+  const start = () => {
+    worker.current ??= new Worker(new URL('../llmWorker.js', import.meta.url), { type: 'module' })
+    setS({ state: 'loading', text: '' })
+    worker.current.onmessage = ({ data: m }) => setS(cur =>
+      m.type === 'progress' ? { ...cur, label: m.label, pct: m.total ? Math.round((100 * m.loaded) / m.total) : null }
+        : m.type === 'ready' ? { ...cur, state: 'generating', label: m.label }
+          : m.type === 'token' ? { ...cur, text: cur.text + m.text }
+            : m.type === 'done' ? { ...cur, state: 'done' }
+              : m.type === 'error' ? { ...cur, state: 'error', message: m.code === 'unsupported' ? 'WebGPU is not available on this device.' : 'This device could not run the model (usually not enough GPU memory).' }
+                : cur)
+    worker.current.postMessage({ messages: buildMessages(question, evidence) })
+  }
+  return <div className="nw-ai-summary">
+    {s.state === 'idle' && <><button type="button" className="ghost" onClick={start}>Generate AI summary in your browser</button>
+      <p className="muted small">Runs {MODELS[0].label} on your device (falls back to {MODELS[1].label}). First use downloads about {MODELS[0].downloadGb} GB from Hugging Face, then it is cached. Your question never leaves the browser.</p></>}
+    {s.state === 'loading' && <p role="status">Loading {s.label || 'model'}{s.pct != null ? ` · ${s.pct}%` : '…'}</p>}
+    {s.state === 'generating' && !s.text && <p role="status">Writing summary with {s.label}…</p>}
+    {s.text && <><h3 className="small">AI summary · {s.label} · generated in your browser</h3><p style={{ whiteSpace: 'pre-wrap' }}>{s.text}</p>
+      <ol className="small muted">{evidence.map(i => <li key={i.event_id || i.report_id || i.well_id}>{[i.event_id || i.report_id || i.well_id, i.report_id && i.page != null ? `${i.report_id} p.${i.page}` : null].filter(Boolean).join(' · ')}</li>)}</ol>
+      <p className="muted small">Advisory only. Numbers refer to the evidence listed above; verify against the cited sources before acting.</p></>}
+    {s.state === 'error' && <p className="api-error" role="alert">{s.message} The cited answer above is unaffected.</p>}
+  </div>
+}
+
 export function KnowledgeSearchPage() {
   const { wellId } = useNwis()
   const [query, setQuery] = useState('')
+  const [asked, setAsked] = useState('')
   const search = useRequest()
   const result = search.data ? adaptQuery(search.data) : null
   const groups = groupResults(result)
   const total = groups.well.length + groups.event.length + groups.report.length
-  const run = text => search.run(paths.query, { method: 'POST', timeout: 120000, body: { query: text, well_id: wellId || undefined, mode: 'nwis_evidence', request_id: crypto.randomUUID() } })
+  const run = text => {
+    setAsked(text)
+    search.run(paths.query, { method: 'POST', timeout: 120000, body: { query: text, well_id: wellId || undefined, mode: 'nwis_evidence', request_id: crypto.randomUUID() } })
+  }
   return <>
     <PageHeader title="Knowledge search" description="Search historical drilling evidence in natural language. Results are grouped by well, event and report, and every result carries its source, page, depth and formation." actions={<AgentAvatar size={48} />} />
     <section className="panel nw-panel">
@@ -176,7 +213,8 @@ export function KnowledgeSearchPage() {
     {result?.recognized && <>
       <p className="nw-result-summary">{total} results{result.mode ? ` · ${result.mode}` : ''} <SyntheticDataBadge data={result} /></p>
       {result.status === 'refused' && <div className="state state-empty" role="status"><strong>Refused</strong><p>{result.answer || 'NWIS does not answer this request.'}</p></div>}
-      {result.summary && result.status !== 'refused' && <section className="panel nw-panel"><h2 className="nw-agent-heading"><AgentAvatar size={26} />Cited answer</h2><p>{result.summary}</p>{!result.citations.length && <p className="api-error">No citations were returned with this summary; treat it as unsupported.</p>}</section>}
+      {result.summary && result.status !== 'refused' && <section className="panel nw-panel"><h2 className="nw-agent-heading"><AgentAvatar size={26} />Cited answer</h2><p>{result.summary}</p>{!result.citations.length && <p className="api-error">No citations were returned with this summary; treat it as unsupported.</p>}
+        {result.citations.length > 0 && <BrowserSummary key={search.data?.execution_id || asked} question={asked} items={[...groups.event, ...groups.report, ...groups.well]} />}</section>}
       {!total && <div className="state state-empty"><strong>No matching evidence</strong><p>NWIS returned no cited records. It will not answer without evidence.</p></div>}
       <div className="nw-result-groups">{[['well', 'Wells'], ['event', 'Events'], ['report', 'Reports']].map(([key, label]) => groups[key].length > 0 && <section key={key} className="panel nw-panel" aria-labelledby={`rg-${key}`}>
         <h2 id={`rg-${key}`}>{label} <span className="muted small">{groups[key].length}</span></h2><ul className="nw-results">{groups[key].map((item, i) => <ResultItem key={`${key}-${i}`} item={item} />)}</ul></section>)}</div>
