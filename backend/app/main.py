@@ -7,7 +7,10 @@ from fastapi.responses import JSONResponse
 from urllib.parse import urlsplit
 
 from app.core.config import settings
-from app.api.router import api_router
+if settings.nwis_only:
+    from app.api.nwis_router import api_router
+else:
+    from app.api.router import api_router
 
 app = FastAPI(title="eRTMAC-NWIS | SIH26121")
 
