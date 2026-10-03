@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { apiRequest } from '../services/api.js'
 import { LanguageContext, normalizeLanguage } from '../language.js'
+import { setDocumentLanguage } from '../i18n/translate.js'
 import { guardDecision, sessionFromError } from './navigation.js'
 import { ErrorState, Forbidden, LoadingState } from '../components/ui.jsx'
 
@@ -58,7 +59,10 @@ export function SessionProvider({ children }) {
 
 function LanguageProvider({ children }) {
   const [language, update] = useState(() => { try { return normalizeLanguage(localStorage.getItem('workbench-language')) } catch { return 'en' } })
-  useEffect(() => { document.documentElement.lang = language }, [language]) // Screen readers pick the right voice.
+  useEffect(() => {
+    document.documentElement.lang = language // Screen readers pick the right voice.
+    setDocumentLanguage(language).catch(() => {}) // Dictionary chunk failed to load: the UI simply stays in English.
+  }, [language])
   const value = useMemo(() => ({ language, setLanguage: next => {
     const code = normalizeLanguage(next); update(code)
     try { localStorage.setItem('workbench-language', code) } catch { /* Session-only preference when storage is unavailable. */ }
@@ -66,8 +70,10 @@ function LanguageProvider({ children }) {
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
+const Assistant = lazy(() => import('../features/assistant/Assistant.jsx'))
+
 export function RootLayout() {
-  return <SessionProvider><LanguageProvider><Outlet /></LanguageProvider></SessionProvider>
+  return <SessionProvider><LanguageProvider><Outlet /><Suspense fallback={null}><Assistant /></Suspense></LanguageProvider></SessionProvider>
 }
 
 // Route guard: login redirect keeps the requested path; role failures render 403 in place.

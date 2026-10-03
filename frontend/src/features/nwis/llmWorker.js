@@ -5,9 +5,15 @@ import { pickModels } from './browserLlmModel.js'
 
 env.allowLocalModels = false
 let loaded = null // { id, label, tokenizer, model }
+let failure = null // a device that cannot run either model fails fast on later requests
 
 async function load(post) {
   if (loaded) return loaded
+  if (failure) throw failure
+  try { return await loadFirstThatFits(post) } catch (error) { throw (failure = error) }
+}
+
+async function loadFirstThatFits(post) {
   const adapter = await globalThis.navigator?.gpu?.requestAdapter?.()
   if (!adapter) throw Object.assign(new Error('WebGPU is not available in this browser.'), { code: 'unsupported' })
   const dtype = adapter.features.has('shader-f16') ? 'q4f16' : 'q4'
@@ -34,14 +40,18 @@ async function load(post) {
   throw lastError
 }
 
-self.onmessage = async ({ data: { messages } }) => {
-  const post = message => self.postMessage(message)
+// One model, shared by every caller: requests run one at a time and every reply carries the request id.
+let queue = Promise.resolve()
+self.onmessage = ({ data }) => { queue = queue.then(() => handle(data)) }
+
+async function handle({ id, messages, maxTokens = 384 }) {
+  const post = message => self.postMessage({ ...message, id })
   try {
     const { label, tokenizer, model } = await load(post)
     post({ type: 'ready', label })
     const inputs = tokenizer.apply_chat_template(messages, { add_generation_prompt: true, return_dict: true, enable_thinking: false })
     const streamer = new TextStreamer(tokenizer, { skip_prompt: true, skip_special_tokens: true, callback_function: text => post({ type: 'token', text }) })
-    await model.generate({ ...inputs, max_new_tokens: 384, do_sample: false, streamer })
+    await model.generate({ ...inputs, max_new_tokens: maxTokens, do_sample: false, streamer })
     post({ type: 'done', label })
   } catch (error) {
     post({ type: 'error', code: error.code || 'failed', message: String(error?.message || error) })

@@ -10,6 +10,7 @@ import { adaptEventList, adaptFormationList, adaptQuery, adaptRisk, adaptTelemet
 import { DrillingEventChip, EvidenceDrawer, NwisState, RiskCard, SyntheticDataBadge, VerificationBadge, WellContextBar } from '../components.jsx'
 import { Panel } from './OverviewPages.jsx'
 import { MODELS, buildMessages } from '../browserLlmModel.js'
+import { askBrowserLlm, browserLlmSupported } from '../browserLlm.js'
 
 // ── Drilling events ──
 export function EventCard({ event: e }) {
@@ -156,29 +157,27 @@ function ResultItem({ item }) {
 // Optional AI summary: Qwen 3.5 runs on the viewer's own GPU (WebGPU + ONNX); the cited answer never depends on it.
 function BrowserSummary({ question, items }) {
   const [s, setS] = useState({ state: 'idle', text: '' })
-  const worker = useRef(null)
-  useEffect(() => () => worker.current?.terminate(), [])
+  const unsubscribe = useRef(null)
+  useEffect(() => () => unsubscribe.current?.(), [])
   const evidence = items.slice(0, 8)
   if (!evidence.length) return null
-  if (!globalThis.navigator?.gpu) return <p className="muted small">AI summary needs a WebGPU browser (recent Chrome or Edge on a desktop). The cited answer above is complete without it.</p>
+  if (!browserLlmSupported()) return <p className="muted small">AI summary needs a WebGPU browser (recent Chrome or Edge on a desktop). The cited answer above is complete without it.</p>
   const start = () => {
-    worker.current ??= new Worker(new URL('../llmWorker.js', import.meta.url), { type: 'module' })
     setS({ state: 'loading', text: '' })
-    worker.current.onmessage = ({ data: m }) => setS(cur =>
+    unsubscribe.current = askBrowserLlm(buildMessages(question, evidence), m => setS(cur =>
       m.type === 'progress' ? { ...cur, label: m.label, pct: m.total ? Math.round((100 * m.loaded) / m.total) : null }
         : m.type === 'ready' ? { ...cur, state: 'generating', label: m.label }
           : m.type === 'token' ? { ...cur, text: cur.text + m.text }
             : m.type === 'done' ? { ...cur, state: 'done' }
               : m.type === 'error' ? { ...cur, state: 'error', message: m.code === 'unsupported' ? 'WebGPU is not available on this device.' : 'This device could not run the model (usually not enough GPU memory).' }
-                : cur)
-    worker.current.postMessage({ messages: buildMessages(question, evidence) })
+                : cur))
   }
   return <div className="nw-ai-summary">
     {s.state === 'idle' && <><button type="button" className="ghost" onClick={start}>Generate AI summary in your browser</button>
       <p className="muted small">Runs {MODELS[0].label} on your device (falls back to {MODELS[1].label}). First use downloads about {MODELS[0].downloadGb} GB from Hugging Face, then it is cached. Your question never leaves the browser.</p></>}
     {s.state === 'loading' && <p role="status">Loading {s.label || 'model'}{s.pct != null ? ` · ${s.pct}%` : '…'}</p>}
     {s.state === 'generating' && !s.text && <p role="status">Writing summary with {s.label}…</p>}
-    {s.text && <><h3 className="small">AI summary · {s.label} · generated in your browser</h3><p style={{ whiteSpace: 'pre-wrap' }}>{s.text}</p>
+    {s.text && <><h3 className="small">AI summary · {s.label} · generated in your browser</h3><p translate="no" style={{ whiteSpace: 'pre-wrap' }}>{s.text}</p>
       <ol className="small muted">{evidence.map(i => <li key={i.event_id || i.report_id || i.well_id}>{[i.event_id || i.report_id || i.well_id, i.report_id && i.page != null ? `${i.report_id} p.${i.page}` : null].filter(Boolean).join(' · ')}</li>)}</ol>
       <p className="muted small">Advisory only. Numbers refer to the evidence listed above; verify against the cited sources before acting.</p></>}
     {s.state === 'error' && <p className="api-error" role="alert">{s.message} The cited answer above is unaffected.</p>}
