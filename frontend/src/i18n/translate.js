@@ -11,7 +11,7 @@ const SLOT = /\d+(?:[.,]\d+)*%?|\b[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)+\b/g // "1," i
 
 export function translateText(dict, text) {
   if (!dict || !text) return text
-  const core = text.trim().replace(/\s+/g, ' ') // "5 km" looks up as "5 km"
+  const core = text.trim().replace(/\s+/g, ' ') // non-breaking spaces count as spaces, so "5 km" always matches
   if (!core || !/\p{L}/u.test(core)) return text
   let out = dict[core]
   if (out == null) {
