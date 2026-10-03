@@ -17,7 +17,7 @@ for _key, _value in {
     "WORKBENCH_DEPLOYMENT_MODE": "public", "WORKBENCH_SIGNUP_MODE": "open", "WORKBENCH_GOOGLE_ENABLED": "false",
     "WORKBENCH_CORS_ORIGINS": f'["{ORIGIN}"]', "WORKBENCH_AUTH_FRONTEND_ORIGIN": ORIGIN,
     "SESSION_COOKIE_SECURE": "true", "SESSION_COOKIE_NAME": "workbench_session", "SESSION_TTL_SECONDS": "28800",
-    "WORKBENCH_DATA_ROOT": str(ROOT / "data" / "nwis-hosted"), "WORKBENCH_MODEL_ROOT": "/tmp/models",
+    "WORKBENCH_DATA_ROOT": str(ROOT / "data" / "nwis-hosted"), "WORKBENCH_MODEL_ROOT": str(ROOT / "models-onnx"),
     "MODEL_NAME": "qwen3.5:9b", "MODEL_BASE_URL": "http://127.0.0.1:11434", "MODEL_ALLOWED_HOSTS": "127.0.0.1",
     "OMP_NUM_THREADS": "2",
 }.items():

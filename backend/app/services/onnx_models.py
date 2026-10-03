@@ -1,12 +1,12 @@
 """int8 ONNX runtime for the same BGE models (no torch), used when RETRIEVAL_RUNTIME=onnx.
 
 Artifacts live under <model_root>/<name>-onnx/. Only the hosted synthetic demo may fetch them, from pinned
-Hugging Face revisions, and every file is checked against its SHA-256 before use.
+Hugging Face revisions, and every file is checked against its SHA-256 before use. Stdlib-only at import so the
+Vercel build can run `python3 backend/app/services/onnx_models.py <dir>` to bundle them with the function.
 """
 from hashlib import sha256
 from pathlib import Path
 import urllib.request
-from app.core.config import settings
 
 MAX_TOKENS = 512
 ARTIFACTS = {
@@ -28,12 +28,17 @@ def _digest(path):
 
 
 def artifact_dir(name):
+    from app.core.config import settings
+    return fetch(name, settings.model_root, download=settings.hosted_demo)
+
+
+def fetch(name, root, download):
     repo, revision, files = ARTIFACTS[name]
-    folder = settings.model_root / f"{name}-onnx"
+    folder = Path(root) / f"{name}-onnx"
     for remote, expected in files.items():
         path = folder / Path(remote).name
         if not path.is_file():
-            if not settings.hosted_demo:
+            if not download:
                 raise RuntimeError(f"ONNX artifacts for {name} unavailable; place them under {folder}")
             folder.mkdir(parents=True, exist_ok=True)
             part = path.with_suffix(path.suffix + ".part")
@@ -65,3 +70,9 @@ def run(session, encodings):
     if "token_type_ids" in {i.name for i in session.get_inputs()}:
         feed["token_type_ids"] = np.array([e.type_ids for e in encodings], dtype=np.int64)
     return session.run(None, feed)[0]
+
+
+if __name__ == "__main__":  # Vercel build step: bundle verified artifacts inside the function (no runtime /tmp use)
+    import sys
+    for artifact in ARTIFACTS:
+        print("verified", fetch(artifact, sys.argv[1], download=True))
