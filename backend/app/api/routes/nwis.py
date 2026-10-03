@@ -156,7 +156,14 @@ def query(body:QueryIn,user=Depends(access),session:Session=Depends(get_db)):
     try: return run(session,body,user)
     except HTTPException: raise
     except ValueError as e: raise HTTPException(422,'Query evidence or filters are invalid; inspect source data') from e
-    except Exception as e: raise HTTPException(503,'NWIS retrieval unavailable; retry this request ID after checking local dependencies') from e
+    except Exception as e:
+        # Operators need the cause; never the Qdrant key (client errors can echo request headers).
+        import logging
+        from app.core.config import settings
+        detail=str(e)[:300]
+        if settings.qdrant_api_key: detail=detail.replace(settings.qdrant_api_key,'***')
+        logging.getLogger(__name__).error('NWIS retrieval failed: %s: %s',type(e).__name__,detail)
+        raise HTTPException(503,'NWIS retrieval unavailable; retry this request ID after checking local dependencies') from e
 
 @router.get('/assessments/{ident}',response_model=AssessmentDetail)
 def assessment_detail(ident:str,user=Depends(access),session:Session=Depends(get_db)):
