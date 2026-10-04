@@ -1,34 +1,21 @@
-# Uptime monitor for the hosted demo; a failed run makes GitHub email the repository owner.
-# Hourly: site, backend and evaluator login (Neon). Every 6 h (and on manual runs) also a hybrid search, which
-# keeps Qdrant Cloud and the ONNX reranker active. Uses only the public demo account shown on the sign-in page.
+# Daily uptime check for the hosted demo; a failed run makes GitHub email the repository owner.
+# Read-only on purpose: no login, no search, so it never writes sessions/audit rows to the 1 GB Neon database.
 name: keep-demo-awake
 on:
   schedule:
-    - cron: '17 * * * *'
-    - cron: '47 */6 * * *'
+    - cron: '17 3 * * *'
   workflow_dispatch:
 permissions: {}
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     env:
       SITE: https://sovereign-ai-workbench-nine.vercel.app
     steps:
-      - name: Site, backend and evaluator login
+      - name: Site and backend health (no database writes)
         run: |
           set -eu
           curl -fsS --retry 5 --retry-delay 20 --retry-all-errors --max-time 30 -o /dev/null "$SITE/"
           curl -fsS --retry 5 --retry-delay 20 --retry-all-errors --max-time 30 "$SITE/api/health"
-          H=(-H "Origin: $SITE" -H 'Content-Type: application/json' -b jar -c jar --max-time 150 -fsS --retry 3 --retry-delay 20 --retry-all-errors)
-          curl "${H[@]}" -d '{"username":"evaluator","password":"Evaluate-NWIS-2026"}' "$SITE/api/auth/login" >/dev/null
-          curl "${H[@]}" -d '{"version":"nwis-advisory-v1","accepted":true}' "$SITE/api/terms/accept" >/dev/null
-          curl "${H[@]}" "$SITE/api/wells?limit=1" | grep -q '"items"'
-          echo "site, backend, Neon and login OK"
-      - name: Hybrid search (Qdrant Cloud + reranker)
-        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '47 */6 * * *'
-        run: |
-          set -eu
-          H=(-H "Origin: $SITE" -H 'Content-Type: application/json' -b jar -c jar --max-time 150 -fsS --retry 2 --retry-delay 30 --retry-all-errors)
-          curl "${H[@]}" -d "{\"request_id\":\"$(uuidgen)\",\"query\":\"stuck pipe in Tipam formation\",\"well_id\":\"ACTIVE-01\",\"retrieval\":\"hybrid\"}" "$SITE/api/query" | grep -q '"status":"completed"'
-          echo "Qdrant Cloud and reranker answered"
+          echo "site and backend OK"
